@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <Import Project="..\SolutionInfo.proj" />
+  <PropertyGroup>
+    <Description>StatePipes.ServiceCreatorTool</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Resources\ReadMe_md.sample" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.9" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\ReadMe_md.sample" />
+    <EmbeddedResource Include="Resources\_dockerignore.sample" />
+    <EmbeddedResource Include="Resources\_gitignore.sample" />
+    <EmbeddedResource Include="Resources\appsettings_Development_json.sample" />
+    <EmbeddedResource Include="Resources\appsettings_json.sample" />
+    <EmbeddedResource Include="Resources\ClassLibrary_csproj.sample" />
+    <EmbeddedResource Include="Resources\CurrentStatusEvent_cs.sample" />
+    <EmbeddedResource Include="Resources\DefaultServiceConfiguration_AddProxy.sample" />
+    <EmbeddedResource Include="Resources\DefaultServiceConfiguration_cs.sample" />
+    <EmbeddedResource Include="Resources\DefaultSetup_Build.sample" />
+    <EmbeddedResource Include="Resources\DefaultSetup_cs.sample" />
+    <EmbeddedResource Include="Resources\DefaultSetup_Register.sample" />
+    <EmbeddedResource Include="Resources\Dockerfile.sample" />
+    <EmbeddedResource Include="Resources\DockerInfrastructureStart_ps1.sample" />
+    <EmbeddedResource Include="Resources\DockerInfrastructureStop_ps1.sample" />
+    <EmbeddedResource Include="Resources\DockerStart_ps1.sample" />
+    <EmbeddedResource Include="Resources\DockerStop_ps1.sample" />
+    <EmbeddedResource Include="Resources\DummyDependencyRegistration_cs.sample" />
+    <EmbeddedResource Include="Resources\DummyEvent_cs.sample" />
+    <EmbeddedResource Include="Resources\DummyTrigger_cs.sample" />
+    <EmbeddedResource Include="Resources\launchSettings_json.sample" />
+    <EmbeddedResource Include="Resources\LocalImageBuild_ps1.sample" />
+    <EmbeddedResource Include="Resources\NugetConfig_xml.sample" />
+    <EmbeddedResource Include="Resources\ParentState_cs.sample" />
+    <EmbeddedResource Include="Resources\Program_cs.sample" />
+    <EmbeddedResource Include="Resources\ProxyConnectionStatusTrigger_cs.sample" />
+    <EmbeddedResource Include="Resources\ProxyMonikers_cs.sample" />
+    <EmbeddedResource Include="Resources\ProxyMonikers_Moniker.sample" />
+    <EmbeddedResource Include="Resources\SendCurrentStatusCommand_cs.sample" />
+    <EmbeddedResource Include="Resources\Service_csproj.sample" />
+    <EmbeddedResource Include="Resources\ServiceStart_ps1.sample" />
+    <EmbeddedResource Include="Resources\ServiceStop_ps1.sample" />
+    <EmbeddedResource Include="Resources\SetupAndRunInstructions_pdf.sample" />
+    <EmbeddedResource Include="Resources\Solution_sln.sample" />
+    <EmbeddedResource Include="Resources\SolutionInfo_proj.sample" />
+    <EmbeddedResource Include="Resources\SolutionProjectInjectionPoint1_sln.sample" />
+    <EmbeddedResource Include="Resources\SolutionProjectInjectionPoint2_sln.sample" />
+    <EmbeddedResource Include="Resources\Start_ps1.sample" />
+    <EmbeddedResource Include="Resources\StateMachine_cs.sample" />
+    <EmbeddedResource Include="Resources\StateMachineDummyTests_cs.sample" />
+    <EmbeddedResource Include="Resources\Stop_ps1.sample" />
+    <EmbeddedResource Include="Resources\Test_csproj.sample" />
+    <EmbeddedResource Include="Resources\TestCategories_cs.sample" />
+    <EmbeddedResource Include="Resources\Tests_runsettings.sample" />
+  </ItemGroup>
+</Project>

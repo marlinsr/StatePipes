@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-@#$ClassLibraryName@#$.Service-@#$SecretsGuid@#$</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+	<Import Project="..\SolutionInfo.proj" />
+	<PropertyGroup>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<IncludeSymbols>true</IncludeSymbols>
+		<Description>@#$ClassLibraryName@#$.Service</Description>
+		<NoWarn>$(NoWarn);NU1701</NoWarn>
+		<RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
+		<RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
+		<PackageVersion>$(VersionPrefix)</PackageVersion>
+		<PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
+		<AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+		<Nullable>enable</Nullable>
+		<RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+		<EnableSdkContainerDebugging>True</EnableSdkContainerDebugging>
+		<IsPublishable>True</IsPublishable>
+		<EnableSdkContainerSupport>True</EnableSdkContainerSupport>
+	</PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.9" />
+    <PackageReference Include="StatePipes" Version="@#$StatePipesVersion@#$" />
+    <PackageReference Include="Microsoft.NETCore.Platforms" Version="7.0.4" />
+    <PackageReference Include="Autofac" Version="8.4.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="stateless" Version="5.20.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.9" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.9" />
+  </ItemGroup>
+  <ItemGroup>
+	  <ProjectReference Include="..\@#$ClassLibraryName@#$\@#$ClassLibraryName@#$.csproj" />
+	</ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="rmdir /S /Q $(OutDir)\certs&#xD;&#xA;mkdir $(OutDir)\certs&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\@#$CertFileName@#$ $(OutDir)\certs\@#$CertFileName@#$&#xD;&#xA;copy C:\ProgramData\SmallStep\step-ca\CommonPassword.txt $(OutDir)\certs\CommonPassword.txt" />
+  </Target>
+
+</Project>

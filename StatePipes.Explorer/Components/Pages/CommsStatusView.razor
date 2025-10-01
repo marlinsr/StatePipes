@@ -1,0 +1,24 @@
+﻿@using StatePipes
+@using StatePipes.Comms
+@using StatePipes.Messages
+<CollapsableDivision TitleName="Communications Status" TitleColor="black" OnCollapsedChanged=@Collapsed IsExpandedInitialState=false>
+    <div style="display:flex;flex-direction:row">
+        @{
+            var servicebgColor = IsConnectedToService ? "lime" : IsConnectedToBroker ? "yellow" : "red";
+            string serviceName = (string.IsNullOrEmpty(TabTitle) ? "Service Comms" : TabTitle.ToString()) ?? "Service Comms";
+            <div style="padding-left:10px;padding-top:10px;background-color:white">
+                <label style="display:block;padding-left:10px;padding-right:10px;font-weight:bold;border:thin;border-radius:25px;background-color:@servicebgColor">@serviceName</label>
+            </div>
+            if (CommStatusEvent?.StatePipesProxyStatusList != null)
+            {
+                foreach (var commsStatus in CommStatusEvent.StatePipesProxyStatusList)
+                {
+                    var commsStatusBgColor = commsStatus.IsConnected ? "lime" : commsStatus.IsCommunicatingWithUri ? "yellow" : "red";
+                    <div style="padding-left:10px;padding-top:10px;background-color:white">
+                        <label style="display:block;padding-left:10px;padding-right:10px;font-weight:bold;border:thin;border-radius:25px;background-color:@commsStatusBgColor">@commsStatus.Name</label>
+                    </div>
+                }
+            }
+        }
+    </div>
+</CollapsableDivision>

@@ -1,0 +1,5 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+<CollapsableDivision TitleName=@Title TitleColor="gray" IsExpandedInitialState=false>
+    <IncludeExcludeViewer Title="Include" ItemList=@Filter?.Include OnListChanged=@OnListChanged />
+    <IncludeExcludeViewer Title="Exclude" ItemList=@Filter?.Exclude OnListChanged=@OnListChanged AddAll=true />
+</CollapsableDivision>

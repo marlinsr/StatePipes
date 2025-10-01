@@ -1,0 +1,145 @@
+using StatePipes.StateMachine.Test;
+using @#$ClassLibraryName@#$.Events;
+using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$;
+using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States;
+using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers;
+using Moq;
+
+namespace @#$ClassLibraryName@#$.Test
+{
+    [TestClass]
+    public class StateMachineDummyTests
+    {
+        /// <summary>
+        /// This is technically an integration test and shouldn't be executed on the build server
+        /// because of the background thread for the TestCommandBus
+        /// Event Trap Example
+        /// </summary>
+        [TestMethod]
+        [DoNotParallelize]
+        [TestCategory(TestCategories.TimingCritical)]
+        public void EventTrapExampleTest()
+        {
+            StateMachineForTest stateMachine = new StateMachineForTest();
+
+            ///Set up Mocks or Dummies for state constructor parameters and Register them
+            ///If a Mock or Dummy is not registered for a state parameter then a dummy is automatically created and used
+            ///var mock = new Mock<Interface>();
+            ///stateMachine.Register<Interface>(mock.Object);
+
+            ///Isolate the portion of the state machine you want to test
+            stateMachine.FilterCommand<SendCurrentStatusCommand>();
+            stateMachine.ConfigureStateMachine<@#$StateMachineName@#$, ParentState>(new DummyDependencyRegistration());
+
+            ///Setup test inspection point(s)
+            var dummyEventTrap = stateMachine.TrapEvent<DummyEvent>(0, 10000);
+            Assert.IsNotNull(dummyEventTrap);
+
+            ///Execute Test
+            stateMachine.Start();
+            stateMachine.SendCommand(new DummyTrigger(true));
+            var trappedDummyEvent = (DummyEvent?)dummyEventTrap.Wait();
+            Assert.IsNotNull(trappedDummyEvent);
+
+            ///Validations
+            Assert.IsTrue(trappedDummyEvent.Good);
+            Assert.IsTrue(stateMachine.IsCurrentState<ParentState>());
+            Assert.IsTrue(stateMachine.CommandInvocations.Where(c => c.GetType().FullName == typeof(DummyTrigger).FullName).Any());
+            Assert.IsTrue(stateMachine.EventInvocations.Where(e => e.GetType().FullName == typeof(DummyEvent).FullName).Any());
+
+            ///Cleanup
+            stateMachine.Dispose();
+        }
+
+        /// <summary>
+        /// This is technically an integration test and shouldn't be executed on the build server
+        /// because of the background thread for the TestCommandBus
+        /// Command Trap Example
+        /// </summary>
+        [TestMethod]
+        [DoNotParallelize]
+        [TestCategory(TestCategories.TimingCritical)]
+        public void CommandTrapExampleTest()
+        {
+            StateMachineForTest stateMachine = new StateMachineForTest();
+
+            ///Set up Mocks or Dummies for state constructor parameters and Register them
+            ///If a Mock or Dummy is not registered for a state parameter then a dummy is automatically created and used
+            ///var mock = new Mock<Interface>();
+            ///stateMachine.Register<Interface>(mock.Object);
+
+            ///Isolate the portion of the state machine you want to test
+            stateMachine.FilterCommand<SendCurrentStatusCommand>();
+            stateMachine.ConfigureStateMachine<@#$StateMachineName@#$, ParentState>(new DummyDependencyRegistration());
+
+            ///Setup test inspection point(s)
+            var dummyCommandTrap = stateMachine.TrapCommand<DummyTrigger>(0, 10000); 
+            Assert.IsNotNull(dummyCommandTrap);
+
+            ///Execute Test
+            stateMachine.Start();
+            stateMachine.SendCommand(new DummyTrigger(true));
+            var trappedDummyCommand = (DummyTrigger?)dummyCommandTrap.Wait();
+            Assert.IsNotNull(trappedDummyCommand);
+            Thread.Sleep(5000);
+            var testDummyEvent = (DummyEvent?)(stateMachine.EventInvocations.FirstOrDefault(e => e.GetType().FullName == typeof(DummyEvent).FullName));
+
+            ///Validations
+            Assert.IsTrue(trappedDummyCommand.Good);
+            Assert.IsTrue(stateMachine.IsCurrentState<ParentState>());
+            Assert.IsTrue(stateMachine.CommandInvocations.Where(c => c.GetType().FullName == typeof(DummyTrigger).FullName).Any());
+            Assert.IsTrue(stateMachine.EventInvocations.Where(e => e.GetType().FullName == typeof(DummyEvent).FullName).Any());
+            Assert.IsNotNull(testDummyEvent);
+            Assert.IsTrue(testDummyEvent.Good);
+
+            ///Cleanup
+            stateMachine.Dispose();
+        }
+
+        /// <summary>
+        /// This is technically an integration test and shouldn't be executed on the build server
+        /// because of the background thread for the TestCommandBus
+        /// Command Trap Example Stopping and Restarting Command Bus
+        /// </summary>
+        [TestMethod]
+        [DoNotParallelize]
+        [TestCategory(TestCategories.TimingCritical)]
+        public void CommandTrapStopCommandBusRestartTest()
+        {
+            StateMachineForTest stateMachine = new StateMachineForTest();
+
+            ///Set up Mocks or Dummies for state constructor parameters and Register them
+            ///If a Mock or Dummy is not registered for a state parameter then a dummy is automatically created and used
+            ///var mock = new Mock<Interface>();
+            ///stateMachine.Register<Interface>(mock.Object);
+
+            ///Isolate the portion of the state machine you want to test
+            stateMachine.FilterCommand<SendCurrentStatusCommand>();
+            stateMachine.ConfigureStateMachine<@#$StateMachineName@#$, ParentState>(new DummyDependencyRegistration());
+
+            ///Setup test inspection point(s)
+            var dummyCommandTrap = stateMachine.TrapCommand<DummyTrigger>(0, 10000, true); 
+            Assert.IsNotNull(dummyCommandTrap);
+
+            ///Execute Test
+            stateMachine.Start();
+            stateMachine.SendCommand(new DummyTrigger(true));
+            var trappedDummyCommand = (DummyTrigger?)dummyCommandTrap.Wait();
+            Assert.IsNotNull(trappedDummyCommand);
+            stateMachine.RestartCommandBus();
+            Thread.Sleep(5000);
+            var testDummyEvent = (DummyEvent?)(stateMachine.EventInvocations.FirstOrDefault(e => e.GetType().FullName == typeof(DummyEvent).FullName));
+
+            ///Validations
+            Assert.IsTrue(trappedDummyCommand.Good);
+            Assert.IsTrue(stateMachine.IsCurrentState<ParentState>());
+            Assert.IsTrue(stateMachine.CommandInvocations.Where(c => c.GetType().FullName == typeof(DummyTrigger).FullName).Any());
+            Assert.IsTrue(stateMachine.EventInvocations.Where(e => e.GetType().FullName == typeof(DummyEvent).FullName).Any());
+            Assert.IsNotNull(testDummyEvent);
+            Assert.IsTrue(testDummyEvent.Good);
+
+            ///Cleanup
+            stateMachine.Dispose();
+        }
+    }
+}

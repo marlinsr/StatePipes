@@ -1,0 +1,18 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+@using System.Text
+@inherits ObjectEditorBaseClass
+@if (DictionaryEntry != null)
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgray;color:black">
+        <div style="flex:1;background-color:lightgreen;color:black">
+            <CascadingValue Value="@this" Name="ParentComponent">
+                <PropertyEntityViewer EditorObject=@DictionaryEntry.Item1 IsReadOnly=@IsReadOnly></PropertyEntityViewer>
+            </CascadingValue>
+        </div>
+        <div style="background-color:lightgreen;color:black;margin-left:10px">
+            <CascadingValue Value="@this" Name="ParentComponent">
+                <PropertyEntityViewer EditorObject=@DictionaryEntry.Item2 IsReadOnly=@IsReadOnly></PropertyEntityViewer>
+            </CascadingValue>
+        </div>
+    </div>
+}

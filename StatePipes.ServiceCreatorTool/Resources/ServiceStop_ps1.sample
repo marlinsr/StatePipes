@@ -1,0 +1,1 @@
+﻿Stop-Process -Name "@#$ClassLibraryName@#$.Service" -ErrorAction SilentlyContinue -Force

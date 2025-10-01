@@ -1,0 +1,18 @@
+﻿using Autofac;
+using FakeItEasy.Sdk;
+using StatePipes.Interfaces;
+
+namespace @#$ClassLibraryName@#$.Test
+{
+    internal class DummyDependencyRegistration : IDummyDependencyRegistration
+    {
+        public void RegisterDummyForType(ContainerBuilder builder, Type t)
+        {
+            object? obj = Create.Dummy(t);
+            if (obj == null) return;
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+            _ = builder.RegisterInstance(obj).As(t);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+        }
+    }
+}

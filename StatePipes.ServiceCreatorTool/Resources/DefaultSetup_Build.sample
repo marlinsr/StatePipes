@@ -1,0 +1,1 @@
+﻿            container.Resolve<@#$ClassLibraryName@#$.Proxies.@#$ProxyName@#$Proxy>().Start();

@@ -1,0 +1,49 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+@inherits CollapsibleBaseClass
+
+
+<div style="display:flex;flex-direction:row">
+
+    <button style="background-color:lightgray;color:black"
+            @onclick="() => ToggleCollapse()">
+        @CollapseText
+    </button>
+    <div style="flex:1;background-color:@TitleColor;color:white">
+        <b>@TitleName</b>
+    </div>
+    <div style="flex:1;background-color:@TitleColor;color:white;text-align:right;padding-right:10px">
+        <b>@Timestamp</b>
+    </div>
+    @if (ShowExpandChildren)
+    {
+        <div>
+            <button style="background-color:lightgray;color:black"
+                    @onclick="() => ToggleChildrenCollapse()">
+                @ChildrenCollapseText
+            </button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Namespace))
+    {
+        <button style="background-color:lightpink;color:black"
+                @onclick="() => Include()">
+            +
+        </button>
+        <button style="background-color:lightpink;color:black"
+                @onclick="() => Exclude()">
+            -
+        </button>
+    }
+</div>
+@if (IsExpanded)
+{
+    @if (ChildContent != null)
+    {
+        <div style="padding-left:10px">
+            <CascadingValue Value=@this Name="ParentComponent">
+                @ChildContent
+            </CascadingValue>
+        </div>
+    }
+}
+

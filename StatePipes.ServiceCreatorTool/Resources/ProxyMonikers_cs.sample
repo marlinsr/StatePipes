@@ -1,0 +1,7 @@
+﻿namespace @#$ClassLibraryName@#$.ValueObjects
+{
+    public class ProxyMonikers
+    {
+        @#$ProxyInjection1@#$
+    }
+}

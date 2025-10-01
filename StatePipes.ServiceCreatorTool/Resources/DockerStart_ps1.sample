@@ -1,0 +1,13 @@
+﻿cls
+$programData = $env:ProgramData
+$destDir = $programData+"\@#$CompanyName@#$\@#$ClassLibraryName@#$.Service\Certs\"
+Remove-Item -Path $destDir -Recurse -Force
+New-Item -ItemType Directory -Path $destDir
+$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
+Invoke-Expression $cp
+$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
+Invoke-Expression $cp
+
+$dockerRun = "docker run -dit --name @#$ClassLibraryName@#$.Service --hostname @#$ClassLibraryName@#$.Service -v "+$programData+"\@#$CompanyName@#$:/usr/share/@#$CompanyName@#$ --network @#$NetworkName@#$ @#$ContainerImageName@#$:latest"
+Invoke-Expression $dockerRun
+Start-Process chrome.exe '--new-window  https://statepipes.explorer:32772/Params/@#$BrokerUriForStartScript@#$/@#$ClassLibraryName@#$/@#$CertFileName@#$/CommonPassword.txt/@#$ClassLibraryName@#$'

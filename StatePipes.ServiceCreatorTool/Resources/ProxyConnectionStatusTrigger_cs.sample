@@ -1,0 +1,15 @@
+﻿using StatePipes.StateMachine;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers.Internal
+{
+    internal class ProxyConnectionStatusTrigger(string proxyName, bool isConnected) : BaseTriggerCommand<@#$StateMachineName@#$>
+    {
+        public string ProxyName { get; } = proxyName;
+        public bool IsConnected { get; } = isConnected;
+    }
+}

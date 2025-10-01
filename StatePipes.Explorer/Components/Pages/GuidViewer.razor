@@ -1,0 +1,28 @@
+﻿@using System.Text
+@inherits ObjectEditorBaseClass
+
+@if (!string.IsNullOrEmpty(EditorObject?.Name))
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgrey;color:black;padding-left:10px;padding-top:2px">
+        <label style="display:flex;align-items:center">@EditorObject?.Name [Guid]:</label>
+        <label style="display:flex;align-items:center;margin-left:10px">@EditorObjectString</label>
+        @if (!IsReadOnly)
+        {
+            <textarea style="flex:1;text-align:left;margin-left:10px;resize:none;border:1px solid @BorderColor" rows="1" @bind="NewGuidString" @bind:event="oninput"></textarea>
+            <div style="margin-left:10px">
+                <button style="background-color:lightgray;color:black"
+                        @onclick="() => Commit()">
+                    COMMIT
+                </button>
+                <button style="background-color:lightgray;color:black"
+                        @onclick="() => NewGuid()">
+                    New Guid
+                </button>
+                <button style="background-color:lightgray;color:black"
+                        @onclick="() => EmptyGuid()">
+                    Empty Guid
+                </button>
+            </div>
+        }
+    </div>
+}

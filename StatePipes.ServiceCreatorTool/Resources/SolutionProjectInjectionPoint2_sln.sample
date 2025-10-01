@@ -1,0 +1,12 @@
+		@#$TestProjectGuid@#$.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		@#$TestProjectGuid@#$.Debug|Any CPU.Build.0 = Debug|Any CPU
+		@#$TestProjectGuid@#$.Release|Any CPU.ActiveCfg = Release|Any CPU
+		@#$TestProjectGuid@#$.Release|Any CPU.Build.0 = Release|Any CPU
+		@#$ServiceProjectGuid@#$.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		@#$ServiceProjectGuid@#$.Debug|Any CPU.Build.0 = Debug|Any CPU
+		@#$ServiceProjectGuid@#$.Release|Any CPU.ActiveCfg = Release|Any CPU
+		@#$ServiceProjectGuid@#$.Release|Any CPU.Build.0 = Release|Any CPU
+		@#$ClassLibraryProjectGuid@#$.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		@#$ClassLibraryProjectGuid@#$.Debug|Any CPU.Build.0 = Debug|Any CPU
+		@#$ClassLibraryProjectGuid@#$.Release|Any CPU.ActiveCfg = Release|Any CPU
+		@#$ClassLibraryProjectGuid@#$.Release|Any CPU.Build.0 = Release|Any CPU

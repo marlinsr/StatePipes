@@ -1,0 +1,8 @@
+﻿using StatePipes.Interfaces;
+namespace @#$ClassLibraryName@#$.Events
+{
+    public class CurrentStatusEvent(string message) : IEvent
+    {
+        public string Message { get; } = message;
+    }
+}

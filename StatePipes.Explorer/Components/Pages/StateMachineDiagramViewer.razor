@@ -1,0 +1,22 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+@implements IAsyncDisposable
+@inject IStatePipesHandler _statePipesHandler
+@inject IJSRuntime JsRuntime
+
+<div style="display:flex;flex-direction:column;width:100%">
+    @{
+        try
+        {
+            string[] stateMachineDiagramsStrings = _stateMachineDiagramsStrings;
+            if (_diagramModule != null)
+            {
+                for (int i = 0; i < stateMachineDiagramsStrings.Length; i++)
+                {
+                    var divId = $"StateMachine{i}";
+                    <div id="@divId" style="border:1px solid;width:100%;height:500px"></div>
+                }
+            }
+        }
+        catch { }
+    }
+</div>

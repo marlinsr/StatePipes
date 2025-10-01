@@ -1,0 +1,21 @@
+{
+  "profiles": {
+    "@#$ClassLibraryName@#$.Service": {
+      "commandName": "Project",
+      "commandLineArgs": "--usedefaultconfig=true",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker",
+      "DockerfileRunArguments": "-v %ProgramData%\\@#$CompanyName@#$:/usr/share/@#$CompanyName@#$ --network @#$CompanyName@#$-net"
+    },
+    "Container (.NET SDK)": {
+      "commandName": "SdkContainer",
+      "ContainerRunArguments": "-v %ProgramData%\\@#$CompanyName@#$Containers:/usr/share/@#$CompanyName@#$ --network @#$CompanyName@#$-net"
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json"
+}

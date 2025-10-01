@@ -1,0 +1,43 @@
+﻿@using System.Diagnostics;
+@using System.Text
+@using Microsoft.AspNetCore.Http
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.Explorer.NonWebClasses
+@inherits CollapsibleBaseClass
+@inject IStatePipesHandler _statePipesHandler
+
+
+<CollapsableDivision TitleName=@Directories?.DirectoryName TitleColor=@TitleColor IsExpandedInitialState="false" Filter=@ShowFilter Namespace=@Directories?.Command?.FullName>
+    <div style="display:block;background-color:lightgrey;color:black">
+        <label>Periodic Send (sec.):</label>
+        <InputNumber TValue="int" style="padding-left:10px;width:10%;background-color:white;color:black" @bind-Value="@periodicSendInSeconds" @bind-Disabled="@stopPeriodic" />
+        <InputCheckbox style="padding-left:10px;background-color:white;color:black" @bind-Value=@stopPeriodic @onclick=@StartStopTimer />
+    </div>
+    <div style="display:flex;flex-direction:row">
+        <button style="background-color:red;color:white" @onclick="() => SendCommand()">SEND</button>
+        <a href="@QuickViewString" style="padding-left:10px" target=" _blank">QUICK VIEW</a>
+    </div>
+    @if (ObjectEditorFilter?.IsIncluded(Directories?.Command?.FullName!) ?? true)
+    {
+        <Tabs>
+            <Tab Title="OBJECT" Active="ShowObjectEditor" OnClick="@(() => ToggleDisplayMode(true))">
+                <Content>
+                    <ClassViewer @ref="_classEditor" EditorObject=CommandObject />
+                </Content>
+            </Tab>
+            <Tab Title="JSON" Active="!ShowObjectEditor" OnClick="@(() => ToggleDisplayMode(false))">
+                <Content>
+                    <textarea style="width:100%" rows="4" @bind="CommandObjectString" @bind:event="oninput" />
+                </Content>
+            </Tab>
+        </Tabs>
+    }
+    else
+    {
+        <textarea style="width:100%" rows="4" @bind="CommandObjectString" @bind:event="oninput" />
+    }
+    <div style="display:flex;flex-direction:row">
+        <button style="background-color:yellow;color:black" @onclick="() => ResetJson()">RESET</button>
+    </div>
+</CollapsableDivision>

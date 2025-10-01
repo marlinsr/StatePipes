@@ -1,0 +1,38 @@
+﻿@using System.Collections
+@using System.Reflection
+@using System.Text
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.Explorer.NonWebClasses
+@inherits ObjectEditorBaseClass
+@inject IStatePipesHandler _statePipesHandler
+
+<div style="display:flex;flex-direction:row;background-color:lightgreen;color:black">
+    <div style="flex:1;background-color:lightgreen;color:black">
+        <b>@EditorObject?.Name</b>
+    </div>
+    @if (!IsReadOnly)
+    {
+        <div style="background-color:lightgreen;color:black;margin-left:10px">
+            <button style="background-color:lightgreen;color:black"
+                    @onclick="() => AddElement()">
+                ADD
+            </button>
+            <button style="background-color:lightgreen;color:black"
+                    @onclick="() => DeleteElement()">
+                DELETE
+            </button>
+        </div>
+    }
+</div>
+@if (DictionaryElements != null)
+{
+    foreach (var entry in DictionaryElements)
+    {
+        <CascadingValue Value="@this" Name="ParentComponent">
+            <PropertyEntityViewer EditorObject=@entry IsReadOnly=@IsReadOnly></PropertyEntityViewer>
+        </CascadingValue>
+    }
+}

@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+	<Import Project="..\SolutionInfo.proj" />
+	<PropertyGroup>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<Description>@#$ClassLibraryName@#$</Description>
+		<NoWarn>$(NoWarn);NU1701</NoWarn>
+		<RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
+		<RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
+		<PackageVersion>$(VersionPrefix)</PackageVersion>
+		<PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
+		<AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+		<Nullable>enable</Nullable>
+    <PackageReadmeFile>ReadMe.md</PackageReadmeFile>
+	</PropertyGroup>
+	<ItemGroup>
+    <PackageReference Include="StatePipes" Version="@#$StatePipesVersion@#$" />
+    <PackageReference Include="Autofac" Version="8.4.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.9" />
+    <PackageReference Include="Microsoft.NETCore.Platforms" Version="7.0.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>@#$ClassLibraryName@#$.Test</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup Condition="'$(OS)'=='Windows_NT'">
+    <None Include="Docs\ReadMe.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+  <Target Name="CopyPackageToLocalFeed" AfterTargets="Pack" Condition=" '$(StatePipesLocalNugets)' != '' ">
+    <Copy SourceFiles="$(OutputPath)..\$(PackageId).$(PackageVersion).nupkg" DestinationFolder="$(StatePipesLocalNugets)" />
+    <Copy SourceFiles="$(OutputPath)..\$(PackageId).$(PackageVersion).snupkg" DestinationFolder="$(StatePipesLocalNugets)" />
+  </Target>
+</Project>

@@ -1,0 +1,6 @@
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "@#$ClassLibraryName@#$.Service", "@#$ClassLibraryName@#$.Service\@#$ClassLibraryName@#$.Service.csproj", "@#$ServiceProjectGuid@#$"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "@#$ClassLibraryName@#$", "@#$ClassLibraryName@#$\@#$ClassLibraryName@#$.csproj", "@#$ClassLibraryProjectGuid@#$"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "@#$ClassLibraryName@#$.Test", "@#$ClassLibraryName@#$.Test\@#$ClassLibraryName@#$.Test.csproj", "@#$TestProjectGuid@#$"
+EndProject

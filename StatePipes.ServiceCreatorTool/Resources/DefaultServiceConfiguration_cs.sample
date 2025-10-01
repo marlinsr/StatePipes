@@ -1,0 +1,30 @@
+﻿using StatePipes.Comms;
+using StatePipes.ProcessLevelServices;
+using @#$ClassLibraryName@#$.Builders;
+using @#$ClassLibraryName@#$.ValueObjects;
+
+namespace @#$ClassLibraryName@#$.Builders
+{
+    public class DefaultServiceConfiguration
+    {
+        public static ServiceConfiguration Get()
+        {
+            List<ProxySubstitution> substitutions = new();
+            List<ProxyConfiguration> proxies = new();
+            @#$ProxyInjection4@#$
+
+            Type setup = typeof(DefaultSetup)!;
+            return new ServiceConfiguration(
+                new BusConfig(
+                    "@#$BrokerUri@#$", 
+                    "@#$ClassLibraryName@#$", 
+                    "amqpuser.amqp09-broker.client.p12", 
+                    "CommonPassword.txt"), 
+                setup.Assembly.GetName().Name!, 
+                setup.FullName!, 
+                proxies,
+                substitutions,
+                new ServiceArgs(null));
+        }
+    }
+}

@@ -1,0 +1,19 @@
+﻿@using System.Text
+@using StatePipes.ExplorerTypes
+@using StatePipes.Common
+@using Newtonsoft.Json
+@inherits ObjectEditorBaseClass
+@inject IJSRuntime jsRuntime;
+
+@if (!string.IsNullOrEmpty(EditorObject?.Name))
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgrey;color:black;padding-left:10px;padding-top:2px">
+        <label style="display:flex;align-items:center">@EditorObject?.Name [BVLineChart]:</label>
+        @if (IsReadOnly)
+        {
+            <div class="container-fluid overflow-x-auto">
+                <LineChart @ref="_lineChart" Width="80" WidthUnit="Unit.Percentage"/>
+            </div>
+        }
+    </div>
+}

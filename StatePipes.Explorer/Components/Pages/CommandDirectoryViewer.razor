@@ -1,0 +1,43 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+
+@if (Directories != null)
+{
+    if (Directories.Command != null)
+    {
+        <CommandViewer Directories=@Directories InstanceGuid=@InstanceGuid TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter></CommandViewer>
+    }
+    else
+    {
+        if (string.IsNullOrEmpty(Directories.DirectoryName))
+        {
+            @for (int i = 0; i < Directories!.Subdirectories.Count; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    <CommandDirectoryViewer Directories=@Directories!.Subdirectories[i] InstanceGuid=@InstanceGuid TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                }
+                else
+                {
+                    <CommandDirectoryViewer Directories=@Directories!.Subdirectories[i] InstanceGuid=@InstanceGuid TitleColor=@_otherColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                }
+            }
+        }
+        else
+        {
+            <CollapsableDivision TitleName=@Directories.DirectoryName TitleColor=@TitleColor ShowExpandChildren=true Filter=@ShowFilter Namespace=@Directories?.Namespace>
+                @for (int i = 0; i < Directories!.Subdirectories.Count; i++)
+                {
+                    if (i % 2 == 0)
+                    {
+                        <CommandDirectoryViewer Directories=@Directories!.Subdirectories[i] InstanceGuid=@InstanceGuid TitleColor=@_otherColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                    }
+                    else
+                    {
+                        <CommandDirectoryViewer Directories=@Directories!.Subdirectories[i] InstanceGuid=@InstanceGuid TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                    }
+                }
+            </CollapsableDivision>
+        }
+    }
+}
+

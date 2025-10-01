@@ -1,0 +1,36 @@
+{
+  "version": "3.0",
+  "defaultProvider": "cdnjs",
+  "libraries": [
+    {
+      "provider": "cdnjs",
+      "library": "d3@7.9.0",
+      "destination": "wwwroot/d3/"
+    },
+    {
+      "provider": "cdnjs",
+      "library": "d3-graphviz@5.6.0",
+      "destination": "wwwroot/d3-graphviz/"
+    },
+    {
+      "provider": "cdnjs",
+      "library": "Chart.js@4.5.0",
+      "destination": "wwwroot/Chart.js/"
+    },
+    {
+      "provider": "cdnjs",
+      "library": "chartjs-plugin-datalabels@2.2.0",
+      "destination": "wwwroot/chartjs-plugin-datalabels/"
+    },
+    {
+      "provider": "cdnjs",
+      "library": "bootstrap-icons@1.13.1",
+      "destination": "wwwroot/bootstrap-icons/"
+    },
+    {
+      "provider": "cdnjs",
+      "library": "bootstrap@5.3.8",
+      "destination": "wwwroot/bootstrap/"
+    }
+  ]
+}

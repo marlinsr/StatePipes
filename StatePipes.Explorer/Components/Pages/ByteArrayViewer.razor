@@ -1,0 +1,15 @@
+﻿@using System.Globalization
+@using System.Text
+@using System.Text.RegularExpressions
+@using Newtonsoft.Json
+@using StatePipes
+@using StatePipes.Common
+@inherits ObjectEditorBaseClass
+
+@if (!string.IsNullOrEmpty(EditorObject?.Name))
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgrey;color:black;padding-left:10px;padding-top:2px">
+        <label style="display:flex;align-items:center">@EditorObject?.Name [@_typeName]:</label>
+        <textarea style="flex:1;text-align:left;margin-left:10px" rows="1" @bind="EditorObjectString" @bind:event="oninput" ReadOnly=@IsReadOnly></textarea>
+    </div>
+}

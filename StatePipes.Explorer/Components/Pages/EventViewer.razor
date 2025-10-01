@@ -1,0 +1,33 @@
+﻿@using System.Diagnostics;
+@using Microsoft.AspNetCore.Http
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.Explorer.NonWebClasses
+@inherits CollapsibleBaseClass
+
+<CollapsableDivision TitleName=@Title Timestamp=@Evnt?.Timestamp TitleColor=@TitleColor IsExpandedInitialState="false" Filter=@ShowFilter Namespace=@Evnt?.FullName>
+    <div style="display:flex;flex-direction:row">
+        <a href="@QuickViewString" target="_blank">QUICK VIEW</a>
+    </div>
+    @if (Evnt != null && (ObjectEditorFilter?.IsIncluded(Evnt.FullName) ?? true))
+    {
+        <Tabs>
+            <Tab Title="OBJECT" Active="ShowObjectEditor" OnClick="@(() => ToggleDisplayMode(true))">
+                <Content>
+                    <ClassViewer @ref="_classEditor" EditorObject=EventObject IsReadOnly="true" />
+                </Content>
+            </Tab>
+            <Tab Title="JSON" Active="!ShowObjectEditor" OnClick="@(() => ToggleDisplayMode(false))">
+                <Content>
+                    <textarea style="width:100%" rows="4" @bind="EventObjectString" @bind:event="oninput" />
+                </Content>
+            </Tab>
+        </Tabs>
+    }
+    else
+    {
+        <textarea style="width:100%" rows="4" @bind="EventObjectString" @bind:event="oninput" />
+    }
+</CollapsableDivision>

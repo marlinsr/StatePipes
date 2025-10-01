@@ -1,0 +1,38 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+<CollapsableDivision TitleName=@Title TitleColor="gray" IsExpandedInitialState=false>
+    <div style="display:flex;flex-direction:row;background-color:lightgreen;color:black;margin-left:10px">
+        <label style="display:flex;align-items:center">Namespace:</label>
+        <textarea style="flex:1;text-align:left;margin-left:10px;resize:none;border:1px solid black" rows="1" @bind="NamespaceEntry" @bind:event="oninput"></textarea>
+        <button style="background-color:lightgreen;color:black"
+                @onclick="() => AddElement()">
+            ADD
+        </button>
+        @if(AddAll)
+        {
+            <button style="background-color:lightgreen;color:black"
+                    @onclick="() => AddAllElement()">
+                ADD ALL
+            </button>
+
+        }
+        <button style="background-color:lightgreen;color:black"
+                @onclick="() => DeleteElement()">
+            DELETE
+        </button>
+        <button style="background-color:lightgreen;color:red"
+                @onclick="() => ClearElements()">
+            CLEAR
+        </button>
+    </div>
+    <div style ="background-color:white;color:black;margin-left:20px">
+        @{
+            if (ItemList != null)
+            {
+                foreach (var item in ItemList)
+                {
+                    <textarea style="width:100%;resize:none" rows="1" readonly>@item</textarea>
+                }
+            }
+        }
+    </div>
+</CollapsableDivision>

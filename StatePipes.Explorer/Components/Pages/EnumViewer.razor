@@ -1,0 +1,27 @@
+﻿@using System.Text
+@inherits ObjectEditorBaseClass
+
+
+@if (IsReadOnly)
+{
+    <StringViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></StringViewer>
+}
+else
+{
+    <div style="display:block;background-color:lightgrey;color:black;padding-left:10px">
+        <label>@EditorObject!.Name:</label>
+        <InputSelect @bind-Value="EditorObjectString">
+            @foreach (var val in EditorObject?.EnumValueList ?? new())
+            {
+                if (val == EditorObject?.Value?.ToString())
+                {
+                    <option selected value="@val">@val</option>
+                }
+                else
+                {
+                    <option value="@val">@val</option>
+                }
+            }
+        </InputSelect>
+    </div>
+}

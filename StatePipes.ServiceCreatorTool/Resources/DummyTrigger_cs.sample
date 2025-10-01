@@ -1,0 +1,8 @@
+﻿using StatePipes.StateMachine;
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers
+{
+    public class DummyTrigger(bool good) : BaseTriggerCommand<@#$StateMachineName@#$>
+    {
+        public bool Good { get; } = good;
+    }
+}

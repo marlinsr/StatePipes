@@ -1,0 +1,17 @@
+﻿using Autofac;
+using StatePipes.Interfaces;
+namespace @#$ClassLibraryName@#$.Builders
+{
+    public class DefaultSetup : IContainerSetup
+    {
+        public void Register(ContainerBuilder containerBuilder)
+        {
+            @#$ProxyInjection1@#$
+        }
+
+        public void Build(IContainer container)
+        {
+            @#$ProxyInjection2@#$
+        }
+    }
+}

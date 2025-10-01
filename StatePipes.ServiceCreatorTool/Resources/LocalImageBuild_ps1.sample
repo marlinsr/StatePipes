@@ -1,0 +1,98 @@
+#This script is only useful if you need to create an image that has locally built nugets and you are not going to start the image from the debugger
+
+function @#$BuildFunctionName@#$()
+{
+    $projectDirName = "@#$ClassLibraryName@#$.Service"
+    $imageName = $projectDirName.Replace(".","-")
+    $imageName = $imageName.ToLower()
+    $imageId = docker images -q $imageName
+    docker rmi --force $imageId
+    $localNugetsPath = $env:StatePipesLocalNugets
+
+    $projectDirPath = $PSScriptRoot +"\..\" + $projectDirName
+
+    rm ".\LocalNugets" -r -force
+    rm ".\Nuget.Config" -force
+    rm ".\Dockerfile2" -force
+    rm ".\LocalNugetPDBs" -r -force
+
+    Set-Location -Path $projectDirPath
+
+    #Create nuget.config to pull packages from
+    $nugetConfigTemplatePath = $PSScriptRoot +"\NugetConfig.xml"
+    [string[]]$arrayFromFile2 = Get-Content -Path $nugetConfigTemplatePath
+
+    foreach($line2 in $arrayFromFile2) 
+    { 
+      Add-Content "Nuget.Config" $line2
+    }
+
+    #Put nugets built locally into the dockerfile2 context
+    Copy-Item -Path $localNugetsPath -Destination "." -Recurse
+
+    #Put pdbs in LocalNugetPDBs
+    Copy-Item -Path $localNugetsPath -Destination ".\LocalNugets2" -Recurse
+    $nugetFiles = Get-ChildItem -Path ".\LocalNugets2" -Filter *.nupkg -Recurse -File
+    foreach($nuget in $nugetFiles) 
+    {
+        $cpVar = "Copy-Item " + $nuget.FullName +" " + $nuget.FullName + ".zip"
+        Invoke-Expression $cpVar
+        echo $nuget.FullName
+        $expVar = "Expand-Archive -LiteralPath " + $nuget.FullName +".zip -DestinationPath " + $nuget.DirectoryName
+        Invoke-Expression $expVar
+    }
+    mkdir LocalNugetPDBs
+    $pdbFiles = Get-ChildItem -Path ".\LocalNugets2" -Filter *.pdb -Recurse -File
+    foreach($pdb in $pdbFiles) 
+    {
+        $cpVar = "Copy-Item " + $pdb.FullName +" .\LocalNugetPDBs\" + $pdb.Name
+        Invoke-Expression $cpVar
+    }
+    rm ".\LocalNugets2" -r -force
+
+    #Create new dockerfile to add the nugets built locally and the nuget.confg
+    [string[]]$arrayFromFile = Get-Content -Path 'Dockerfile'
+    foreach($line in $arrayFromFile) 
+    { 
+      if($line.StartsWith("ARG BUILD_CONFIGURATION"))
+      {
+        Add-Content "Dockerfile2" "ARG BUILD_CONFIGURATION=Debug"
+      }
+      else
+      {
+          if($line.StartsWith("RUN dotnet restore"))
+          {
+            $copyLocalNugets = 'COPY ["' + $projectDirName + '/LocalNugets/", "/src/LocalNugets"]'
+            $copyNugetConfig = 'COPY ["' + $projectDirName + '/Nuget.Config", "/src/Nuget.Config"]'
+            Add-Content "Dockerfile2" $copyLocalNugets
+            Add-Content "Dockerfile2" $copyNugetConfig
+            $newRestorCommand = $line + " --configfile Nuget.Config --disable-parallel --force"
+            Add-Content "Dockerfile2" $newRestorCommand 
+          }
+          elseif($line.StartsWith("COPY --from=publish /app/publish ."))
+          {
+            $copyPdbs = 'COPY ["' + $projectDirName + '/LocalNugetPDBs/", "."]'
+            Add-Content "Dockerfile2" $copyPdbs
+            Add-Content "Dockerfile2" $line 
+          }
+          else
+          {
+            Add-Content "Dockerfile2" $line
+          }
+      }
+    }
+
+    #Build the image
+    $dockerBuild = 'docker build --no-cache --tag ' + $imageName + ' -f Dockerfile2 .. 2>&1 | %{ "$_" }'
+    echo $dockerBuild
+    Invoke-Expression $dockerBuild
+
+    #Clean up
+    rm ".\LocalNugets" -r -force
+    rm ".\Nuget.Config" -force
+    rm ".\Dockerfile2" -force
+    rm ".\LocalNugetPDBs" -r -force
+}
+
+cls
+@#$BuildFunctionName@#$

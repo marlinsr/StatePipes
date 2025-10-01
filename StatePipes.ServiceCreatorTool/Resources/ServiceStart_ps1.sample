@@ -1,0 +1,16 @@
+﻿$programData = $env:ProgramData
+$destDir = $programData+"\@#$CompanyName@#$\@#$ClassLibraryName@#$.Service\Certs\"
+Remove-Item -Path $destDir -Recurse -Force
+New-Item -ItemType Directory -Path $destDir
+$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
+Invoke-Expression $cp
+$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
+Invoke-Expression $cp
+
+$fullPath = $PSScriptRoot+"\..\@#$ClassLibraryName@#$.Service\bin\Debug\net8.0\@#$ClassLibraryName@#$.Service.exe"
+$wd = [System.IO.Path]::GetDirectoryName($fullPath)
+$argses = "--usedefaultconfig=true"
+Start-Process $fullPath -WorkingDirectory $wd -ArgumentList $argses
+Start-Process chrome.exe 'https://statepipes.explorer:7219/Params/@#$BrokerUriForStartScript@#$/@#$ClassLibraryName@#$/@#$CertFileName@#$/CommonPassword.txt/@#$ClassLibraryName@#$'
+  
+ 

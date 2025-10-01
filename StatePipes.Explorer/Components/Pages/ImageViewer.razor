@@ -1,0 +1,20 @@
+﻿@using System.Text
+@using Newtonsoft.Json
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.ExplorerTypes
+@inherits ObjectEditorBaseClass
+
+@if (!string.IsNullOrEmpty(EditorObject?.Name))
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgrey;color:black;padding-left:10px;padding-top:2px">
+        <label style="display:flex;align-items:center">@EditorObject?.Name [BVImage]:</label>
+        @if (IsReadOnly)
+        {
+            <img src=@ImageHtml style="object-fit:contain;
+                                    width:80%;
+                                    height:auto;
+                                    border: solid 1px #CCC" />
+        }
+    </div>
+}

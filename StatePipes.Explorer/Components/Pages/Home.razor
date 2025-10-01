@@ -1,0 +1,116 @@
+﻿@page "/"
+@page "/Params/{BrokerUriParameter}/{ExchangeName}/{ClientCertFileName}/{ClientCertPasswordFileName}/{TabTitle}/{ShowFilter?}/{ObjectEditorFilter?}"
+@using System.Text.RegularExpressions
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.Comms
+@using StatePipes.StateMachine
+@using StatePipes.Explorer.NonWebClasses
+@using StatePipes.Messages
+@using StatePipes.ProcessLevelServices
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IStatePipesHandler _statePipesHandler
+@inject NavigationManager NavManager
+
+
+<style>
+    .valid.modified:not([type=checkbox]) {
+        outline: 1px solid #26b050;
+    }
+
+    .invalid {
+        outline: 1px solid red;
+    }
+
+    .validation-message {
+        color: red;
+    }
+</style>
+
+@if (!string.IsNullOrEmpty(TabTitle))
+{
+    <PageTitle>@TabTitle</PageTitle>
+}
+Guid : @InstanceGuid
+<hr />
+Time : @Time
+<hr />
+<div style="background-color:black">
+    <b style="color:white">StatePipes Service Communication</b>
+</div>
+<div>
+    <div style="display:flex;flex-direction:row">
+        <label style="width:25%">Broker URI:</label>
+        <InputText style="flex:1" @bind-Value=@BrokerUri />
+    </div>
+    <div style="display:flex;flex-direction:row">
+        <label style="width:25%">Exchange Name:</label>
+        <InputText style="flex:1" @bind-Value=@ExchangeName />
+    </div>
+    <div style="display:flex;flex-direction:row">
+        <label style="width:25%">Cert Filename:</label>
+        <InputText style="flex:1" @bind-Value=@ClientCertFileName />
+    </div>
+    <div style="display:flex;flex-direction:row">
+        <label style="width:25%">Cert Password Filename:</label>
+        <InputText style="flex:1" @bind-Value=@ClientCertPasswordFileName />
+    </div>
+    <div style="display:flex;flex-direction:row">
+        <label style="width:25%">Cert Password:</label>
+        <InputText type="password" style="flex:1" @bind-Value=@ClientCertPassword autocomplete="new-password"/>
+    </div>
+    <button style="background-color:purple;color:white" @onclick="() => InitializeComms(string.Empty)">CONNECT</button>
+</div>
+
+<hr />
+
+<CommsStatusView TabTitle=@TabTitle IsConnectedToBroker=@_isConnectedToBroker IsConnectedToService=@_isConnectedToService CommStatusEvent=_commStatusEvent OnCollapsedChanged=@ShowingCommunicationStatus></CommsStatusView>
+
+<hr />
+<FilterViewer Title="Show Filter" Filter=@_showFilter OnListChanged=InitializeComms></FilterViewer>
+<FilterViewer Title="Object Editor Filter" Filter=@_objectEditorFilter></FilterViewer>
+<hr />
+
+
+<Tabs>
+    <Tab Title="HOME" Active="true" OnClick="@(() => ToggleDisplayMode(TabEnum.ObjectEditor))">
+        <Content>
+            <CollapsableDivision IsExpandedInitialState="true" TitleName="Events" TitleColor="black" ShowExpandChildren=true>
+                @{
+                    var directories = new DirectoryListForEvents(GetNonExcludedEvents());
+                    <EventDirectoryViewer TitleColor="darkblue" InstanceGuid=@InstanceGuid Directories=@directories QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=_objectEditorFilter ShowFilter=_showFilter>
+                    </EventDirectoryViewer>
+                }
+            </CollapsableDivision>
+
+            <hr />
+
+            <CollapsableDivision IsExpandedInitialState="true" TitleName="Commands" TitleColor="black" ShowExpandChildren=true>
+                @{
+                    var directories = new DirectoryListForCommands(GetNonExcludedCommands());
+                    <CommandDirectoryViewer TitleColor="darkgreen" Directories=@directories InstanceGuid=@InstanceGuid QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=_objectEditorFilter ShowFilter=_showFilter></CommandDirectoryViewer>
+                }
+            </CollapsableDivision>
+
+
+            <hr />
+            <CollapsableDivision TitleName="URL With Filters" TitleColor="gray" IsExpandedInitialState=false>
+                <a href="@QuickViewUriPrefix/@_showFilter.GetJsonString()/@_objectEditorFilter.GetJsonString()" style="padding-left:10px" target=" _blank">NEW TAB</a>
+            </CollapsableDivision>
+        </Content>
+    </Tab>
+    <Tab Title="LOG FILE" OnClick="@(() => ToggleDisplayMode(TabEnum.LogFile))">
+        <Content>
+            <textarea style="width:100%" rows="25" @bind=@LogText readonly />
+        </Content>
+    </Tab>
+    <Tab Title="STATE MACHINE" OnClick="@(() => ToggleDisplayMode(TabEnum.StateMachine))">
+        <Content>
+            <StateMachineDiagramViewer InstanceGuid=@InstanceGuid TabId=@_showTab></StateMachineDiagramViewer>
+        </Content>
+    </Tab>
+</Tabs>
+

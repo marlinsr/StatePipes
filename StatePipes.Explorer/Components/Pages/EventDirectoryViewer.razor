@@ -1,0 +1,44 @@
+﻿@using StatePipes.Explorer.NonWebClasses
+@using System.Text.RegularExpressions
+@using System.Diagnostics;
+
+@if (Directories != null)
+{
+    if (Directories.Event != null)
+    {
+        <EventViewer InstanceGuid=@InstanceGuid Evnt=@Directories.Event TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter></EventViewer>
+    }
+    else
+    {
+        if (string.IsNullOrEmpty(Directories.DirectoryName))
+        {
+            @for (int i = 0; i < Directories!.Subdirectories.Count; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    <EventDirectoryViewer Directories=@Directories!.Subdirectories[i] TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                }
+                else
+                {
+                    <EventDirectoryViewer Directories=@Directories!.Subdirectories[i] TitleColor=@_otherColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                }
+            }
+        }
+        else
+        {
+            <CollapsableDivision TitleName=@Directories.DirectoryName TitleColor=@TitleColor ShowExpandChildren=true Filter=@ShowFilter Namespace=@Directories.Namespace>
+                @for (int i = 0; i < Directories!.Subdirectories.Count; i++)
+                {
+                    if (i % 2 == 0)
+                    {
+                        <EventDirectoryViewer Directories=@Directories!.Subdirectories[i] TitleColor=@_otherColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                    }
+                    else
+                    {
+                        <EventDirectoryViewer Directories=@Directories!.Subdirectories[i] TitleColor=@TitleColor QuickViewUriPrefix=@QuickViewUriPrefix ObjectEditorFilter=@ObjectEditorFilter ShowFilter=@ShowFilter />
+                    }
+                }
+            </CollapsableDivision>
+        }
+    }
+}

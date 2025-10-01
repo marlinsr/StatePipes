@@ -1,0 +1,10 @@
+﻿cls
+
+$Net = @#$NetworkName@#$
+$SmallstepContainerName = "step-ca"
+$RabbitContainerName = "amqp09-broker"
+docker stop $RabbitContainerName
+docker container rm $RabbitContainerName
+docker stop $SmallstepContainerName
+docker container rm $SmallstepContainerName
+docker network rm $Net

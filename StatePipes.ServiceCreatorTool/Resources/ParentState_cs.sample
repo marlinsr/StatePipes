@@ -1,0 +1,34 @@
+﻿using StatePipes.StateMachine;
+using StatePipes.Interfaces;
+using @#$ClassLibraryName@#$.Events;
+using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
+{
+    internal class ParentState : BaseStateMachineState<@#$StateMachineName@#$>, IFirstStateForStateMachine
+    {
+        public override void Configure(StateConfigurationWrapper stateConfig)
+        {
+            stateConfig
+                .PermitReentryIf<DummyTrigger>(DummyTriggerGuard)
+                .PermitReentryIf<SendCurrentStatusCommand>(SendCurrentStatusCommandGuard);            
+        }
+        private bool DummyTriggerGuard()
+        {
+            var trigger = GetCurrentTrigger<DummyTrigger>();
+            if (trigger == null) return false;
+            PublishEvent(new DummyEvent(trigger.Good));
+            return false;
+        }
+        private bool SendCurrentStatusCommandGuard()
+        {
+            var trigger = GetCurrentTrigger<SendCurrentStatusCommand>();
+            if (trigger == null) return false;
+            var currentStatusEvent = new CurrentStatusEvent("Operational!!!");
+            var responseInfo = GetCurrentResponseInfo();
+            if (responseInfo is not null) SendResponse(currentStatusEvent, responseInfo);
+            else PublishEvent(currentStatusEvent);
+            return false;
+        }
+    }
+}

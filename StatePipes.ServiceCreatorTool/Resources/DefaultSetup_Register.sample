@@ -1,0 +1,4 @@
+﻿            containerBuilder.RegisterType<@#$ClassLibraryName@#$.Proxies.@#$ProxyName@#$Proxy>()
+                .AsSelf()
+                .AsImplementedInterfaces()
+                .SingleInstance();

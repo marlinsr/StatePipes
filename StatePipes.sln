@@ -1,0 +1,59 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Solution Items", "_Solution Items", "{0181B4D3-D690-421E-8D92-A669529AC844}"
+	ProjectSection(SolutionItems) = preProject
+		SolutionInfo.proj = SolutionInfo.proj
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes", "StatePipes\StatePipes.csproj", "{076891BE-1599-4075-84F2-8128133C6AF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.Test", "StatePipes.Test\StatePipes.Test.csproj", "{7193283E-0AD7-4C0D-BFE2-6DB33FFF8193}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.ServiceCreatorTool", "StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj", "{6C912132-3BE7-4F2F-8696-7A504684EADE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.Explorer", "StatePipes.Explorer\StatePipes.Explorer.csproj", "{33EC53FC-5CE4-4A56-B6D5-D30A55CA869A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.ServiceCreatorToolSetup", "StatePipes.ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.csproj", "{6B701AE3-11E7-4290-9607-537D8BF8614F}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "StatePipes.ServiceCreatorTool.Installer", "StatePipes.ServiceCreatorTool.Installer\StatePipes.ServiceCreatorTool.Installer.vdproj", "{C27BE036-12F6-DCF7-6E0C-718C1A51BAF4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{076891BE-1599-4075-84F2-8128133C6AF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{076891BE-1599-4075-84F2-8128133C6AF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{076891BE-1599-4075-84F2-8128133C6AF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{076891BE-1599-4075-84F2-8128133C6AF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7193283E-0AD7-4C0D-BFE2-6DB33FFF8193}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7193283E-0AD7-4C0D-BFE2-6DB33FFF8193}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7193283E-0AD7-4C0D-BFE2-6DB33FFF8193}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7193283E-0AD7-4C0D-BFE2-6DB33FFF8193}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C912132-3BE7-4F2F-8696-7A504684EADE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C912132-3BE7-4F2F-8696-7A504684EADE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C912132-3BE7-4F2F-8696-7A504684EADE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C912132-3BE7-4F2F-8696-7A504684EADE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33EC53FC-5CE4-4A56-B6D5-D30A55CA869A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33EC53FC-5CE4-4A56-B6D5-D30A55CA869A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33EC53FC-5CE4-4A56-B6D5-D30A55CA869A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33EC53FC-5CE4-4A56-B6D5-D30A55CA869A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B701AE3-11E7-4290-9607-537D8BF8614F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B701AE3-11E7-4290-9607-537D8BF8614F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B701AE3-11E7-4290-9607-537D8BF8614F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B701AE3-11E7-4290-9607-537D8BF8614F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C27BE036-12F6-DCF7-6E0C-718C1A51BAF4}.Debug|Any CPU.ActiveCfg = Debug
+		{C27BE036-12F6-DCF7-6E0C-718C1A51BAF4}.Debug|Any CPU.Build.0 = Debug
+		{C27BE036-12F6-DCF7-6E0C-718C1A51BAF4}.Release|Any CPU.ActiveCfg = Release
+		{C27BE036-12F6-DCF7-6E0C-718C1A51BAF4}.Release|Any CPU.Build.0 = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {23682e3d-6af1-4bf3-9b65-ec904a122d9b}
+	EndGlobalSection
+EndGlobal

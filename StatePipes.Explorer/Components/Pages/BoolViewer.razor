@@ -1,0 +1,33 @@
+﻿@using System.Text
+@inherits ObjectEditorBaseClass
+@if (IsReadOnly)
+{
+    <StringViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></StringViewer>
+}
+else
+{
+    <div style="display:block;background-color:lightgrey;color:black;padding-left:10px">
+        <label>@EditorObject!.Name:</label>
+
+        <InputSelect @bind-Value="EditorObjectString">
+            @{
+                if (("true" == (EditorObject?.Value?.ToString() ?? string.Empty)))
+                {
+                    <option selected value="true">true</option>
+                }
+                else
+                {
+                    <option value="true">true</option>
+                }
+                if (("false" == (EditorObject?.Value?.ToString() ?? string.Empty)))
+                {
+                    <option selected value="false">false</option>
+                }
+                else
+                {
+                    <option value="false">false</option>
+                }
+            }
+        </InputSelect>
+    </div>
+}

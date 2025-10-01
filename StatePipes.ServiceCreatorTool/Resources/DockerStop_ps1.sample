@@ -1,0 +1,2 @@
+﻿docker stop @#$ClassLibraryName@#$.Service
+docker container rm @#$ClassLibraryName@#$.Service

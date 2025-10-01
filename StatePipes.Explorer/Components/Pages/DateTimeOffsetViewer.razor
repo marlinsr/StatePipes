@@ -1,0 +1,43 @@
+﻿@using System.Text
+@using Newtonsoft.Json
+@using StatePipes
+@using StatePipes.Common
+@inherits ObjectEditorBaseClass
+
+@if (!string.IsNullOrEmpty(EditorObject?.Name))
+{
+    <div style="display:flex;flex-direction:row;background-color:lightgrey;color:black;padding-left:10px;padding-top:2px">
+        <label style="display:flex;align-items:center">@EditorObject?.Name [DateTime]:</label>
+        @if (IsReadOnly)
+        {
+            <textarea style="flex:1;text-align:left;margin-left:10px" rows="1" @bind=_newDateStr ReadOnly="readonly"></textarea>
+            <textarea style="flex:1;text-align:left;margin-left:10px" rows="1" @bind=_newTimeStr ReadOnly="readonly"></textarea>
+            <textarea style="flex:1;text-align:left;margin-left:10px" rows="1" @bind=_seconds ReadOnly="readonly"></textarea>
+            <textarea style="flex:1;text-align:left;margin-left:10px" rows="1" @bind=SelectedTimeZone ReadOnly="readonly"></textarea>
+        }
+        else
+        {
+            <DateInput style="flex:1;margin-left:10px;background-color:white;color:black;border:1px solid black" TValue="DateOnly" @bind-Value="@_newDate" ReadOnly=@IsReadOnly />
+            <TimeInput style="flex:1;margin-left:10px;background-color:white;color:black;border:1px solid black" TValue="TimeOnly" @bind-Value="@_newTime" ReadOnly=@IsReadOnly />
+            <input type="number" style="flex:1;text-align:left;margin-left:10px" value=@this._seconds @oninput=OnValueChanged ReadOnly=@IsReadOnly />
+            <InputSelect style="display:flex;align-items:center;margin-left:10px;background-color:white;color:black;border:1px solid black" @bind-Value="SelectedTimeZone" ReadOnly=@IsReadOnly>
+                @{
+                    foreach (var tz in TimeZones)
+                    {
+                        <option value="@tz.DisplayName">@tz.DisplayName</option>
+                    }
+                }
+            </InputSelect>
+            <div style="margin-left:10px">
+                <button style="background-color:lightgray;color:black"
+                        @onclick="() => Now()">
+                    Now
+                </button>
+                <button style="background-color:lightgray;color:black"
+                        @onclick="() => UtcNow()">
+                    UtcNow
+                </button>
+            </div>
+        }
+    </div>
+}

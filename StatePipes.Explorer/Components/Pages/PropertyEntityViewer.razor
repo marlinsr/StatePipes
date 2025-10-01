@@ -1,0 +1,83 @@
+﻿@using System.Text
+@using Newtonsoft.Json
+@using StatePipes
+@using StatePipes.Common
+@using StatePipes.ExplorerTypes
+@inherits ObjectEditorBaseClass
+
+@if (EditorObject != null)
+{
+    <CascadingValue Value="@this" Name="ParentComponent">
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Decimal)
+        {
+            <DecimalViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></DecimalViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.DateTime)
+        {
+            <DateTimeViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></DateTimeViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.ByteArray)
+        {
+            <ByteArrayViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></ByteArrayViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.PrimitiveArray)
+        {
+            <PrimitiveArrayViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></PrimitiveArrayViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.DateTimeOffset)
+        {
+            <DateTimeOffsetViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></DateTimeOffsetViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Bool)
+        {
+            <BoolViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></BoolViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Primitive)
+        {
+            <PrimitiveViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></PrimitiveViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Enum)
+        {
+            <EnumViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></EnumViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.String)
+        {
+            <StringViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></StringViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Guid)
+        {
+            <GuidViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></GuidViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Image)
+        {
+            <ImageViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></ImageViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.LineChart)
+        {
+            <ChartViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></ChartViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.DictionaryEntry)
+        {
+            <DictionaryEntryViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></DictionaryEntryViewer>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Class)
+        {
+            <div style="margin-left:10px">
+                <ClassViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></ClassViewer>
+            </div>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Array)
+        {
+            <div style="margin-left:10px">
+                <ArrayViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></ArrayViewer>
+            </div>
+        }
+        @if (EditorObject.PropertyTypeEnum == PropertyValueClass.PropertyValueType.Dictionary)
+        {
+            <div style="margin-left:10px">
+                <DictionaryViewer EditorObject=@EditorObject IsReadOnly=@IsReadOnly></DictionaryViewer>
+            </div>
+        }
+    </CascadingValue>
+}
+

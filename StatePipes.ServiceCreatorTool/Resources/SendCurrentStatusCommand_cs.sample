@@ -1,0 +1,8 @@
+﻿using StatePipes.Interfaces;
+using StatePipes.StateMachine;
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers
+{
+    public class SendCurrentStatusCommand : BaseTriggerCommand<@#$StateMachineName@#$>, IGetCurrentStatusCommand
+    {
+    }
+}
