@@ -8,7 +8,7 @@
   </PropertyGroup>
   <Import Project="..\SolutionInfo.proj" />
   <PropertyGroup>
-    <Description>StatePipes</Description>
+    <Description>A .Net Core State Oriented Programming Framework geared toward SCADA, Robotic, and IoT</Description>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OS)'=='Windows_NT'">
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
