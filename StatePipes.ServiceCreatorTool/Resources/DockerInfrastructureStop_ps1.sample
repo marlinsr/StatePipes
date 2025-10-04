@@ -1,6 +1,6 @@
 ﻿cls
 
-$Net = @#$NetworkName@#$
+$Net = "@#$NetworkName@#$"
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
 $StatePipesContainerName = "statepipes.explorer"
