@@ -1,5 +1,5 @@
 ﻿ cls
-
+#Make sure you run this script as Administrator
 #Make sure you have openssl installed, if not open a command prompt as Administrator and execute the command 'winget install openssl'
 #Then put 'C:\Program Files\OpenSSL-Win64\bin' in your path
 $CommonPassword = "StatePipes123$"
@@ -199,6 +199,8 @@ $StatePipesContainerName = "statepipes.explorer"
 docker stop $StatePipesContainerName
 docker container rm $StatePipesContainerName
 
+docker pull bigfish88/statepipesexplorer
+
 $StatePipesCertDir = $programData+"\StatePipes\StatePipes.Explorer\Certs\"
 
 Remove-Item -Path $StatePipesCertDir -Recurse -Force
@@ -208,7 +210,7 @@ New-Item -ItemType Directory -Path $StatePipesCertDir
 $cp = "Copy-Item -Path "+$SmallstepProgramDataPrefix+"* -Destination "+$StatePipesCertDir
 Invoke-Expression $cp
 
-$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name "+$StatePipesContainerName+" --hostname "+$StatePipesContainerName+" -v "+$programData+"\StatePipes:/usr/share/StatePipes -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password="+$CommonPassword+" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network "+$Net+" statepipesexplorer:latest"
+$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name "+$StatePipesContainerName+" --hostname "+$StatePipesContainerName+" -v "+$programData+"\StatePipes:/usr/share/StatePipes -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password="+$CommonPassword+" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network "+$Net+" bigfish88/statepipesexplorer:latest"
 Invoke-Expression $dockerRun
 
 $dockerRun = "docker exec -it "+$StatePipesContainerName+" bash -c 'mkdir /usr/local/share/ca-certificates/custom && cp /usr/share/StatePipes/StatePipes.Explorer/Certs/root_ca.crt /usr/local/share/ca-certificates/custom/root_ca.crt && chmod 644 /usr/local/share/ca-certificates/custom/root_ca.crt && cp /usr/share/StatePipes/StatePipes.Explorer/Certs/intermediate_ca.crt /usr/local/share/ca-certificates/custom/intermediate_ca.crt && chmod 644 /usr/local/share/ca-certificates/custom/intermediate_ca.crt &&  update-ca-certificates'"

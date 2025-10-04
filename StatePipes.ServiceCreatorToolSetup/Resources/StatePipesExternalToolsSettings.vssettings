@@ -7,7 +7,7 @@
         <UserCreatedTool>
           <Arguments></Arguments>
           <CloseOnExit>true</CloseOnExit>
-          <Command>%ProgramFiles(x86)%\StatePipes\StatePipes.ServiceCreatorTool.exe</Command>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>300</Index>
           <InitialDirectory></InitialDirectory>
           <IsGUIapp>false</IsGUIapp>
@@ -23,7 +23,7 @@
         <UserCreatedTool>
           <Arguments>-r $(SolutionDir) -s $(SolutionFileName)</Arguments>
           <CloseOnExit>true</CloseOnExit>
-          <Command>%ProgramFiles(x86)%\StatePipes\StatePipes.ServiceCreatorTool.exe</Command>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>301</Index>
           <InitialDirectory></InitialDirectory>
           <IsGUIapp>false</IsGUIapp>
@@ -39,7 +39,7 @@
         <UserCreatedTool>
           <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName)</Arguments>
           <CloseOnExit>true</CloseOnExit>
-          <Command>%ProgramFiles(x86)%\StatePipes\StatePipes.ServiceCreatorTool.exe</Command>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>302</Index>
           <InitialDirectory></InitialDirectory>
           <IsGUIapp>false</IsGUIapp>

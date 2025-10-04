@@ -3,6 +3,9 @@
 $Net = @#$NetworkName@#$
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
+$StatePipesContainerName = "statepipes.explorer"
+docker stop $StatePipesContainerName
+docker container rm $StatePipesContainerName
 docker stop $RabbitContainerName
 docker container rm $RabbitContainerName
 docker stop $SmallstepContainerName

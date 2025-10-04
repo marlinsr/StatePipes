@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <Import Project="..\SolutionInfo.proj" />
+  <PropertyGroup>
+    <Description>StatePipes Service Creator Tool Installer</Description>
+    <PackageVersion>$(VersionPrefix)</PackageVersion>
+    <PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="StatePipes.ServiceCreatorTool.Installer.exe" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\StatePipes.ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.csproj" />
+    <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
+  </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="makensis.exe /DPRODUCT_VERSION=$(PackageVersion) $(ProjectDir)\StatePipes.ServiceCreatorTool.Installer.nsi" />
+  </Target>
+
+</Project>
