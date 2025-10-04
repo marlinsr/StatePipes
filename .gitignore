@@ -212,3 +212,4 @@ _Pvt_Extensions/
 ModelManifest.xml
 *.ncrunchproject
 *.ncrunchsolution
+/StatePipes.ServiceCreatorTool.Installer/StatePipes.ServiceCreatorTool.Installer.exe
