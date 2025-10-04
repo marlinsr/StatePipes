@@ -9,6 +9,7 @@ namespace StatePipes.Comms.Internal
 {
     internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxy, IDisposable
     {
+        private readonly TypeDictionary _externalMessageTypeDictionary = new TypeDictionary();
         private readonly Guid _id = Guid.NewGuid();
         private readonly IStatePipesProxyFactory? _parentProxyFactory;
         private readonly ServiceConfiguration _serviceConfiguration;
@@ -92,6 +93,7 @@ namespace StatePipes.Comms.Internal
             if (_container != null) return;
             ContainerBuilder containerBuilder = new();
             var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(_serviceConfiguration, _parentProxyFactory);
+            _externalMessageTypeDictionary.SetupAssembylyMessageTypes(statePipesServiceContainerSetup.ClassLibraryAssembly);
             statePipesServiceContainerSetup.Register(containerBuilder);
             containerBuilder.Register(c => this).As<IStatePipesService>().SingleInstance();
             var container = containerBuilder.Build();
@@ -125,7 +127,7 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? command, out BusConfig? busConfig);
+                MessageHelper.Deserialize(ea, out IMessage? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (command == null || busConfig == null) return Task.CompletedTask;
                 Queue(new ReceivedCommandMessage((ICommand)command, busConfig));
             }
@@ -140,7 +142,7 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig);
+                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 ExecuteMessageHelper.ExecuteMessage(eventMessage, busConfig, true, _container);
             }

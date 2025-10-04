@@ -14,7 +14,7 @@ namespace StatePipes.Comms.Internal
         internal static void Serialize(IMessage message, BusConfig busConfig, out byte[] body, out BasicProperties properties)
         {
             properties = new BasicProperties();
-            properties.Type = message.GetType().AssemblyQualifiedName;
+            properties.Type = message.GetType().FullName;
             properties.Headers = new Dictionary<string, object?>
             {
                 { StatePipesReplyToHeader, JsonUtility.GetJsonStringForObject(busConfig, true) }
@@ -23,7 +23,7 @@ namespace StatePipes.Comms.Internal
             body = Encoding.UTF8.GetBytes(eventJson);
         }
 
-        internal static void Deserialize(BasicDeliverEventArgs ea, out IMessage? message, out BusConfig? busConfig, TypeDictionary? typeRepo = null)
+        internal static void Deserialize(BasicDeliverEventArgs ea, out IMessage? message, out BusConfig? busConfig, TypeDictionary typeRepo)
         {
             message = null;
             busConfig = null;
@@ -38,8 +38,7 @@ namespace StatePipes.Comms.Internal
                 return;
             }
             var cmdJson = Encoding.UTF8.GetString(ea.Body.ToArray());
-            var t = Type.GetType(ea.BasicProperties.Type);
-            if (t == null) t = typeRepo?.Get(ea.BasicProperties.Type);
+            var t = typeRepo.Get(ea.BasicProperties.Type);
             if (t == null)
             {
                 Log?.LogError($"Unknown message type: {ea.BasicProperties.Type}");

@@ -16,6 +16,7 @@ namespace StatePipes.Comms.Internal
         private readonly ServiceConfiguration _serviceConfiguration;
         private readonly IStatePipesProxyFactory? _parentProxyFactory;
         private readonly SelfDescriptionContainerSetup _selfDescriptionContainerSetup;
+        public Assembly ClassLibraryAssembly => _assembly;
         public List<string> PublicCommandsFullName => _selfDescriptionContainerSetup.PublicCommandsFullName;
         public StatePipesServiceContainerSetup(ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory)
         {
