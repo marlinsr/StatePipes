@@ -110,6 +110,10 @@ namespace StatePipes.Explorer.NonWebClasses
                 var typeDescription = typeSerialization.GetTopLevelDescription();
                 if (typeDescription != null && typeDescription.FullName != typeof(SelfDescriptionEvent).FullName)
                 {
+                    if(typeDescription.FullName == typeof(HeartbeatEvent).FullName)
+                    {
+                        System.Console.WriteLine("Got Heartbeat Event");
+                    }
                     UpdateEvent(typeDescription, typeSerialization, eventList);
                     UpdateCommand(typeDescription, typeSerialization, cmdList);
                 }

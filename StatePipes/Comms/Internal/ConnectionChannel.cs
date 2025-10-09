@@ -124,12 +124,6 @@ namespace StatePipes.Comms.Internal
         {
             lock (_lock)
             {
-                var assemblyQualifiedName = message.GetType().AssemblyQualifiedName;
-                if (string.IsNullOrEmpty(assemblyQualifiedName))
-                {
-                    Log?.LogError("Failed to get AssemblyQualifiedName for message.");
-                    return;
-                }
                 var routingKey = message.GetType().FullName;
                 if (string.IsNullOrEmpty(routingKey))
                 {

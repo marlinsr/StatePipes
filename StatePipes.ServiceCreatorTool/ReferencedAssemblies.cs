@@ -72,14 +72,14 @@ namespace StatePipes.ServiceCreatorTool
                 catch (Exception) { }
             }
         }
-        public TypeDescription? GetTypeDescription(string typeFullyQualifiedName)
+        public TypeDescription? GetTypeDescription(string typeFullName)
         {
             foreach (var tsi in _typeSerialization.TypeSerializations)
             {
                 try
                 {
-                    if (tsi.HasTypeDescription(typeFullyQualifiedName)) 
-                        return tsi.GetTypeDescription(typeFullyQualifiedName);
+                    if (tsi.HasTypeDescription(typeFullName)) 
+                        return tsi.GetTypeDescription(typeFullName);
                 }
                 catch { }
             }

@@ -5,13 +5,13 @@ namespace StatePipes.Messages
     public class TypeDescription : TypeNames
     {
         [JsonConstructor]
-        public TypeDescription(string qualifiedName, string fullName, string assemblyName, string @namespace, string arrayQualifiedName, int arrayRank, List<AttributeDescription> attributes, List<ParameterDescription> properties, bool isEvent, bool isCommand, bool isAttribute, List<EnumValue> enumValues, TypeNames? genericNames, TypeNames[] genericArgumentsNames)
+        public TypeDescription(string qualifiedName, string fullName, string assemblyName, string @namespace, string arrayFullName, int arrayRank, List<AttributeDescription> attributes, List<ParameterDescription> properties, bool isEvent, bool isCommand, bool isAttribute, List<EnumValue> enumValues, TypeNames? genericNames, TypeNames[] genericArgumentsNames)
         {
             QualifiedName = qualifiedName;
             FullName = fullName;
             AssemblyName = assemblyName;
             Namespace = @namespace;
-            ArrayQualifiedName = arrayQualifiedName;
+            ArrayFullName = arrayFullName;
             ArrayRank = arrayRank;
             Attributes = attributes;
             Properties = properties;
@@ -25,7 +25,7 @@ namespace StatePipes.Messages
 
         public TypeDescription() { }
 
-        public string ArrayQualifiedName { get; set; } = string.Empty;
+        public string ArrayFullName { get; set; } = string.Empty;
         public int ArrayRank { get; set; }
         public List<AttributeDescription> Attributes { get; set; } = [];
         public List<ParameterDescription> Properties { get; set; } = [];
@@ -36,7 +36,7 @@ namespace StatePipes.Messages
         public TypeNames? GenericNames { get; set; }
         public TypeNames[] GenericArgumentsNames { get; set; } = [];
         public bool IsGeneric() { return GenericNames != null; }
-        public bool IsArray() { return !string.IsNullOrEmpty(ArrayQualifiedName); }
+        public bool IsArray() { return !string.IsNullOrEmpty(ArrayFullName); }
         public bool IsEnum() { return EnumValues.Any(); }
     }
 }

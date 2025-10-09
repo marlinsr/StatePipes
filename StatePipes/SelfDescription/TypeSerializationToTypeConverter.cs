@@ -32,7 +32,7 @@ namespace StatePipes.SelfDescription
             var underLyingType = LocalCreateType(t, tsi);
             if (underLyingType == null) return null;
             var genericType = typeof(Nullable<>).MakeGenericType(underLyingType);
-            _nullableTypeRepo.AddTypeToRepo(genericType, t.QualifiedName);
+            _nullableTypeRepo.AddTypeToRepo(genericType, t.FullName);
             return genericType;
         }
         private static object? GetPropertyValueForConstructorParam(string? constructorParameterName, object attribute)
@@ -45,7 +45,7 @@ namespace StatePipes.SelfDescription
         private CustomAttributeBuilder? CreateCustomAttributeBuilder(AttributeDescription attr, TypeSerialization tsi)
         {
             //All attributes must be immutable with one constructor and Properties and be json Serializable
-            var localType = LocalCreateType(tsi.GetDescription(attr.QualifiedName), tsi);
+            var localType = LocalCreateType(tsi.GetDescription(attr.FullName), tsi);
             if(localType == null) return null;
             dynamic ? attribute = JsonUtility.GetObjectFromJson(attr.Value, localType);
             if (attribute is null) return null;
@@ -93,21 +93,21 @@ namespace StatePipes.SelfDescription
         }
         private Type? GetTypeFromRepo(TypeNames t)
         {
-            if (_builderRepo.ContainsKey(t.QualifiedName))
+            if (_builderRepo.ContainsKey(t.FullName))
             {
-                return _builderRepo[t.QualifiedName];
+                return _builderRepo[t.FullName];
             }
             return _typeRepo.GetTypeFromRepo(t);
         }
         private void AddToBuilderRepo(TypeBuilder tb, TypeDescription t)
         {
-            if (_builderRepo.ContainsKey(t.QualifiedName))
+            if (_builderRepo.ContainsKey(t.FullName))
             {
-                _builderRepo[t.QualifiedName] = tb;
+                _builderRepo[t.FullName] = tb;
             }
             else
             {
-                _builderRepo.Add(t.QualifiedName, tb);
+                _builderRepo.Add(t.FullName, tb);
             }
         }
         private Type[] GetGenericArgumentsTypeArray(TypeDescription t, TypeSerialization tsi)
@@ -115,7 +115,7 @@ namespace StatePipes.SelfDescription
             List<Type> ret = [];
             for (int i = 0; i < t.GenericArgumentsNames.Length; i++)
             {
-                var localType = LocalCreateType(tsi.GetDescription(t.GenericArgumentsNames[i].QualifiedName), tsi);
+                var localType = LocalCreateType(tsi.GetDescription(t.GenericArgumentsNames[i].FullName), tsi);
                 if (localType != null)
                 {
                     ret.Add(localType);
@@ -126,17 +126,17 @@ namespace StatePipes.SelfDescription
         }
         private Type? CreateArray(TypeDescription t, TypeSerialization tsi)
         {
-            var arrayElementType = LocalCreateType(tsi.GetDescription(t.ArrayQualifiedName), tsi);
+            var arrayElementType = LocalCreateType(tsi.GetDescription(t.ArrayFullName), tsi);
             if (arrayElementType == null) return null;
             var arrayType = arrayElementType.MakeArrayType(t.ArrayRank);
-            _typeRepo.AddTypeToRepo(arrayType, t.QualifiedName);
+            _typeRepo.AddTypeToRepo(arrayType, t.FullName);
             return arrayType;
         }
         private Type? CreateGeneric(TypeDescription t, TypeSerialization tsi)
         {
             var genericType = GetTypeFromRepo(t.GenericNames!)?.MakeGenericType(GetGenericArgumentsTypeArray(t, tsi));
             if (genericType == null) return null;
-            _typeRepo.AddTypeToRepo(genericType, t.QualifiedName);
+            _typeRepo.AddTypeToRepo(genericType, t.FullName);
             return genericType;
         }
         private Type CreateEnum(TypeDescription t)
@@ -147,12 +147,12 @@ namespace StatePipes.SelfDescription
                 eb.DefineLiteral(enumVal.Name, enumVal.Value);
             }
             var eType = eb.CreateType();
-            _typeRepo.AddTypeToRepo(eType, t.QualifiedName);
+            _typeRepo.AddTypeToRepo(eType, t.FullName);
             return eType;
         }
         private void CreateProperty(ParameterDescription p, TypeBuilder tb, TypeSerialization tsi)
         {
-            var parameterTypeDescription = tsi.GetDescription(p.QualifiedName);
+            var parameterTypeDescription = tsi.GetDescription(p.FullName);
             var pType = LocalCreateType(parameterTypeDescription, tsi, p.IsNullable);
             if(pType == null) return;
             FieldBuilder fieldBldr = tb.DefineField($"_{p.Name}",
