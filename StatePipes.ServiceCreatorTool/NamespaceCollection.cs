@@ -2,18 +2,18 @@
 {
     internal class NamespaceCollection : List<string>
     {
-        private List<string> _typeAssemblyQualifiedNameAddedList = new List<string>();
+        private List<string> _typeFullNameAddedList = new List<string>();
         public void AddNamespace(string element)
         {
             
             if (Contains(element)) return;
             Add(element);
         }
-        public void AddNameSpaceFromTypeAssemblyQualifiedName(string typeAssemblyQualifiedName, ReferencedAssemblies assemblies)
+        public void AddNameSpaceFromTypeFullName(string typeFullName, ReferencedAssemblies assemblies)
         {
-            if (_typeAssemblyQualifiedNameAddedList.Contains(typeAssemblyQualifiedName)) return;
-            _typeAssemblyQualifiedNameAddedList.Add(typeAssemblyQualifiedName);
-            var td = assemblies.GetTypeDescription(typeAssemblyQualifiedName);
+            if (_typeFullNameAddedList.Contains(typeFullName)) return;
+            _typeFullNameAddedList.Add(typeFullName);
+            var td = assemblies.GetTypeDescription(typeFullName);
             if (td == null) return;
             if (string.IsNullOrEmpty(td.Namespace))
             {

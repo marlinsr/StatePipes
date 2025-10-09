@@ -30,16 +30,16 @@
                 if (typeDescription.IsEvent)
                 {
                     _proxyGeneratorCommon.NamespaceList.AddNamespace(typeDescription.Namespace);
-                    CreateTrigger(typeDescription.QualifiedName);
+                    CreateTrigger(typeDescription.FullName);
                 }
             }
         }
-        public string CreateTriggerTypeName(string qualifiedName) => $"{_proxyGeneratorCommon.GetTypeName(qualifiedName)}From{_proxyGeneratorCommon.ProxyMoniker}Trigger";
-        public string CreateValueObjectTypeNameForEvent(string qualifiedName) => $"{_proxyGeneratorCommon.GetTypeName(qualifiedName)}From{_proxyGeneratorCommon.ProxyMoniker}";
-        private void CreateTrigger(string qualifiedName)
+        public string CreateTriggerTypeName(string typeFullName) => $"{_proxyGeneratorCommon.GetTypeName(typeFullName)}From{_proxyGeneratorCommon.ProxyMoniker}Trigger";
+        public string CreateValueObjectTypeNameForEvent(string typeFullName) => $"{_proxyGeneratorCommon.GetTypeName(typeFullName)}From{_proxyGeneratorCommon.ProxyMoniker}";
+        private void CreateTrigger(string typeFullName)
         {
-            var valueObjectName = CreateValueObjectTypeNameForEvent(qualifiedName);
-            var triggerName = CreateTriggerTypeName(qualifiedName);
+            var valueObjectName = CreateValueObjectTypeNameForEvent(typeFullName);
+            var triggerName = CreateTriggerTypeName(typeFullName);
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"internal class {triggerName}: BaseTriggerCommand<{_proxyGeneratorCommon.StateMachineFullName}>");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public string ProxyName {{ get; }}");

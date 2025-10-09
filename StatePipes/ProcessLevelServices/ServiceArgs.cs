@@ -6,7 +6,7 @@
         public const string LogLevelArg = "--loglevel";
         public const string PostFix = "--postfix";
         public const string CompanyName = "--companyname";
-        public const string UseDefaultConfig = "--usedefaultconfig=";
+        public const string UseDefaultConfig = "--usedefaultconfig";
         public IReadOnlyList<string>? Args { get; }
         public ServiceArgs(IReadOnlyList<string>? args)
         {

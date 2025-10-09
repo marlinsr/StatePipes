@@ -9,16 +9,16 @@
             if (CountNeedsCreating <= 0) return null;
             return _valueObjectTypeToCreateList[0];
         }
-        public void RegisterNeedsCreating(string fullyQualifiedTypeName)
+        public void RegisterNeedsCreating(string typeFullName)
         {
-            if (!_valueObjectTypesCreatedList.Contains(fullyQualifiedTypeName) && !_valueObjectTypeToCreateList.Contains(fullyQualifiedTypeName))
-                _valueObjectTypeToCreateList.Add(fullyQualifiedTypeName);
+            if (!_valueObjectTypesCreatedList.Contains(typeFullName) && !_valueObjectTypeToCreateList.Contains(typeFullName))
+                _valueObjectTypeToCreateList.Add(typeFullName);
         }
         public int CountNeedsCreating => _valueObjectTypeToCreateList.Count;
-        public void RegisterCreatedValueObject(string fullyQualifiedTypeName)
+        public void RegisterCreatedValueObject(string typeFullName)
         {
-            if (_valueObjectTypeToCreateList.Contains(fullyQualifiedTypeName)) _valueObjectTypeToCreateList.Remove(fullyQualifiedTypeName);
-            if (!_valueObjectTypesCreatedList.Contains(fullyQualifiedTypeName)) _valueObjectTypesCreatedList.Add(fullyQualifiedTypeName);
+            if (_valueObjectTypeToCreateList.Contains(typeFullName)) _valueObjectTypeToCreateList.Remove(typeFullName);
+            if (!_valueObjectTypesCreatedList.Contains(typeFullName)) _valueObjectTypesCreatedList.Add(typeFullName);
         }
     }
 }

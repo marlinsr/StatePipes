@@ -10,12 +10,12 @@ namespace StatePipes.SelfDescription
         private readonly TypeSerializationConverter _typeSerializationConverter = typeSerializationConverter;
         public string GenerateDefault(Type t)
         {
-            var td = _thisTypeSerialization.GetDescription(t.AssemblyQualifiedName!);
+            var td = _thisTypeSerialization.GetDescription(t.FullName!);
             return GenerateDefault(td);
         }
         private static string? GenerateDefaultFromAttributes(List<AttributeDescription> attrs)
         {
-            var defaultAttr = attrs.FirstOrDefault(a => a.QualifiedName.Contains(typeof(SPEDefaultAttribute).Name));
+            var defaultAttr = attrs.FirstOrDefault(a => a.FullName.Contains(typeof(SPEDefaultAttribute).FullName!));
             if (defaultAttr is null) return null;
             return JsonUtility.GetObjectForJsonString<SPEDefaultAttribute>(defaultAttr.Value)?.DefaultValue;
         }
@@ -23,7 +23,7 @@ namespace StatePipes.SelfDescription
         {
             var defaultJson = GenerateDefaultFromAttributes(typeDescription.Attributes);
             if (defaultJson is not null) return defaultJson;
-            var tempTsi = _thisTypeSerialization.CreateSubTypeSerialization(typeDescription.QualifiedName);
+            var tempTsi = _thisTypeSerialization.CreateSubTypeSerialization(typeDescription.FullName);
             if (tempTsi == null) return "{}";
             var type = _typeSerializationConverter.CreateType(tempTsi);
             if (type == null) return "{}";
@@ -106,7 +106,7 @@ namespace StatePipes.SelfDescription
         {
             string propertyJson = string.Empty;
             var defaultJson = GenerateDefaultFromAttributes(parameterDescription.Attributes);
-            var propTypeDescription = _thisTypeSerialization.GetDescription(parameterDescription.QualifiedName);
+            var propTypeDescription = _thisTypeSerialization.GetDescription(parameterDescription.FullName);
             if (defaultJson is not null)
             {
                 propertyJson += defaultJson;
@@ -120,31 +120,31 @@ namespace StatePipes.SelfDescription
             }
             else if (propTypeDescription.IsArray())
             {
-                propertyJson += ArrayGenerator(propTypeDescription.ArrayRank, _thisTypeSerialization.GetDescription(propTypeDescription.ArrayQualifiedName));
+                propertyJson += ArrayGenerator(propTypeDescription.ArrayRank, _thisTypeSerialization.GetDescription(propTypeDescription.FullName));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(List<>).FullName)
             {
-                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName));
+                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(HashSet<>).FullName)
             {
-                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName));
+                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(IReadOnlyList<>).FullName)
             {
-                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName));
+                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(IEnumerable<>).FullName)
             {
-                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName));
+                propertyJson += ArrayGenerator(1, _thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(Dictionary<,>).FullName)
             {
-                DictionaryGenerator(ref propertyJson, GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName)), GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[1].QualifiedName)));
+                DictionaryGenerator(ref propertyJson, GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName)), GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[1].FullName)));
             }
             else if (propTypeDescription.IsGeneric() && propTypeDescription.GenericNames!.FullName == typeof(IReadOnlyDictionary<,>).FullName)
             {
-                DictionaryGenerator(ref propertyJson, GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].QualifiedName)), GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[1].QualifiedName)));
+                DictionaryGenerator(ref propertyJson, GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[0].FullName)), GenerateDefault(_thisTypeSerialization.GetDescription(propTypeDescription.GenericArgumentsNames[1].FullName)));
             }
             else
             {

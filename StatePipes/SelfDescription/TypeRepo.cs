@@ -48,16 +48,16 @@ namespace StatePipes.SelfDescription
         {
             var statePipesAssembly = typeof(TypeRepo).Assembly;
             _statePipeTypes = statePipesAssembly.GetLoadableTypes();
-            _statePipesAssemblyName = statePipesAssembly.GetName().FullName;
+            _statePipesAssemblyName = statePipesAssembly.GetName().Name;
             _callingAssemblyTypes = null;
             _callingAssemblyName = null;
             if (callingAssembly != null)
             {
                 _callingAssemblyTypes = callingAssembly.GetLoadableTypes();
-                _callingAssemblyName = callingAssembly.GetName().FullName;
+                _callingAssemblyName = callingAssembly.GetName().Name;
             }
         }
-        public void AddTypeToRepo(Type t, string typeAssemblyQualifiedName)
+        public void AddTypeToRepo(Type t, string typeFullName)
         {
             var tAssemblyName = t.Assembly.GetName().Name;
             if (tAssemblyName == _statePipesAssemblyName || tAssemblyName == _callingAssemblyName) return; 
@@ -65,13 +65,13 @@ namespace StatePipes.SelfDescription
             if(_supportedGenericsList.Contains(t)) return;
             lock (_typeRepo)
             {
-                if (_typeRepo.ContainsKey(typeAssemblyQualifiedName))
+                if (_typeRepo.ContainsKey(typeFullName))
                 {
                     return;
                 }
                 else
                 {
-                    _typeRepo.Add(typeAssemblyQualifiedName, t);
+                    _typeRepo.Add(typeFullName, t);
                 }
             }
         }
@@ -90,9 +90,9 @@ namespace StatePipes.SelfDescription
             }
             lock (_typeRepo)
             {
-                if (_typeRepo.ContainsKey(t.QualifiedName))
+                if (_typeRepo.ContainsKey(t.FullName))
                 {
-                    return _typeRepo[t.QualifiedName];
+                    return _typeRepo[t.FullName];
                 }
             }
             return null;

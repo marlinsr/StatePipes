@@ -100,23 +100,23 @@ namespace StatePipes.ServiceCreatorTool
             }
             else throw new OperationCanceledException();
         }
-        public string GetTypeName(string qualifiedName)
+        public string GetTypeName(string typeFullName)
         {
-            var t = Assemblies.GetTypeOf(qualifiedName);
-            if (t == null) t = Assemblies.GetTypeOf(GetTypeFromFullyQualifiedNameString(qualifiedName));
-            if (t == null) return GetTypeFromFullyQualifiedNameString(RemoveJunk(qualifiedName));
+            var t = Assemblies.GetTypeOf(typeFullName);
+            if (t == null) t = Assemblies.GetTypeOf(GetTypeFromFullNameString(typeFullName));
+            if (t == null) return GetTypeFromFullNameString(RemoveJunk(typeFullName));
             return RemoveJunk(t.Name);
         }
-        private string GetTypeFromFullyQualifiedNameStringJustType(string qualifiedName)
+        private string GetTypeFromFullNameStringJustType(string typeFullName)
         {
-            NamespaceList.AddNameSpaceFromTypeAssemblyQualifiedName(qualifiedName, Assemblies);
-            return qualifiedName.Split('.').Last();
+            NamespaceList.AddNameSpaceFromTypeFullName(typeFullName, Assemblies);
+            return typeFullName.Split('.').Last();
         }
-        private string GetTypeFromFullyQualifiedNameString(string qualifiedName)
+        private string GetTypeFromFullNameString(string typeFullName)
         {
-            var junkRemoved = RemoveJunk(qualifiedName);
+            var junkRemoved = RemoveJunk(typeFullName);
             return junkRemoved.StartsWith("StatePipes.Comms") && !junkRemoved.StartsWith("StatePipes.Common.") ? junkRemoved.Replace(".", "_") : 
-                GetTypeFromFullyQualifiedNameStringJustType(qualifiedName);
+                GetTypeFromFullNameStringJustType(typeFullName);
         }
         private string RemoveAferAndIncluding(string str, string delimeter)
         {
@@ -124,9 +124,9 @@ namespace StatePipes.ServiceCreatorTool
             if (indexOf < 0) return str;
             return str.Substring(0, indexOf);
         }
-        public string RemoveJunk(string qualifiedName)
+        public string RemoveJunk(string typeFullName)
         {
-            string ret = RemoveAferAndIncluding(qualifiedName, "<");
+            string ret = RemoveAferAndIncluding(typeFullName, "<");
             ret = RemoveAferAndIncluding(ret, "(");
             ret = RemoveAferAndIncluding(ret, "'");
             ret = RemoveAferAndIncluding(ret, "`");

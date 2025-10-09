@@ -11,15 +11,15 @@ namespace StatePipes.SelfDescription
         public TypeSerialization Convert(Type t)
         {
             TypeSerialization typeSerialization = new TypeSerialization();
-            typeSerialization.QualifiedName = t.AssemblyQualifiedName ?? string.Empty;
+            typeSerialization.FullName = t.FullName ?? string.Empty;
             typeSerialization.TypeRepo = new Dictionary<string, TypeDescription>();
             CreateFromType(t, typeSerialization);
             return typeSerialization;
         }
         private void CreateFromType(Type t, TypeSerialization ts)
         {
-            if (string.IsNullOrEmpty(t.AssemblyQualifiedName)) return;
-            if (ts.HasTypeDescription(t.AssemblyQualifiedName)) return;
+            if (string.IsNullOrEmpty(t.FullName)) return;
+            if (ts.HasTypeDescription(t.FullName)) return;
             var typeDescription = new TypeDescription();
             typeDescription.SetNames(t);
             typeDescription.IsEvent = typeof(IEvent).IsAssignableFrom(t);
@@ -39,7 +39,7 @@ namespace StatePipes.SelfDescription
                 var elementType = t.GetElementType();
                 if (elementType != null)
                 {
-                    typeDescription.ArrayQualifiedName = elementType.AssemblyQualifiedName ?? string.Empty;
+                    typeDescription.ArrayFullName = elementType.FullName ?? string.Empty;
                     CreateFromType(elementType, ts);
                     typeDescription.ArrayRank = t.GetArrayRank();
                 }
@@ -96,7 +96,7 @@ namespace StatePipes.SelfDescription
         private AttributeDescription GetAttributeTypeDescription(CustomAttributeData attributeData, Attribute customAttribute, TypeSerialization tsi)
         {
             CreateFromType(attributeData.AttributeType, tsi);
-            AttributeDescription attributeDescription = new AttributeDescription(attributeData.AttributeType.AssemblyQualifiedName ?? string.Empty, JsonUtility.GetJsonStringForObject(customAttribute));
+            AttributeDescription attributeDescription = new AttributeDescription(attributeData.AttributeType.FullName ?? string.Empty, JsonUtility.GetJsonStringForObject(customAttribute));
             return attributeDescription;
         }
         private List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes.")).ToList();
@@ -133,12 +133,12 @@ namespace StatePipes.SelfDescription
             if (f.FieldType.IsGenericType && f.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 var underLyingType = Nullable.GetUnderlyingType(f.FieldType)!;
-                typeDescription.Properties.Add(new ParameterDescription(f.Name, underLyingType.AssemblyQualifiedName ?? string.Empty, true, attributeList));
+                typeDescription.Properties.Add(new ParameterDescription(f.Name, underLyingType.FullName ?? string.Empty, true, attributeList));
                 CreateFromType(underLyingType, ts);
             }
             else
             {
-                typeDescription.Properties.Add(new ParameterDescription(f.Name, f.FieldType.AssemblyQualifiedName ?? string.Empty, false, attributeList ));
+                typeDescription.Properties.Add(new ParameterDescription(f.Name, f.FieldType.FullName ?? string.Empty, false, attributeList ));
                 CreateFromType(f.FieldType, ts);
             }
         }
@@ -163,12 +163,12 @@ namespace StatePipes.SelfDescription
                 if (p.PropertyType.IsGenericType && p.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
                     var underLyingType = Nullable.GetUnderlyingType(p.PropertyType)!;
-                    typeDescription.Properties.Add(new ParameterDescription(p.Name, underLyingType.AssemblyQualifiedName ?? string.Empty, true, attributeList));
+                    typeDescription.Properties.Add(new ParameterDescription(p.Name, underLyingType.FullName ?? string.Empty, true, attributeList));
                     CreateFromType(underLyingType, ts);
                 }
                 else
                 {
-                    typeDescription.Properties.Add(new ParameterDescription(p.Name, p.PropertyType.AssemblyQualifiedName ?? string.Empty, false, attributeList));
+                    typeDescription.Properties.Add(new ParameterDescription(p.Name, p.PropertyType.FullName ?? string.Empty, false, attributeList));
                     CreateFromType(p.PropertyType, ts);
                 }
             }

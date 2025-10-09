@@ -39,19 +39,19 @@ internal class TypeRepo
             typeof(byte[]),
             typeof(IReadOnlyList<byte>),
             typeof(List<byte>)];
-        public void AddTypeToRepo(Type t, string typeAssemblyQualifiedName)
+        public void AddTypeToRepo(Type t, string typeFullName)
         {
             if(_baseTypeList.Contains(t)) return;
             if(_supportedGenericsList.Contains(t)) return;
             lock (_typeRepo)
             {
-                if (_typeRepo.ContainsKey(typeAssemblyQualifiedName))
+                if (_typeRepo.ContainsKey(typeFullName))
                 {
                     return;
                 }
                 else
                 {
-                    _typeRepo.Add(typeAssemblyQualifiedName, t);
+                    _typeRepo.Add(typeFullName, t);
                 }
             }
         }
@@ -67,9 +67,9 @@ internal class TypeRepo
             }
             lock (_typeRepo)
             {
-                if (_typeRepo.ContainsKey(t.QualifiedName))
+                if (_typeRepo.ContainsKey(t.FullName))
                 {
-                    return _typeRepo[t.QualifiedName];
+                    return _typeRepo[t.FullName];
                 }
             }
             return null;

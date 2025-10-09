@@ -27,15 +27,15 @@
             }
             while (_valueObjectsCreationTracker.CountNeedsCreating > 0)
             {
-                var typeQualifiedName = _valueObjectsCreationTracker.GetTopNeedsCreating()!;
-                CreateSupportingValueObject(typeQualifiedName);
-                _valueObjectsCreationTracker.RegisterCreatedValueObject(typeQualifiedName);
+                var typeFullName = _valueObjectsCreationTracker.GetTopNeedsCreating()!;
+                CreateSupportingValueObject(typeFullName);
+                _valueObjectsCreationTracker.RegisterCreatedValueObject(typeFullName);
             }
         }
-        private TypeDescription? GetTypeDescription(string qualifiedName) => _proxyGeneratorCommon.Assemblies.GetTypeDescription(qualifiedName);
-        private void CreateSupportingValueObject(string qualifiedName)
+        private TypeDescription? GetTypeDescription(string typeFullName) => _proxyGeneratorCommon.Assemblies.GetTypeDescription(typeFullName);
+        private void CreateSupportingValueObject(string typeFullName)
         {
-            TypeDescription? typeDescription = GetTypeDescription(qualifiedName);
+            TypeDescription? typeDescription = GetTypeDescription(typeFullName);
             if (typeDescription == null) return;
             if (!typeDescription.Namespace.StartsWith("System") && !typeDescription.Namespace.StartsWith("StatePipes.Common"))
             {
@@ -58,8 +58,8 @@
         private void CreateValueObjectFromClass(TypeDescription? typeDescription, string postFix = "")
         {
             if (typeDescription == null) return;
-            _valueObjectsCreationTracker.RegisterCreatedValueObject(typeDescription.QualifiedName);
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public class {_proxyGeneratorCommon.GetTypeName(typeDescription.QualifiedName)}{postFix}");
+            _valueObjectsCreationTracker.RegisterCreatedValueObject(typeDescription.FullName);
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public class {_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             foreach (var p in typeDescription.Properties) CreateClassProperty(p);
             CreateValueObjectContructor(typeDescription, postFix);
@@ -82,7 +82,7 @@
         }
         private void CreateValueObjectContructor(TypeDescription typeDescription, string postFix = "")
         {
-            string valueObjectName = $"{_proxyGeneratorCommon.GetTypeName(typeDescription.QualifiedName)}{postFix}";
+            string valueObjectName = $"{_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}";
             if (typeDescription.Properties.Count <= 0)
             {
                 if (!_proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Keys.Contains(valueObjectName)) _proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Add(valueObjectName, new());
@@ -101,7 +101,7 @@
             for (int i = 0; i < properties.Count; i++)
             {
                 string commaString = i < properties.Count - 1 ? "," : ")";
-                string propertyType = GetPropertyType(properties[i].QualifiedName);
+                string propertyType = GetPropertyType(properties[i].FullName);
                 if (properties[i].IsNullable) propertyType += "?";
                 string propertyName = MakeConstructorParameterName(properties[i].Name);
                 _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"   {propertyType} {propertyName}{commaString}");
@@ -112,11 +112,11 @@
         private void CreateClassProperty(ParameterDescription p)
         {
             string nullableString = p.IsNullable ? "?" : "";
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {GetPropertyType(p.QualifiedName)}{nullableString} {p.Name} {{ get; }}");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {GetPropertyType(p.FullName)}{nullableString} {p.Name} {{ get; }}");
         }
-        private string GetPropertyTypeForArray(string arrayQualifiedName, int arrayRank)
+        private string GetPropertyTypeForArray(string arrayFullName, int arrayRank)
         {
-            string arrayRet = GetPropertyType(arrayQualifiedName);
+            string arrayRet = GetPropertyType(arrayFullName);
             string commas = string.Empty;
             for (int i = 1; i < arrayRank; i++)
             {
@@ -124,35 +124,35 @@
             }
             return $"{arrayRet}[{commas}]";
         }
-        private string GetPropertyTypeForGeneric(string genericQualifiedName, TypeNames[] genericArgumentsNames)
+        private string GetPropertyTypeForGeneric(string genericFullName, TypeNames[] genericArgumentsNames)
         {
-            string genericType = _proxyGeneratorCommon.GetTypeName(genericQualifiedName);
+            string genericType = _proxyGeneratorCommon.GetTypeName(genericFullName);
             string genericParameters = string.Empty;
             foreach (var genericArgument in genericArgumentsNames)
             {
                 if (!string.IsNullOrEmpty(genericParameters)) genericParameters += ",";
-                genericParameters += GetPropertyType(genericArgument.QualifiedName);
+                genericParameters += GetPropertyType(genericArgument.FullName);
             }
             return $"{genericType}<{genericParameters}>";
         }
-        private string GetPropertyType(string propertyQualifiedName)
+        private string GetPropertyType(string propertyFullName)
         {
-            var typeDescription = GetTypeDescription(propertyQualifiedName);
+            var typeDescription = GetTypeDescription(propertyFullName);
             if (typeDescription == null)
             {
-                return _proxyGeneratorCommon.GetTypeName(propertyQualifiedName);
+                return _proxyGeneratorCommon.GetTypeName(propertyFullName);
             }
-            if (typeDescription.IsArray()) return GetPropertyTypeForArray(typeDescription.ArrayQualifiedName, typeDescription.ArrayRank);
+            if (typeDescription.IsArray()) return GetPropertyTypeForArray(typeDescription.ArrayFullName, typeDescription.ArrayRank);
             if (typeDescription.IsGeneric()) 
-                return GetPropertyTypeForGeneric(typeDescription.GenericNames!.QualifiedName, typeDescription.GenericArgumentsNames);
+                return GetPropertyTypeForGeneric(typeDescription.GenericNames!.FullName, typeDescription.GenericArgumentsNames);
             if (typeDescription.Namespace.StartsWith("StatePipes.Common") || typeDescription.Namespace.StartsWith("System.")) 
-                return _proxyGeneratorCommon.GetTypeName(propertyQualifiedName);
-            _valueObjectsCreationTracker.RegisterNeedsCreating(propertyQualifiedName);
-            return _proxyGeneratorCommon.GetTypeName(propertyQualifiedName);
+                return _proxyGeneratorCommon.GetTypeName(propertyFullName);
+            _valueObjectsCreationTracker.RegisterNeedsCreating(propertyFullName);
+            return _proxyGeneratorCommon.GetTypeName(propertyFullName);
         }
         private void CreateValueObjectFromEnum(TypeDescription typeDescription)
         {
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public enum {_proxyGeneratorCommon.GetTypeName(typeDescription.QualifiedName)}");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public enum {_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             for (int i = 0; i < typeDescription.EnumValues.Count; i++)
             {

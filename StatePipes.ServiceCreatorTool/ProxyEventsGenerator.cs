@@ -29,14 +29,14 @@
                 if (typeDescription.IsCommand)
                 {
                     _proxyGeneratorCommon.NamespaceList.AddNamespace(typeDescription.Namespace);
-                    CreateEvent(typeDescription.QualifiedName);
+                    CreateEvent(typeDescription.FullName);
                 }
             }
         }
-        private void CreateEvent(string typeAssemblyQualifiedName)
+        private void CreateEvent(string fullName)
         {
-            var valueObjectName = CreateValueObjectTypeNameForCommand(typeAssemblyQualifiedName);
-            var eventName = CreateEventTypeName(typeAssemblyQualifiedName);
+            var valueObjectName = CreateValueObjectTypeNameForCommand(fullName);
+            var eventName = CreateEventTypeName(fullName);
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"internal class {eventName}: IEvent");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public string ProxyName {{ get; }}");
@@ -50,7 +50,7 @@
             _proxyGeneratorCommon.CreateHelperContructor(eventName, valueObjectName);
             _proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
-        public string CreateEventTypeName(string typeQualifiedName) => $"{_proxyGeneratorCommon.GetTypeName(typeQualifiedName)}To{_proxyGeneratorCommon.ProxyMoniker}Event";
-        private string CreateValueObjectTypeNameForCommand(string typeQualifiedName) => $"{_proxyGeneratorCommon.GetTypeName(typeQualifiedName)}To{_proxyGeneratorCommon.ProxyMoniker}";
+        public string CreateEventTypeName(string typeFullName) => $"{_proxyGeneratorCommon.GetTypeName(typeFullName)}To{_proxyGeneratorCommon.ProxyMoniker}Event";
+        private string CreateValueObjectTypeNameForCommand(string typeFullName) => $"{_proxyGeneratorCommon.GetTypeName(typeFullName)}To{_proxyGeneratorCommon.ProxyMoniker}";
     }
 }

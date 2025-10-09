@@ -21,7 +21,7 @@ namespace StatePipes.Messages
         {
             QualifiedName = t.AssemblyQualifiedName ?? string.Empty;
             FullName = t.FullName ?? string.Empty;
-            AssemblyName = t.Assembly.FullName ?? string.Empty;
+            AssemblyName = t.Assembly.GetName().Name ?? string.Empty;
             Namespace = t.Namespace ?? string.Empty;
         }
 

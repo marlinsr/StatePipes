@@ -72,9 +72,9 @@
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
                 if (typeDescription.IsEvent)
                 {
-                    var eventTypeName = _proxyGeneratorCommon.RemoveJunk(typeDescription.QualifiedName);
-                    var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.QualifiedName);
-                    var valueObjectName = _proxyTriggersGenerator.CreateValueObjectTypeNameForEvent(typeDescription.QualifiedName);
+                    var eventTypeName = _proxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
+                    var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.FullName);
+                    var valueObjectName = _proxyTriggersGenerator.CreateValueObjectTypeNameForEvent(typeDescription.FullName);
                     _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"proxy.Subscribe(({eventTypeName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, Convert<{valueObjectName}>(ev)!)));");
                 }
             }
@@ -86,7 +86,7 @@
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
                 if (typeDescription.IsCommand)
                 {
-                    var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.QualifiedName);
+                    var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
                     _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($", IMessageHandler<{eventType}>");
                 }
             }
@@ -98,8 +98,8 @@
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
                 if (typeDescription.IsCommand)
                 {
-                    var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.QualifiedName);
-                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ ConvertAndSend<{_proxyGeneratorCommon.RemoveJunk(typeDescription.QualifiedName)}>(anEvent.ProxyName, anEvent.Data); }}");
+                    var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
+                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ ConvertAndSend<{_proxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}>(anEvent.ProxyName, anEvent.Data); }}");
                 }
             }
         }

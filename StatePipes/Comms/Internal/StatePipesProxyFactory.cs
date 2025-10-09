@@ -14,7 +14,7 @@ namespace StatePipes.Comms.Internal
             foreach (var proxyConfiguration in serviceConfiguration.ProxyConfigurations)
             {
                 if (_proxyDictionary.ContainsKey(proxyConfiguration.Name)) throw new ArgumentException($"Duplicate ProxyConfig name: {proxyConfiguration.Name}");
-                if (!AddSubstitution(proxyConfiguration, serviceConfiguration.ProxySubstitutions, parentProxyFactory)) AddRemote(proxyConfiguration);
+                if (!AddSubstitution(proxyConfiguration, serviceConfiguration.ProxySubstitutions, parentProxyFactory) && proxyConfiguration.ProxyType == ProxyConfiguration.ProxyTypeEnum.RemoteService) AddRemote(proxyConfiguration);
             }
             //Do LocalServices and LocalServiceWithRemoteAccesses without Substitutions
             foreach (var proxyConfiguration in serviceConfiguration.ProxyConfigurations)
