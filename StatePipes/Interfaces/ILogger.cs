@@ -7,6 +7,7 @@ namespace StatePipes.Interfaces
         void Start();
         void Stop();
         void SetLogLevel(LogLevel logLevel);
+        LogLevel GetLogLevel();
         void Flush(CancellationToken token, int timeoutMilliseconds = Timeout.Infinite);
         void Flush(int timeoutMilliseconds = Timeout.Infinite);
         void LogVerbose(string message,
