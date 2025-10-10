@@ -26,10 +26,8 @@ namespace StatePipes.ProcessLevelServices.Internal
             }
             _task.Cancel();
         }
-        public void SetLogLevel(ILogger.LogLevel logLevel)
-        {
-            _logLevel = logLevel;
-        }
+        public void SetLogLevel(ILogger.LogLevel logLevel) => _logLevel = logLevel;
+        public ILogger.LogLevel GetLogLevel() => _logLevel;
         public void Flush(CancellationToken token, int timeoutMilliseconds = Timeout.Infinite) => _task.Flush(token, timeoutMilliseconds);
         public void Flush(int timeoutMilliseconds = Timeout.Infinite) => _task.Flush(timeoutMilliseconds);
         public void LogVerbose(string message,
