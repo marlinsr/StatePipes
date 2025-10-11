@@ -7,22 +7,36 @@ namespace StatePipes.ProcessLevelServices
 {
     public class Worker(ServiceConfiguration defaultServiceConfiguration) : BackgroundService
     {
+        private static ServiceArgs GetPostFixServiceArgs(ServiceArgs serviceArgs)
+        {
+            List<string> argsForPostFix = new();
+            var postFix = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_POSTFIX", ServiceArgs.PostFix);
+            if (!string.IsNullOrEmpty(postFix))
+            {
+                argsForPostFix.Add($"{ServiceArgs.PostFix}{ServiceArgs.NameValueDelimiter}{postFix}");
+                var postFixRecursiveAddToProxies = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_POSTFIXRECURSIVEADTOPROXIES", ServiceArgs.PostFixRecursiveAddToProxies);
+                if (!string.IsNullOrEmpty(postFixRecursiveAddToProxies)) 
+                    argsForPostFix.Add($"{ServiceArgs.PostFixRecursiveAddToProxies}{ServiceArgs.NameValueDelimiter}{postFixRecursiveAddToProxies}");
+            }
+            if (argsForPostFix.Count > 0) serviceArgs = serviceArgs.Merge(new ServiceArgs(argsForPostFix));
+            return serviceArgs;
+        }
+        private static string? GetValueFromEnvOrArgs(ServiceArgs serviceArgs, string envName, string argName) 
+        {
+            var argValue = serviceArgs.GetArgValue(argName);
+            var envValue = Environment.GetEnvironmentVariable(envName);
+            return string.IsNullOrEmpty(envValue) ? argValue : envValue;
+        }
         public static void InitializeProcessLevelServices(string[] args)
         {
             var serviceArgs = new ServiceArgs(args);
-            var logLevelStr = serviceArgs.GetArgValue(ServiceArgs.LogLevelArg);
-            var logLevelEnv = Environment.GetEnvironmentVariable("STATEPIPES_COMPANYNAME");
-            logLevelStr = string.IsNullOrEmpty(logLevelEnv) ? logLevelStr : logLevelEnv;
+            var logLevelStr = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_LOGLEVEL", ServiceArgs.LogLevelArg);
+            var companyName = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_COMPANYNAME", ServiceArgs.CompanyName);
             serviceArgs = serviceArgs.Remove(ServiceArgs.LogLevelArg);
-            var postFix = serviceArgs.GetArgValue(ServiceArgs.PostFix);
-            var postFixEnv = Environment.GetEnvironmentVariable("STATEPIPES_POSTFIX");
-            postFix = string.IsNullOrEmpty(postFixEnv) ? postFix : postFixEnv;
-            var companyName = serviceArgs.GetArgValue(ServiceArgs.CompanyName);
-            var companyNameEnv = Environment.GetEnvironmentVariable("STATEPIPES_COMPANYNAME");
-            companyName = string.IsNullOrEmpty(companyNameEnv) ? companyName : companyNameEnv;
             serviceArgs = serviceArgs.Remove(ServiceArgs.CompanyName);
+            serviceArgs = GetPostFixServiceArgs(serviceArgs);
             ArgsHolder.InitalizeArgs(serviceArgs);
-            DirHelper.InitializeDirs(postFix, companyName);
+            DirHelper.InitializeDirs(serviceArgs.GetArgValue(ServiceArgs.PostFix), companyName);
             InitalizeLogger();
             try
             {
@@ -32,10 +46,7 @@ namespace StatePipes.ProcessLevelServices
                     Log?.SetLogLevel(logLevel);
                 }
             }
-            catch
-            {
-                Log?.LogError($"Error parsing value {logLevelStr} for {ServiceArgs.LogLevelArg}");
-            }
+            catch { Log?.LogError($"Error parsing value {logLevelStr} for {ServiceArgs.LogLevelArg}"); }
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
