@@ -1,6 +1,7 @@
 using StatePipes.Explorer.Components;
 using StatePipes.Explorer.NonWebClasses;
 using StatePipes.ProcessLevelServices;
+using static StatePipes.ProcessLevelServices.LoggerHolder;
 
 Worker.InitializeProcessLevelServices(args);
 var builder = WebApplication.CreateBuilder(args);
@@ -34,5 +35,14 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-
-app.Run();
+try
+{     
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log?.LogError($"Fatal Exception {ex.Message}");
+    Log?.Flush();
+    Log?.Stop();
+    throw;
+}
