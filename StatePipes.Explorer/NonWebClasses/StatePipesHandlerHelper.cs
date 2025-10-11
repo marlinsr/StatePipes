@@ -42,6 +42,7 @@ namespace StatePipes.Explorer.NonWebClasses
         public bool IsConnectedToBroker => _proxy?.IsConnectedToBroker ?? false;
         public void SendCommand(string commandTypeFullName, string commandJson)
         {
+            if (!(_proxy?.IsConnectedToService ?? false)) return;
             if (!_dynamicCommandSenderDictionary.ContainsKey(commandTypeFullName))
             {
                 Log?.LogError($"_dynamicCommandSenderDictionary {commandTypeFullName} does not exist");
@@ -110,10 +111,6 @@ namespace StatePipes.Explorer.NonWebClasses
                 var typeDescription = typeSerialization.GetTopLevelDescription();
                 if (typeDescription != null && typeDescription.FullName != typeof(SelfDescriptionEvent).FullName)
                 {
-                    if(typeDescription.FullName == typeof(HeartbeatEvent).FullName)
-                    {
-                        System.Console.WriteLine("Got Heartbeat Event");
-                    }
                     UpdateEvent(typeDescription, typeSerialization, eventList);
                     UpdateCommand(typeDescription, typeSerialization, cmdList);
                 }
@@ -137,7 +134,6 @@ namespace StatePipes.Explorer.NonWebClasses
             }
             _proxy?.Dispose();
             _proxy = null;
-            _dynamicCommandSenderDictionary.Clear();
         }
         protected virtual void Dispose(bool disposing)
         {
