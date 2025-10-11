@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using StatePipes.Common;
 
 namespace StatePipes.Comms
 {
@@ -32,7 +33,13 @@ namespace StatePipes.Comms
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string exchangeNamePostfix) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, exchangeNamePostfix, null) { }
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, string.Empty, null) { }
 
-        public void SetExchangeNamePostfix(string exchangeNamePostfix) => ExchangeNamePostfix = exchangeNamePostfix;
+        internal void SetExchangeNamePostfix(string exchangeNamePostfix) => ExchangeNamePostfix = exchangeNamePostfix;
+        public BusConfig AddPostfix(string postfix)
+        {
+            BusConfig clonedBusConfig = JsonUtility.Clone(this)!;
+            clonedBusConfig.SetExchangeNamePostfix(postfix);
+            return clonedBusConfig;
+        }
         public bool Equals(BusConfig? other)
         {
             if (ReferenceEquals(other, null)) return false;

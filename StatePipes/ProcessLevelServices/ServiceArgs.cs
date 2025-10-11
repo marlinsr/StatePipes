@@ -7,6 +7,7 @@
         public const string PostFix = "--postfix";
         public const string CompanyName = "--companyname";
         public const string UseDefaultConfig = "--usedefaultconfig";
+        public const string PostFixRecursiveAddToProxies = "--postfixrecursiveaddtoproxies";
         public IReadOnlyList<string>? Args { get; }
         public ServiceArgs(IReadOnlyList<string>? args)
         {
@@ -23,7 +24,6 @@
         }
         public ServiceArgs Remove(string argName) => new((Args?.Where(s => !s.StartsWith(argName + NameValueDelimiter)))?.ToList());
         public bool ContainsArgName(string argName) => Args?.Any(a => a.StartsWith(argName + NameValueDelimiter)) ?? false;
-        private static string GetArgName(string argName) => argName.Split(NameValueDelimiter)[0];
         public ServiceArgs GetArgsNotFoundIn(ServiceArgs other) => new(Args?.ToList().Where(a => !other.ContainsArgName(a)).ToList());
         public ServiceArgs Concat(ServiceArgs other)
         {

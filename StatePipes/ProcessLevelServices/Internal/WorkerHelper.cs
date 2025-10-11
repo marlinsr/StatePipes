@@ -31,15 +31,6 @@ namespace StatePipes.ProcessLevelServices.Internal
             if (serviceConfiguration != null) return serviceConfiguration;
             return defaultServiceConfiguration;
         }
-        private static void MergeArgs(ServiceArgs args, ServiceConfiguration serviceConfiguration, string? exchangePostFix)
-        {
-            serviceConfiguration.BusConfig.SetExchangeNamePostfix(serviceConfiguration.BusConfig.ExchangeNamePostfix + exchangePostFix);
-            serviceConfiguration.MergeCommandLineArgs(args);
-            foreach(var proxyConfig in serviceConfiguration.ProxyConfigurations)
-            {
-                MergeArgs(args, proxyConfig.ServiceConfiguration, exchangePostFix);
-            }
-        }
         public static async Task WaitForCancellation(CancellationToken stoppingToken)
         {
             try
@@ -65,8 +56,10 @@ namespace StatePipes.ProcessLevelServices.Internal
                 JsonFileHelperUtility.SaveFile(serviceConfiguration);
             }
             var postFix = ArgsHolder.Args?.GetArgValue(ServiceArgs.PostFix);
+            var recursePostFix = !string.IsNullOrEmpty(ArgsHolder.Args?.GetArgValue(ServiceArgs.PostFixRecursiveAddToProxies));
             var args = ArgsHolder.Args?.Remove(ServiceArgs.PostFix) ?? new ServiceArgs(null);
-            MergeArgs(args, serviceConfiguration, postFix);
+            serviceConfiguration.MergeCommandLineArgs(args);
+            serviceConfiguration.AddPostfixWorker(postFix, recursePostFix);
             var exeName = ExeName();
             var version = FileVersionInfo.GetVersionInfo(FileName()).ProductVersion;
             Log?.LogInfo($"Starting as service {exeName} [version {version}]...");

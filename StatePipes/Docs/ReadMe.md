@@ -10,4 +10,6 @@ Changes 2.0.1:
 Add capability to set LogLevel via Explorer by @marlinsr in #7
 Changes 2.0.2:
 StatePipes.Explorer code minor cleanup by @marlinsr in #9
+Changes 2.0.3:
+Simplify process of deploying multiple instance of same proxy by @marlinsr in #11
 
