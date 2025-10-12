@@ -1,4 +1,5 @@
-﻿namespace StatePipes.Test
+﻿[assembly: DoNotParallelize]
+namespace StatePipes.Test
 {
     internal static class TestCategories
     {
