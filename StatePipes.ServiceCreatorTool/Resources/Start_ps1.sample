@@ -1,3 +1,32 @@
-﻿ cls
+﻿ 
+function StartService([string]$ServiceName,[string] $postfix, [bool] $postFixRecursiveAddToProxies)
+{
+    $newServiceName = $ServiceName + $postfix
+    $programData = $env:ProgramData
+    $destDir = $programData+"\@#$CompanyName@#$\"+$newServiceName+".Service\Certs\"
+    Remove-Item -Path $destDir -Recurse -Force
+    New-Item -ItemType Directory -Path $destDir
+    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
+    Invoke-Expression $cp
+    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
+    Invoke-Expression $cp
+
+    $fullPath = $PSScriptRoot+"\..\"+$ServiceName+".Service\bin\Debug\net8.0\"+$ServiceName+".Service.exe"
+    $wd = [System.IO.Path]::GetDirectoryName($fullPath)
+    $argses = "--usedefaultconfig=true"
+    if (-not [System.String]::IsNullOrEmpty($postfix)) 
+    {
+        $argses = $argses + " --postfix=" + $postfix
+    }
+    if($postFixRecursiveAddToProxies) 
+    {
+        $argses = $argses + " --postfixrecursiveaddtoproxies=true"
+    }
+    Start-Process $fullPath -WorkingDirectory $wd -ArgumentList $argses
+    $url = 'https://statepipes.explorer:7219/Params/amqps:%2F%2Famqp09-broker%2FProduction/'+$newServiceName+'/amqpuser.amqp09-broker.client.p12/CommonPassword.txt/'+$newServiceName
+    Start-Process chrome.exe $url
+}
+
+cls
 
 # Injection Point 1, Do Not Delete or Modify

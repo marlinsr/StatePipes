@@ -1,4 +1,5 @@
-﻿namespace @#$ClassLibraryName@#$.Test
+﻿[assembly: DoNotParallelize]
+namespace @#$ClassLibraryName@#$.Test
 {
     internal static class TestCategories
     {

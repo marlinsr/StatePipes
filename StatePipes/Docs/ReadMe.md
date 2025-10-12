@@ -12,4 +12,5 @@ Changes 2.0.2:
 StatePipes.Explorer code minor cleanup by @marlinsr in #9
 Changes 2.0.3:
 Simplify process of deploying multiple instance of same proxy by @marlinsr in #11
-
+Changes 2.0.4:
+Add capability to start.ps1 to simply start multiple instances of the same service by @marlinsr in #13
