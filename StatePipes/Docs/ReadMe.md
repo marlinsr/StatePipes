@@ -14,3 +14,5 @@ Changes 2.0.3:
 Simplify process of deploying multiple instance of same proxy by @marlinsr in #11
 Changes 2.0.4:
 Add capability to start.ps1 to simply start multiple instances of the same service by @marlinsr in #13
+Changes 2.0.5:
+First statepipes.explorer tab not showing in chrome window is not already up by @marlinsr in #15

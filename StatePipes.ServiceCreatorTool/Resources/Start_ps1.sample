@@ -28,5 +28,7 @@ function StartService([string]$ServiceName,[string] $postfix, [bool] $postFixRec
 }
 
 cls
+Start-Process chrome.exe '--new-window'
+Start-Sleep -s 1
 
 # Injection Point 1, Do Not Delete or Modify
