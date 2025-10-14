@@ -1,9 +1,9 @@
 ﻿ 
-function StartService([string]$ServiceName,[string] $postfix, [bool] $postFixRecursiveAddToProxies)
+function StartServiceNoChromeTab([string]$ServiceName,[string] $postfix, [bool] $postFixRecursiveAddToProxies)
 {
     $newServiceName = $ServiceName + $postfix
     $programData = $env:ProgramData
-    $destDir = $programData+"\@#$CompanyName@#$\"+$newServiceName+".Service\Certs\"
+    $destDir = $programData+"\AAA\"+$newServiceName+".Service\Certs\"
     Remove-Item -Path $destDir -Recurse -Force
     New-Item -ItemType Directory -Path $destDir
     $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
@@ -23,8 +23,19 @@ function StartService([string]$ServiceName,[string] $postfix, [bool] $postFixRec
         $argses = $argses + " --postfixrecursiveaddtoproxies=true"
     }
     Start-Process $fullPath -WorkingDirectory $wd -ArgumentList $argses
+}
+
+function StartChromeTab([string]$ServiceName,[string] $postfix)
+{
+    $newServiceName = $ServiceName + $postfix
     $url = 'https://statepipes.explorer:7219/Params/amqps:%2F%2Famqp09-broker%2FProduction/'+$newServiceName+'/amqpuser.amqp09-broker.client.p12/CommonPassword.txt/'+$newServiceName
     Start-Process chrome.exe $url
+}
+
+function StartService([string]$ServiceName,[string] $postfix, [bool] $postFixRecursiveAddToProxies)
+{
+    StartServiceNoChromeTab $ServiceName $postfix $postFixRecursiveAddToProxies
+    StartChromeTab  $ServiceName $postfix
 }
 
 cls
