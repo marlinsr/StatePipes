@@ -8,7 +8,7 @@ using System.Reflection;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms
 {
-    internal class StatePipesProxy : IStatePipesProxy, IDisposable
+    public class StatePipesProxy : IStatePipesProxy, IDisposable
     {
         private readonly Guid _id = Guid.NewGuid();
         private bool _disposedValue;
