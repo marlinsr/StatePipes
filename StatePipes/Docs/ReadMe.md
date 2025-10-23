@@ -18,3 +18,5 @@ Changes 2.0.5:
 First statepipes.explorer tab not showing in chrome window is not already up by @marlinsr in #15
 Changes 2.0.6:
 Create functions in Start.ps1 to support different deployment scenarios by @marlinsr in #17
+Changes 2.0.7:
+StatePipesProxy marked internal, but should be public by @marlinsr in #19
