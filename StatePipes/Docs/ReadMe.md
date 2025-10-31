@@ -20,3 +20,5 @@ Changes 2.0.6:
 Create functions in Start.ps1 to support different deployment scenarios by @marlinsr in #17
 Changes 2.0.7:
 StatePipesProxy marked internal, but should be public by @marlinsr in #19
+Changes 2.0.8:
+Add Events Published By State to StateMachine Diagram by @marlinsr in #21

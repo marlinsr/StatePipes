@@ -105,5 +105,10 @@ namespace StatePipes.StateMachine
             var moveToState = new MoveToStateWorker(_state, _stateMachine, typeof(DestinationState));
             return moveToState.Configure(this);
         }
+        public StateConfigurationWrapper RegisterEvent<TEvent>() where TEvent : IEvent
+        {
+            _stateMachine.EventRegistrationManager.RegisterEvent<TEvent>(_stateConfiguration.State);
+            return this;
+        }
     }
 }

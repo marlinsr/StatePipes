@@ -17,6 +17,7 @@ namespace StatePipes.StateMachine.Internal
         private string _currentState;
         private CurrentTrigger? _currentTrigger;
         private string _moveToStateName = typeof(MoveToState).Name;
+        public readonly EventRegistrationManager EventRegistrationManager = new();
         public string StateMachineName { get; private set; } = "UNKNOWN";
         public string AssemblyQualifiedStateMachineName { get; private set; } = "UNKNOWN";
         public BaseStateMachine(IStatePipesService bus)
@@ -76,8 +77,26 @@ namespace StatePipes.StateMachine.Internal
         }
         public void SendCommand<TCommand>(TCommand trigger, BusConfig? responseInfo = null) where TCommand : class, ICommand => 
             _bus.SendCommand(trigger, responseInfo);
-        public void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent => _bus.PublishEvent(ev);
-        public void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo) where TEvent : class, IEvent => _bus.SendResponse(ev, responseInfo);
+        private void DoubleCheckEventRegistration<TEvent>(string? stateName) where TEvent : class, IEvent
+        {
+            if(string.IsNullOrEmpty(stateName)) return;
+            if (typeof(TEvent).Namespace == typeof(StateMachineDiagramsEvent).Namespace) return;
+            if (!EventRegistrationManager.IsEventRegisteredForState<TEvent>(stateName))
+            {
+                Log?.LogWarning($"Event {typeof(TEvent).Name} not registered for current state {stateName} on state machine {StateMachineName}");
+                EventRegistrationManager.RegisterEvent<TEvent>(stateName);
+            }
+        }
+        public void PublishEvent<TEvent>(TEvent ev, string? stateName = null) where TEvent : class, IEvent
+        {
+            DoubleCheckEventRegistration<TEvent>(stateName);
+            _bus.PublishEvent(ev);
+        }
+        public void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo, string? stateName = null) where TEvent : class, IEvent
+        {
+            DoubleCheckEventRegistration<TEvent>(stateName);
+            _bus.SendResponse(ev, responseInfo);
+        }
         public IDelayedMessageSender<TMessage> CreateDelayedMessageSender<TMessage>() where TMessage : class, IMessage
         {
             return new DelayedMessageSender<TMessage>(_bus);
@@ -93,7 +112,8 @@ namespace StatePipes.StateMachine.Internal
         public string GetDotGraph()
         {
             var info = _stateMachine.GetInfo();
-            return UmlDotGraph.Format(info);
+            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager);
+            return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), CurrentState);
         }
         private string SaveDotGraph(string dotFilename)
         {

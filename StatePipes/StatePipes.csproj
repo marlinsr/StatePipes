@@ -17,12 +17,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Autofac" Version="8.4.0" />
+    <PackageReference Include="Graphviz.DotLanguage" Version="0.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <PackageReference Include="Stateless" Version="5.20.0" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.9" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.10" />
     <PackageReference Include="Microsoft.NETCore.Platforms" Version="7.0.4" />
   </ItemGroup>
   <ItemGroup>
