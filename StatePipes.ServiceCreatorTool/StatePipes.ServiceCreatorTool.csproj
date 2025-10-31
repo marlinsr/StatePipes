@@ -16,7 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.9" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.10" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />

@@ -21,8 +21,8 @@ namespace StatePipes.StateMachine
         protected void SendCurrentStatusAllStateMachines() => _stateMachine?.SendCurrentStatusAllStateMachines();
         protected string GetCurrentStateForExternal<TStateMachine>() where TStateMachine : IStateMachine => _stateMachine?.CurrentState ?? string.Empty;
         protected void SendCommand<TCommand>(TCommand trigger, BusConfig? responseInfo = null) where TCommand : class, ICommand => _stateMachine?.SendCommand(trigger, responseInfo);
-        protected void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent => _stateMachine?.PublishEvent(ev);
-        protected void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo) where TEvent : class, IEvent => _stateMachine?.SendResponse(ev, responseInfo);
+        protected void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent => _stateMachine?.PublishEvent(ev, this.GetType().Name);
+        protected void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo) where TEvent : class, IEvent => _stateMachine?.SendResponse(ev, responseInfo, this.GetType().Name);
         protected void SendCurrentStatus() => _stateMachine?.SendCurrentStatus();
         protected IDelayedMessageSender<TMessage>? CreateDelayedMessageSender<TMessage>() where TMessage : class, IMessage => _stateMachine?.CreateDelayedMessageSender<TMessage>();
         protected TTrigger? GetCurrentTrigger<TTrigger>() where TTrigger : ITrigger
