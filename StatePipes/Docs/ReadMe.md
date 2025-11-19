@@ -22,3 +22,5 @@ Changes 2.0.7:
 StatePipesProxy marked internal, but should be public by @marlinsr in #19
 Changes 2.0.8:
 Add Events Published By State to StateMachine Diagram by @marlinsr in #21
+Changes 2.0.9:
+Installer handle multiple installed versions of VS by @marlinsr in #23
