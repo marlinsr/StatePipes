@@ -11,7 +11,9 @@ namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
         {
             stateConfig
                 .PermitReentryIf<DummyTrigger>(DummyTriggerGuard)
-                .PermitReentryIf<SendCurrentStatusCommand>(SendCurrentStatusCommandGuard);            
+                .PermitReentryIf<SendCurrentStatusCommand>(SendCurrentStatusCommandGuard)
+                .RegisterEvent<DummyEvent>()
+                .RegisterEvent<CurrentStatusEvent>();            
         }
         private bool DummyTriggerGuard()
         {
