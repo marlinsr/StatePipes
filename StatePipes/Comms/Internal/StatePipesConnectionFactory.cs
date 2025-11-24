@@ -1,7 +1,6 @@
 ﻿using RabbitMQ.Client;
 using StatePipes.Common.Internal;
 using StatePipes.ProcessLevelServices;
-using System.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
@@ -15,10 +14,10 @@ namespace StatePipes.Comms.Internal
             try
             {
                 var uri = new Uri(busConfig.BrokerUri);
-                SecureString pw = SecureFileReader.ReadFileToSecureString(DirHelper.Find(busConfig.ClientCertPasswordPath, DirHelper.FileCategory.Certs));
-                if (hashedPassword != null && (string.IsNullOrEmpty(hashedPassword) || !PasswordHasher.VerifyPassword(hashedPassword, SecureFileReader.ToInsecureString(pw))))
+                string pw = File.ReadAllText(DirHelper.Find(busConfig.ClientCertPasswordPath, DirHelper.FileCategory.Certs)).Trim();
+                if (hashedPassword != null && (string.IsNullOrEmpty(hashedPassword) || !PasswordHasher.VerifyPassword(hashedPassword, pw)))
                     throw new Exception("Invalid Hashed Password");
-                var clientCert = new X509Certificate2(DirHelper.Find(busConfig.ClientCertPath, DirHelper.FileCategory.Certs), pw);
+                var clientCert = X509CertificateLoader.LoadPkcs12FromFile(DirHelper.Find(busConfig.ClientCertPath, DirHelper.FileCategory.Certs), pw);
                 var factory = new ConnectionFactory
                 {
                     Uri = uri,

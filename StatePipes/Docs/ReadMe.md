@@ -24,3 +24,7 @@ Changes 2.0.8:
 Add Events Published By State to StateMachine Diagram by @marlinsr in #21
 Changes 2.0.9:
 Installer handle multiple installed versions of VS by @marlinsr in #23
+Changes 2.0.10:
+Upgrade to .net 10 by @marlinsr in #25
+
+

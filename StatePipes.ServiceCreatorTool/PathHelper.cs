@@ -22,7 +22,7 @@
         public PathHelper(string solutionDir, string projectDir, string projectName) : this(solutionDir)
         {
             _paths.Add(PathName.Project, projectDir);
-            string binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service", "bin", "Debug", "net8.0");
+            string binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service", "bin", "Debug", "net10.0");
             _paths.Add(PathName.Bin, binDir);
             string proxiesDir = Path.Combine(_paths[PathName.Project], "Proxies");
             _paths.Add(PathName.Proxies, proxiesDir);
