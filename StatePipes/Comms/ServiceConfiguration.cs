@@ -17,7 +17,7 @@ namespace StatePipes.Comms
         }
         internal void MergeCommandLineArgs(ServiceArgs args)
         {
-            Args.Merge(args);
+            Args = Args.Merge(args);
             foreach (var proxyConfig in this.ProxyConfigurations)
             {
                 proxyConfig.ServiceConfiguration.MergeCommandLineArgs(args);

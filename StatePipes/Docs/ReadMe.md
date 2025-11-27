@@ -26,5 +26,7 @@ Changes 2.0.9:
 Installer handle multiple installed versions of VS by @marlinsr in #23
 Changes 2.0.10:
 Upgrade to .net 10 by @marlinsr in #25
+Changes 2.0.11:
+ServiceArgs Args not merging correctly by @marlinsr in #27
 
 
