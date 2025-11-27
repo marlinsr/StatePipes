@@ -22,9 +22,10 @@
             if (string.IsNullOrEmpty(arg)) return null;
             return arg.Substring(argNamePlusDelimeter.Length);
         }
+        public string GetArgName(string argNameDelimeterValue) => argNameDelimeterValue.Split(NameValueDelimiter)[0];
         public ServiceArgs Remove(string argName) => new((Args?.Where(s => !s.StartsWith(argName + NameValueDelimiter)))?.ToList());
         public bool ContainsArgName(string argName) => Args?.Any(a => a.StartsWith(argName + NameValueDelimiter)) ?? false;
-        public ServiceArgs GetArgsNotFoundIn(ServiceArgs other) => new(Args?.ToList().Where(a => !other.ContainsArgName(a)).ToList());
+        public ServiceArgs GetArgsNotFoundIn(ServiceArgs other) => new(Args?.ToList().Where(a => !other.ContainsArgName(GetArgName(a))).ToList());
         public ServiceArgs Concat(ServiceArgs other)
         {
             if(Args == null) return new ServiceArgs(other.Args);

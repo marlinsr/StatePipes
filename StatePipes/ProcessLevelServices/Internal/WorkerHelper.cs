@@ -50,15 +50,12 @@ namespace StatePipes.ProcessLevelServices.Internal
         {
             var serviceConfiguration = defaultServiceConfiguration;
             var usedefaultserviceconfig = !string.IsNullOrEmpty(ArgsHolder.Args?.GetArgValue(ServiceArgs.UseDefaultConfig));
-            if (!usedefaultserviceconfig)
-            {
-                serviceConfiguration = GetServiceConfigurationFromFile(defaultServiceConfiguration);
-                JsonFileHelperUtility.SaveFile(serviceConfiguration);
-            }
+            if (!usedefaultserviceconfig) serviceConfiguration = GetServiceConfigurationFromFile(defaultServiceConfiguration);
             var postFix = ArgsHolder.Args?.GetArgValue(ServiceArgs.PostFix);
             var recursePostFix = !string.IsNullOrEmpty(ArgsHolder.Args?.GetArgValue(ServiceArgs.PostFixRecursiveAddToProxies));
             var args = ArgsHolder.Args?.Remove(ServiceArgs.PostFix) ?? new ServiceArgs(null);
             serviceConfiguration.MergeCommandLineArgs(args);
+            JsonFileHelperUtility.SaveFile(serviceConfiguration);
             serviceConfiguration.AddPostfixWorker(postFix, recursePostFix);
             var exeName = ExeName();
             var version = FileVersionInfo.GetVersionInfo(FileName()).ProductVersion;
