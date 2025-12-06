@@ -52,6 +52,22 @@
           <UseOutputWindow>true</UseOutputWindow>
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-c $(BinDir)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\Diagrammer\StatePipes.Diagrammer.exe</Command>
+          <Index>303</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>StateMachine Diagrammer</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
       </ExternalTools>
     </Category>
   </Category>

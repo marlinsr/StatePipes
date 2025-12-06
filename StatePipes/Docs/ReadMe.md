@@ -28,5 +28,7 @@ Changes 2.0.10:
 Upgrade to .net 10 by @marlinsr in #25
 Changes 2.0.11:
 ServiceArgs Args not merging correctly by @marlinsr in #27
+Changes 3.0.0:
+Add StateMachine Diagrammer tool to installer by @marlinsr in #29
 
 

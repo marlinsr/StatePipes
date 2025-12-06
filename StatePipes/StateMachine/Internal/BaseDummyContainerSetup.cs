@@ -2,7 +2,6 @@
 using Autofac.Util;
 using StatePipes.Interfaces;
 using System.Reflection;
-
 namespace StatePipes.StateMachine.Internal
 {
     internal class BaseDummyContainerSetup : IContainerSetup
@@ -11,7 +10,6 @@ namespace StatePipes.StateMachine.Internal
         private readonly Assembly _assembly;
         private readonly Type _stateMachineType;
         private readonly Type _stateClassType;
-
         public BaseDummyContainerSetup(Type stateMachineType, IDummyDependencyRegistration dummyRegisterator)
         {
             _stateMachineType = stateMachineType;
@@ -19,21 +17,10 @@ namespace StatePipes.StateMachine.Internal
             _dummyRegisterator = dummyRegisterator;
             _stateClassType = BaseStateMachineAndFirstStateContainerSetup.GetStateClassType(_stateMachineType);
         }
-        public void Build(IContainer container)
-        {
-        }
-
-        public void Register(ContainerBuilder containerBuilder)
-        {
-            CreateDummys(containerBuilder);
-        }
-
+        public void Build(IContainer container) { }
+        public void Register(ContainerBuilder containerBuilder) => CreateDummys(containerBuilder);
         #region Testing and Diagraming
-        private List<Type> GetStateClassTypeList()
-        {
-            return _assembly.GetLoadableTypes().Where(t => _stateClassType.IsAssignableFrom(t)).ToList();
-        }
-
+        private List<Type> GetStateClassTypeList() => _assembly.GetLoadableTypes().Where(t => _stateClassType.IsAssignableFrom(t)).ToList();
         private List<Type>? GetConstructorParameterTypes(Type t)
         {
             var parameterLestConstructor = t.GetConstructor(Type.EmptyTypes);
@@ -43,7 +30,6 @@ namespace StatePipes.StateMachine.Internal
             if (parameters == null) return null;
             return parameters.Select(p => p.ParameterType).ToList();
         }
-
         private void CreateDummys(ContainerBuilder builder)
         {
             if (_dummyRegisterator == null) throw new InvalidOperationException("dummyRegisterator == null!");

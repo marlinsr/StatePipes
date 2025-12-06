@@ -26,10 +26,7 @@ namespace StatePipes.StateMachine.Test.Internal
         }
         public void RegisterDummyForType(ContainerBuilder builder, Type t)
         {
-            if (!HasType(t))
-            {
-                DummyDependencyRegistration?.RegisterDummyForType(builder, t);
-            }
+            if (!HasType(t)) DummyDependencyRegistration?.RegisterDummyForType(builder, t);
         }
         internal bool HasType(Type type) => preRepo.ContainsKey(type);
     }
