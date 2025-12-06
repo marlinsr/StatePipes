@@ -16,6 +16,7 @@
     <None Remove="StatePipes.ServiceCreatorTool.Installer.exe" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\StatePipes.Diagrammer\StatePipes.Diagrammer.csproj" />
     <ProjectReference Include="..\StatePipes.ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.csproj" />
     <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
   </ItemGroup>

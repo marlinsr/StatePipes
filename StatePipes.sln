@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.9.34728.123
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Solution Items", "_Solution Items", "{0181B4D3-D690-421E-8D92-A669529AC844}"
 	ProjectSection(SolutionItems) = preProject
@@ -18,6 +18,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.ServiceCreatorToolSetup", "StatePipes.ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.csproj", "{6B701AE3-11E7-4290-9607-537D8BF8614F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.ServiceCreatorTool.Installer", "StatePipes.ServiceCreatorTool.Installer\StatePipes.ServiceCreatorTool.Installer.csproj", "{94FA9771-0ABD-47BE-9D1F-235B053A3786}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.Diagrammer", "StatePipes.Diagrammer\StatePipes.Diagrammer.csproj", "{7F92F757-7987-45A8-99BF-24F92574CC8F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -62,6 +64,12 @@ Global
 		{94FA9771-0ABD-47BE-9D1F-235B053A3786}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{94FA9771-0ABD-47BE-9D1F-235B053A3786}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{94FA9771-0ABD-47BE-9D1F-235B053A3786}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.All|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.All|Any CPU.Build.0 = Debug|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

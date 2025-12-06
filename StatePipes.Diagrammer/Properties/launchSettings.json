@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "StatePipes.Diagrammer": {
+      "commandName": "Project",
+      "commandLineArgs": "-c C:\\Users\\shawn\\source\\repos\\Packages.AAA.DiagramTest\\AAA.DiagramTest.Service\\bin\\Debug\\net10.0"
+    }
+  }
+}
