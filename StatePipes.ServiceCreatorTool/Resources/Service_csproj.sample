@@ -43,7 +43,7 @@
   <ItemGroup>
 	  <ProjectReference Include="..\@#$ClassLibraryName@#$\@#$ClassLibraryName@#$.csproj" />
 	</ItemGroup>
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(OS)'=='Windows_NT' and '$(Configuration)' == 'Debug'">
     <Exec Command="rmdir /S /Q $(OutDir)\certs&#xD;&#xA;mkdir $(OutDir)\certs&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\@#$CertFileName@#$ $(OutDir)\certs\@#$CertFileName@#$&#xD;&#xA;copy C:\ProgramData\SmallStep\step-ca\CommonPassword.txt $(OutDir)\certs\CommonPassword.txt" />
   </Target>
 

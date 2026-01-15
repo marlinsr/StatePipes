@@ -15,5 +15,4 @@ catch (Exception e)
 {
     Console.WriteLine(e.Message.ToString());
     Console.WriteLine("Ensure class library has been succesfully compiled before using.");
-    Console.WriteLine("If error loading a dependent assembly, ensure you have <EnableDynamicLoading>true</EnableDynamicLoading> in target .csproj PropertyGroup.");
 }

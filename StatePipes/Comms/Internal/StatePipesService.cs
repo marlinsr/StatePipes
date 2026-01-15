@@ -39,7 +39,7 @@ namespace StatePipes.Comms.Internal
         {
             if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig == null ? _busConfig : busConfig));
         }
-        private void EventSendHelper<TEvent>(TEvent eventMessage, string exchangeName) where TEvent : class, IEvent
+        private void EventSendHelper<TEvent>(TEvent eventMessage, string exchangeName, BusConfig busConfig) where TEvent : class, IEvent
         {
             try
             {
@@ -47,7 +47,7 @@ namespace StatePipes.Comms.Internal
                 {
                     if (_connectionChannel.IsOpen)
                     {
-                        _connectionChannel.Send(eventMessage, _busConfig, exchangeName);
+                        _connectionChannel.Send(eventMessage, busConfig, exchangeName);
                     }
                     else
                     {
@@ -63,7 +63,7 @@ namespace StatePipes.Comms.Internal
         public void PublishEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
         {
             Log?.LogVerbose($"Publishing {typeof(TEvent).FullName}");
-            EventSendHelper(eventMessage, _busConfig.EventExchangeName);
+            EventSendHelper(eventMessage, _busConfig.EventExchangeName, _busConfig);
             _eventSubscriptionManager.HandleEvent(eventMessage, _busConfig);
             if (_container != null) ExecuteMessageHelper.ExecuteMessage(eventMessage, _busConfig, false, _container);
         }
@@ -80,7 +80,7 @@ namespace StatePipes.Comms.Internal
                 return;
             }
             Log?.LogVerbose($"Sending response {typeof(TEvent).FullName} to {busConfig.ResponseExchangeName}");
-            EventSendHelper(replyMessage, busConfig.ResponseExchangeName);
+            EventSendHelper(replyMessage, busConfig.ResponseExchangeName, busConfig);
             _eventSubscriptionManager.HandleEventResponse(replyMessage, _busConfig);
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage

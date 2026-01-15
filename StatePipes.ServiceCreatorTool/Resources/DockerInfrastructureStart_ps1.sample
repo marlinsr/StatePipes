@@ -183,14 +183,8 @@ Add-Content $PluginsFile "[rabbitmq_auth_mechanism_ssl,rabbitmq_management,rabbi
 Add-Content $PluginsFile ""
 
 #rabbitmq is debian
-$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs --network "+$Net+" rabbitmq:3-management"
+$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs -v "+$SmallstepProgramDataPrefix+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$SmallstepProgramDataPrefix+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network "+$Net+" rabbitmq:3-management"
 Invoke-Expression $dockerRun
-
-$dockerRun = "docker exec -it "+$RabbitContainerName+" bash -c 'cp /etc/rabbitmq/certs/root_ca.crt /usr/local/share/ca-certificates/root_ca.crt && chmod 644 /usr/local/share/ca-certificates/root_ca.crt && cp /etc/rabbitmq/certs/intermediate_ca.crt /usr/local/share/ca-certificates/intermediate_ca.crt && chmod 644 /usr/local/share/ca-certificates/intermediate_ca.crt &&  update-ca-certificates'"
-Invoke-Expression $dockerRun
-
-docker stop $RabbitContainerName
-docker restart $RabbitContainerName
 Start-Sleep -Seconds 30 #Time for rabbit mq container to initialize before using
 
 #----------------------------------statepipes.explorer------------------------------------------------------------------
@@ -210,14 +204,8 @@ New-Item -ItemType Directory -Path $StatePipesCertDir
 $cp = "Copy-Item -Path "+$SmallstepProgramDataPrefix+"* -Destination "+$StatePipesCertDir
 Invoke-Expression $cp
 
-$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name "+$StatePipesContainerName+" --hostname "+$StatePipesContainerName+" -v "+$programData+"\StatePipes:/usr/share/StatePipes -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password="+$CommonPassword+" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network "+$Net+" bigfish88/statepipesexplorer:latest"
+$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name "+$StatePipesContainerName+" --hostname "+$StatePipesContainerName+" -v "+$programData+"\StatePipes:/usr/share/StatePipes -v "+$StatePipesCertDir+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$StatePipesCertDir+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password="+$CommonPassword+" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network "+$Net+" bigfish88/statepipesexplorer:latest"
 Invoke-Expression $dockerRun
-
-$dockerRun = "docker exec -it "+$StatePipesContainerName+" bash -c 'mkdir /usr/local/share/ca-certificates/custom && cp /usr/share/StatePipes/StatePipes.Explorer/Certs/root_ca.crt /usr/local/share/ca-certificates/custom/root_ca.crt && chmod 644 /usr/local/share/ca-certificates/custom/root_ca.crt && cp /usr/share/StatePipes/StatePipes.Explorer/Certs/intermediate_ca.crt /usr/local/share/ca-certificates/custom/intermediate_ca.crt && chmod 644 /usr/local/share/ca-certificates/custom/intermediate_ca.crt &&  update-ca-certificates'"
-Invoke-Expression $dockerRun
-
-docker stop $StatePipesContainerName
-docker restart $StatePipesContainerName
 
 #-----------------------------Install these certificates when you want to use the management interfaces and statepipes.explorer------------------------------------
 $localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"root_ca.crt -CertStoreLocation Cert:\LocalMachine\Root"
