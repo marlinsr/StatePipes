@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FakeItEasy" Version="8.3.0" />
+    <PackageReference Include="FakeItEasy" Version="9.0.0" />
     <PackageReference Include="StatePipes" Version="@#$StatePipesVersion@#$" />
     <PackageReference Include="stateless" Version="5.20.0" />
     <PackageReference Include="Moq" Version="4.20.72" />
