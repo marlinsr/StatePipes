@@ -1,50 +1,46 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using StatePipes.Common;
-using StatePipes.Common.Internal;
+using StatePipes.Comms;
+using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
+using System;
+using System.Collections.Generic;
 using System.Text;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
-namespace StatePipes.Comms.Internal
+namespace StatePipes.BrokerProxy
 {
-    internal class MessageHelper
+    internal class SimpleMessageHelper
     {
-        public const string StatePipesReplyToHeader = "StatePipesReplyTo";
-        internal static void Serialize(IMessage message, BusConfig busConfig, out byte[] body, out BasicProperties properties)
+        protected static string StatePipesReplyToHeader => MessageHelper.StatePipesReplyToHeader;
+        internal static void Serialize(string messageTypeFullName, BusConfig busConfig, out BasicProperties properties)
         {
             properties = new BasicProperties();
-            properties.Type = message.GetType().FullName;
+            properties.Type = messageTypeFullName;
             properties.Headers = new Dictionary<string, object?>
             {
                 { StatePipesReplyToHeader, JsonUtility.GetJsonStringForObject(busConfig, true) }
             };
-            var eventJson = JsonUtility.GetJsonStringForObject(message, true);
-            body = Encoding.UTF8.GetBytes(eventJson);
         }
 
-        internal static void Deserialize(BasicDeliverEventArgs ea, out IMessage? message, out BusConfig? busConfig, TypeDictionary typeRepo)
+        internal static void Deserialize(BasicDeliverEventArgs ea, out byte[]? message, out string routingKey, out BusConfig? busConfig)
         {
             message = null;
             busConfig = null;
+            routingKey = string.Empty;
             if (string.IsNullOrEmpty(ea.BasicProperties.Type))
             {
                 Log?.LogError("Received command with no Type information.");
                 return;
             }
+            routingKey = ea.BasicProperties.Type;
             if (ea.BasicProperties.Headers == null || !ea.BasicProperties.Headers.ContainsKey(StatePipesReplyToHeader) || ea.BasicProperties.Headers[StatePipesReplyToHeader] == null)
             {
                 Log?.LogError($"Received command with no {StatePipesReplyToHeader} information.");
                 return;
             }
-            var cmdJson = Encoding.UTF8.GetString(ea.Body.ToArray());
-            var t = typeRepo.Get(ea.BasicProperties.Type);
-            if (t == null)
-            {
-                Log?.LogError($"Unknown message type: {ea.BasicProperties.Type}");
-                return;
-            }
-            message = JsonUtility.GetObjectFromJson(cmdJson, t);
+            message = ea.Body.ToArray();
             if (message == null)
             {
                 Log?.LogError("Failed to deserialize message.");
