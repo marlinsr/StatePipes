@@ -32,5 +32,6 @@ Changes 3.0.0:
 Add StateMachine Diagrammer tool to installer by @marlinsr in #29
 Changes 3.0.1:
 Create BrokerProxy to span RabbitMQ instances for a service by @marlinsr in #31
-
+Changes 3.0.2:
+Updated to latest nuget versions for solution generation tool by @marlinsr in #33
 
