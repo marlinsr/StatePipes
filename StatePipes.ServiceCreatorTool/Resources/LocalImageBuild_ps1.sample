@@ -10,13 +10,12 @@ function @#$BuildFunctionName@#$()
     $localNugetsPath = $env:StatePipesLocalNugets
 
     $projectDirPath = $PSScriptRoot +"\..\" + $projectDirName
+    Set-Location -Path $projectDirPath
 
-    rm ".\LocalNugets" -r -force
+    rm ".\PrivateNugets" -r -force
     rm ".\Nuget.Config" -force
     rm ".\Dockerfile2" -force
     rm ".\LocalNugetPDBs" -r -force
-
-    Set-Location -Path $projectDirPath
 
     #Create nuget.config to pull packages from
     $nugetConfigTemplatePath = $PSScriptRoot +"\NugetConfig.xml"
@@ -62,7 +61,7 @@ function @#$BuildFunctionName@#$()
       {
           if($line.StartsWith("RUN dotnet restore"))
           {
-            $copyLocalNugets = 'COPY ["' + $projectDirName + '/LocalNugets/", "/src/LocalNugets"]'
+            $copyLocalNugets = 'COPY ["' + $projectDirName + '/PrivateNugets/", "/src/PrivateNugets"]'
             $copyNugetConfig = 'COPY ["' + $projectDirName + '/Nuget.Config", "/src/Nuget.Config"]'
             Add-Content "Dockerfile2" $copyLocalNugets
             Add-Content "Dockerfile2" $copyNugetConfig
@@ -88,7 +87,7 @@ function @#$BuildFunctionName@#$()
     Invoke-Expression $dockerBuild
 
     #Clean up
-    rm ".\LocalNugets" -r -force
+    rm ".\PrivateNugets" -r -force
     rm ".\Nuget.Config" -force
     rm ".\Dockerfile2" -force
     rm ".\LocalNugetPDBs" -r -force

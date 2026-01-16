@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.ServiceCreatorTo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.Diagrammer", "StatePipes.Diagrammer\StatePipes.Diagrammer.csproj", "{7F92F757-7987-45A8-99BF-24F92574CC8F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.BrokerProxy", "StatePipes.BrokerProxy\StatePipes.BrokerProxy.csproj", "{2D44644C-9F54-4741-BBB6-246BAE238CC1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		All|Any CPU = All|Any CPU
@@ -70,6 +72,12 @@ Global
 		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7F92F757-7987-45A8-99BF-24F92574CC8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.All|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.All|Any CPU.Build.0 = Debug|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D44644C-9F54-4741-BBB6-246BAE238CC1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
