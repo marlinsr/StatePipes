@@ -12,10 +12,13 @@ namespace StatePipes.Comms.Internal
         public bool IsConnectedToBroker => _innerProxy.IsConnectedToBroker;
         public void Dispose() => _innerProxy.Dispose();
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => _innerProxy.SendCommand(command);
+        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class => _innerProxy.SendCommand(sendCommandTypeFullName, command);
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage => _innerProxy.SendMessage(message);
         public void Start() => _innerProxy.Start();
         public void Stop() => _innerProxy.Stop();
         public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _innerProxy.Subscribe(handler);
+        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
+            _innerProxy.Subscribe(receivedEventTypeFullName, handler);
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _innerProxy.SubscribeConnectedToService(onConnected, onDisconnected);
         public void UnSubscribe<TEvent>(Action<TEvent, BusConfig,bool> handler) where TEvent : class, IEvent => _innerProxy.UnSubscribe(handler);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _innerProxy.UnSubscribeConnectedToService(onConnected, onDisconnected);

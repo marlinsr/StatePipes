@@ -75,7 +75,7 @@
                     var eventTypeName = _proxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
                     var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.FullName);
                     var valueObjectName = _proxyTriggersGenerator.CreateValueObjectTypeNameForEvent(typeDescription.FullName);
-                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"proxy.Subscribe(({eventTypeName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, Convert<{valueObjectName}>(ev)!)));");
+                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"proxy.Subscribe(\"{eventTypeName}\", ({valueObjectName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, ev)));");
                 }
             }
         }
@@ -99,7 +99,7 @@
                 if (typeDescription.IsCommand)
                 {
                     var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
-                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ ConvertAndSend<{_proxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}>(anEvent.ProxyName, anEvent.Data); }}");
+                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ Send(anEvent.ProxyName,\"{_proxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}\", anEvent.Data); }}");
                 }
             }
         }

@@ -11,10 +11,10 @@ namespace StatePipes.Comms.Internal
     internal class MessageHelper
     {
         public const string StatePipesReplyToHeader = "StatePipesReplyTo";
-        internal static void Serialize(IMessage message, BusConfig busConfig, out byte[] body, out BasicProperties properties)
+        internal static void Serialize(string sendCommandTypeFullName, object message, BusConfig busConfig, out byte[] body, out BasicProperties properties)
         {
             properties = new BasicProperties();
-            properties.Type = message.GetType().FullName;
+            properties.Type = sendCommandTypeFullName;
             properties.Headers = new Dictionary<string, object?>
             {
                 { StatePipesReplyToHeader, JsonUtility.GetJsonStringForObject(busConfig, true) }
@@ -23,7 +23,7 @@ namespace StatePipes.Comms.Internal
             body = Encoding.UTF8.GetBytes(eventJson);
         }
 
-        internal static void Deserialize(BasicDeliverEventArgs ea, out IMessage? message, out BusConfig? busConfig, TypeDictionary typeRepo)
+        internal static void Deserialize(BasicDeliverEventArgs ea, out object? message, out BusConfig? busConfig, TypeDictionary typeRepo)
         {
             message = null;
             busConfig = null;

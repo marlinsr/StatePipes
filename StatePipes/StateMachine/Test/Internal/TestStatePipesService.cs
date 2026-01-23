@@ -103,7 +103,7 @@ namespace StatePipes.StateMachine.Test.Internal
                 if (cmdHandler == null) return;
                 var executeMethod = commandHandlerType.GetMethod("HandleMessage", BindingFlags.Public | BindingFlags.Instance);
                 if (executeMethod == null) return;
-                AddCommandToInvocations(cmd.Command);
+                AddCommandToInvocations((ICommand)cmd.Command);
                 executeMethod.Invoke(cmdHandler, new object[] { cmd.Command, cmd.ReplyTo, false });
             }
             catch (Exception ex)
@@ -123,7 +123,7 @@ namespace StatePipes.StateMachine.Test.Internal
                     if (cmd != null)
                     {
                         Execute(cmd);
-                        _processing = !_cmdBlockingFilterList.Trigger(cmd.Command);
+                        _processing = !_cmdBlockingFilterList.Trigger((ICommand)cmd.Command);
                     }
                 }
                 else

@@ -2,9 +2,9 @@
 
 namespace StatePipes.Comms.Internal
 {
-    internal class ReceivedCommandMessage(ICommand command, BusConfig replyTo)
+    internal class ReceivedCommandMessage(object command, BusConfig replyTo)
     {
-        public ICommand Command { get; } = command;
+        public object Command { get; } = command;
         public BusConfig ReplyTo { get; } = replyTo;
     }
 }

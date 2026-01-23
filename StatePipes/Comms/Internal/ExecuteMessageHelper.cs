@@ -7,7 +7,7 @@ namespace StatePipes.Comms.Internal
 {
     internal static class ExecuteMessageHelper
     {
-        internal static void HandleMessage(IMessage message, BusConfig busConfig, bool isResponse, object? handler, Type messageType)
+        internal static void HandleMessage(object message, BusConfig busConfig, bool isResponse, object? handler, Type messageType)
         {
             try
             {
@@ -27,7 +27,7 @@ namespace StatePipes.Comms.Internal
             }
             catch (Exception ex) { Log?.LogInfo(ex.Message); }
         }
-        internal static void ExecuteMessage(IMessage message, BusConfig busConfig, bool isResponse, IContainer container)
+        internal static void ExecuteMessage(object message, BusConfig busConfig, bool isResponse, IContainer container)
         {
             try
             {

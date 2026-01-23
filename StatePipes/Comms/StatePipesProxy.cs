@@ -14,6 +14,7 @@ namespace StatePipes.Comms
         private bool _disposedValue;
         private readonly BusConfig _busConfig;
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
+        private readonly EventSubscriptionManager _routingKeyManager = new();
         private readonly TypeDictionary _subscribedEventTypeDictionary = new TypeDictionary();
         private readonly HeartbeatEventProcessor _heartbeatProcessor = new();
         private ConnectionChannel? _connectionChannel;
@@ -29,6 +30,7 @@ namespace StatePipes.Comms
             _hashedPassword = hashedPassword;
             SubscribeConnectedToService(ConnectedToServiceHandler, DisConnectedToServiceHandler);
             _eventSubscriptionManager.Subscribe<HeartbeatEvent>(_heartbeatProcessor.HeartbeatEventHandler);
+            _routingKeyManager.Subscribe<HeartbeatEvent>(_heartbeatProcessor.HeartbeatEventHandler);
         }
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected)
         {
@@ -38,30 +40,39 @@ namespace StatePipes.Comms
         {
             _heartbeatProcessor.UnSubscribe(onConnected, onDisconnected);
         }
-        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent
+        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent =>
+            Subscribe<TEvent>(typeof(TEvent).FullName, handler);
+
+        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
         {
+            if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
             var eventType = typeof(TEvent);
-            _subscribedEventTypeDictionary.Add(eventType);
-            if (string.IsNullOrEmpty(eventType.FullName)) return;
-            if (!_eventSubscriptionManager.AlreadyHasSubscriptionForType(eventType)) _connectionChannel?.Subscribe(_id, eventType.FullName, _busConfig);
-            _eventSubscriptionManager.Subscribe(handler);
+            _subscribedEventTypeDictionary.Add(receivedEventTypeFullName, eventType);
+            var eventTypeFullName = eventType.FullName;
+            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _connectionChannel?.Subscribe(_id, receivedEventTypeFullName, _busConfig);
+            _eventSubscriptionManager.Subscribe(eventTypeFullName, handler);
+            _routingKeyManager.Subscribe(receivedEventTypeFullName, handler);
         }
-        public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent
+        public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => UnSubscribe<TEvent>(typeof(TEvent).FullName, handler);
+        public void UnSubscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
         {
+            if(string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+            var eventTypeFullName = typeof(TEvent).FullName;
             Action<HeartbeatEvent, BusConfig, bool> heartbeatHandler = _heartbeatProcessor.HeartbeatEventHandler;
-            if (heartbeatHandler.Equals(handler)) return;
-            _eventSubscriptionManager.UnSubscribe(handler);
-            var eventType = typeof(TEvent);
-            if (string.IsNullOrEmpty(eventType.FullName)) return;
-            if (!_eventSubscriptionManager.AlreadyHasSubscriptionForType(eventType)) _connectionChannel?.UnSubscribe(_id, eventType.FullName, _busConfig);
+            if (heartbeatHandler.Equals(handler) && eventTypeFullName == typeof(HeartbeatEvent).FullName) return;
+            _eventSubscriptionManager.UnSubscribe(eventTypeFullName, handler);
+            _routingKeyManager.UnSubscribe(receivedEventTypeFullName, handler);
+            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _connectionChannel?.UnSubscribe(_id, receivedEventTypeFullName, _busConfig);
         }
-        public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand
+        public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(typeof(TCommand).FullName, command);
+        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class
         {
+            if(string.IsNullOrEmpty(sendCommandTypeFullName)) return;
             try
             {
                 if (_connectionChannel != null && _connectionChannel.IsOpen)
                 {
-                    _connectionChannel.Send(command, _busConfig, _busConfig.CommandExchangeName);
+                    _connectionChannel.Send(sendCommandTypeFullName, command, _busConfig, _busConfig.CommandExchangeName);
                 }
                 else
                 {
@@ -97,7 +108,7 @@ namespace StatePipes.Comms
         {
             try
             {
-                var eventSubscription = _eventSubscriptionManager.GetAllSubscriptionTypeFullNames();
+                var eventSubscription = _routingKeyManager.GetAllSubscriptionTypeFullNames();
                 if (eventSubscription.Count <= 0) eventSubscription = ConnectionChannel.DefaultRoutingKeys;
                 connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName, ConsumeEvent, eventSubscription);
                 connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ConnectionChannel.DefaultRoutingKeys, true);
@@ -112,7 +123,7 @@ namespace StatePipes.Comms
         {
             try
             {
-                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEvent), BindingFlags.NonPublic | BindingFlags.Instance);
                 var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod(new[] { eventMessage.GetType() });
@@ -128,7 +139,7 @@ namespace StatePipes.Comms
         {
             try
             {
-                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEventResponse), BindingFlags.NonPublic | BindingFlags.Instance);
                 var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod(new[] { eventMessage.GetType() });

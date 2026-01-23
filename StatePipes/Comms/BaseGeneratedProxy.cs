@@ -34,28 +34,16 @@ namespace StatePipes.Comms
         public void Start() => StartAll();
         protected void StartAll() => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.Start());
         protected void SubscribeAll() => _proxyDictionary.Values.ToList().ForEach(proxy => Subscribe(proxy));
-        protected void SendToAll<TCommand>(TCommand command) where TCommand : class, ICommand => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.SendCommand(command));
-        protected void Send<TCommand>(string proxyName, TCommand command) where TCommand : class, ICommand
+        protected void SendToAll<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.SendCommand(sendCommandTypeFullName, command));
+        protected void Send<TCommand>(string proxyName, string? sendCommandTypeFullName, TCommand command) where TCommand : class
         {
             if (string.IsNullOrEmpty(proxyName))
             {
-                SendToAll(command);
+                SendToAll(sendCommandTypeFullName, command);
                 return;
             }
             if (!_proxyDictionary.ContainsKey(proxyName)) return;
-            _proxyDictionary[proxyName].SendCommand(command);
-        }
-        public static T? Convert<T>(object obj)
-            where T : class
-        {
-            var json = JsonUtility.GetJsonStringForObject(obj);
-            return JsonUtility.GetObjectForJsonString<T>(json);
-        }
-        protected void ConvertAndSend<TCommand>(string proxyName, object obj) where TCommand : class, ICommand
-        {
-            var cmd = Convert<TCommand>(obj);
-            if (cmd == null) return;
-            Send(proxyName, cmd);
+            _proxyDictionary[proxyName].SendCommand(sendCommandTypeFullName, command);
         }
     }
 }

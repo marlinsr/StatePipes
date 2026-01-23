@@ -35,6 +35,7 @@ namespace StatePipes.Comms.Internal
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => onConnected.Invoke(null, EventArgs.Empty);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) { }
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(command, _busConfig);
+        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class => throw new Exception("This call should not be executed!");
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
             if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig == null ? _busConfig : busConfig));
@@ -127,9 +128,9 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (command == null || busConfig == null) return Task.CompletedTask;
-                Queue(new ReceivedCommandMessage((ICommand)command, busConfig));
+                Queue(new ReceivedCommandMessage((object)command, busConfig));
             }
             catch (Exception ex)
             {
@@ -142,7 +143,7 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 ExecuteMessageHelper.ExecuteMessage(eventMessage, busConfig, true, _container);
             }
@@ -192,6 +193,8 @@ namespace StatePipes.Comms.Internal
             base.Dispose();
         }
         public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.Subscribe(handler);
+        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
+            throw new Exception("This call should not be executed!");
         public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.UnSubscribe(handler);
     }
 }

@@ -27,18 +27,19 @@ namespace StatePipes.Common.Internal
             var statePipesAssebly = typeof(StatePipesService).Assembly;
             SetupAssembylyMessageTypes(statePipesAssebly);
         }
-        public void Add(Type type)
+        public void Add(Type type) => Add(type.FullName, type);
+        public void Add(string? receivedEventTypeFullName, Type convertToType)
         {
             lock (_typeDictionary)
             {
-                var fullName = type.FullName;
-                if (string.IsNullOrEmpty(fullName)) return;
-                if (_typeDictionary.ContainsKey(fullName)) return;
-                _typeDictionary[fullName] = type;
+                if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+                _typeDictionary[receivedEventTypeFullName] = convertToType;
             }
         }
         public Type? Get(string fullName)
         {
+            //SRM Remove Later
+            if (fullName.Contains("DummyEvent")) StatePipes.ProcessLevelServices.LoggerHolder.Log?.LogInfo("Received DummyEvent");
             lock (_typeDictionary)
             {
                 if (!_typeDictionary.TryGetValue(fullName, out Type? value)) return null;

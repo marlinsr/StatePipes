@@ -11,8 +11,10 @@ namespace StatePipes.Interfaces
         void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected);
         void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected);
         void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent;
+        void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class;
         void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent;
         void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand;
+        void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class;
         void Start();
         void Stop();
     }

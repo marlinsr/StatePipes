@@ -120,35 +120,21 @@ namespace StatePipes.Comms.Internal
                 _channel?.QueueUnbindAsync(queue: GetQueueName(id, CommunicationsType.Event), exchange: busConfig.EventExchangeName, routingKey: routingKey);
             }
         }
-        public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage
+        public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage => Send<T>(message.GetType().FullName, message, busConfigFrom, exchangeName);
+        public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName) 
         {
+            if(message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            MessageHelper.Serialize(sendCommandTypeFullName, message, busConfigFrom, out byte[] body, out BasicProperties properties);
             lock (_lock)
             {
-                var routingKey = message.GetType().FullName;
-                if (string.IsNullOrEmpty(routingKey))
-                {
-                    Log?.LogError("Failed to get FullName for message.");
-                    return;
-                }
-                if (_channel == null)
-                {
-                    Log?.LogError($"Failed to send message {routingKey} because _channel == null");
-                    return;
-                }
-                MessageHelper.Serialize(message, busConfigFrom, out byte[] body, out BasicProperties properties);
+                if (_channel == null) return;
                 try
                 {
-                    var result = _channel.BasicPublishAsync(exchange: exchangeName,
-                                         routingKey: routingKey,
-                                         basicProperties: properties,
-                                         body: body,
-                                         mandatory: false, cancellationToken: _cancelToken);
+                    var result = _channel.BasicPublishAsync(exchange: exchangeName, routingKey: sendCommandTypeFullName, basicProperties: properties,
+                                         body: body, mandatory: false, cancellationToken: _cancelToken);
                     if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message{message.GetType().FullName} to exchange {exchangeName}");
                 }
-                catch (Exception e)
-                {
-                    Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {routingKey} Exception: {e.Message}");
-                }
+                catch (Exception e) { Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {sendCommandTypeFullName} Exception: {e.Message}"); }
             }
         }
         protected void Cleanup()
