@@ -32,17 +32,9 @@ namespace StatePipes.Comms
             _eventSubscriptionManager.Subscribe<HeartbeatEvent>(_heartbeatProcessor.HeartbeatEventHandler);
             _routingKeyManager.Subscribe<HeartbeatEvent>(_heartbeatProcessor.HeartbeatEventHandler);
         }
-        public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected)
-        {
-            _heartbeatProcessor.Subscribe(onConnected, onDisconnected);
-        }
-        public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected)
-        {
-            _heartbeatProcessor.UnSubscribe(onConnected, onDisconnected);
-        }
-        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent =>
-            Subscribe<TEvent>(typeof(TEvent).FullName, handler);
-
+        public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _heartbeatProcessor.Subscribe(onConnected, onDisconnected);
+        public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _heartbeatProcessor.UnSubscribe(onConnected, onDisconnected);
+        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => Subscribe<TEvent>(typeof(TEvent).FullName, handler);
         public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
         {
             if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;

@@ -56,7 +56,6 @@ namespace StatePipes.Comms.Internal
                 TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds),
                 TimeSpan.FromMilliseconds(Timeout.Infinite));
         }
-
         private void CreateChannel()
         {
             if (_connection == null)
@@ -105,7 +104,6 @@ namespace StatePipes.Comms.Internal
                 _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).Wait();
             }
         }
-        //SRM Need to see if EventSubscriptionManager should be owned here
         public void Subscribe(Guid id, string routingKey, BusConfig busConfig)
         {
             lock (_lock)

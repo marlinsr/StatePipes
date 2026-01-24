@@ -27,7 +27,6 @@ namespace StatePipes.Common.Internal
             var statePipesAssebly = typeof(StatePipesService).Assembly;
             SetupAssembylyMessageTypes(statePipesAssebly);
         }
-        public void Add(Type type) => Add(type.FullName, type);
         public void Add(string? receivedEventTypeFullName, Type convertToType)
         {
             lock (_typeDictionary)
@@ -38,8 +37,6 @@ namespace StatePipes.Common.Internal
         }
         public Type? Get(string fullName)
         {
-            //SRM Remove Later
-            if (fullName.Contains("DummyEvent")) StatePipes.ProcessLevelServices.LoggerHolder.Log?.LogInfo("Received DummyEvent");
             lock (_typeDictionary)
             {
                 if (!_typeDictionary.TryGetValue(fullName, out Type? value)) return null;

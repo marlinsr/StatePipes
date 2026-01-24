@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Newtonsoft.Json;
 using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
@@ -10,6 +11,7 @@ namespace StatePipes.Comms.Internal
     internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxy, IDisposable
     {
         private readonly TypeDictionary _externalMessageTypeDictionary = new TypeDictionary();
+        private readonly Dictionary<string, Type> _subscribedEventTypeDictionary = new Dictionary<string, Type>();
         private readonly Guid _id = Guid.NewGuid();
         private readonly IStatePipesProxyFactory? _parentProxyFactory;
         private readonly ServiceConfiguration _serviceConfiguration;
@@ -63,10 +65,22 @@ namespace StatePipes.Comms.Internal
         }
         public void PublishEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
         {
-            Log?.LogVerbose($"Publishing {typeof(TEvent).FullName}");
             EventSendHelper(eventMessage, _busConfig.EventExchangeName, _busConfig);
             _eventSubscriptionManager.HandleEvent(eventMessage, _busConfig);
+            var transformedEvent = TransformEvent(eventMessage);
+            if (transformedEvent != null) _eventSubscriptionManager.HandleEvent(transformedEvent, _busConfig);
             if (_container != null) ExecuteMessageHelper.ExecuteMessage(eventMessage, _busConfig, false, _container);
+        }
+        private dynamic? TransformEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
+        {
+            //This json cloning only effects locally deployed services.
+            var eventTypeFullName = typeof(TEvent).FullName;
+            if (string.IsNullOrEmpty(eventTypeFullName)) return null;
+            if (_subscribedEventTypeDictionary.TryGetValue(eventTypeFullName, out Type? subscribedEventType))
+            {
+                return JsonConvert.DeserializeObject(JsonUtility.GetJsonStringForObject(eventMessage, false), subscribedEventType, StatePipesJsonConverters.Converters);
+            }
+            return null;
         }
         public void SendResponse<TEvent>(TEvent replyMessage, BusConfig busConfig) where TEvent : class, IEvent
         {
@@ -83,6 +97,8 @@ namespace StatePipes.Comms.Internal
             Log?.LogVerbose($"Sending response {typeof(TEvent).FullName} to {busConfig.ResponseExchangeName}");
             EventSendHelper(replyMessage, busConfig.ResponseExchangeName, busConfig);
             _eventSubscriptionManager.HandleEventResponse(replyMessage, _busConfig);
+            var transformedEvent = TransformEvent(replyMessage);
+            if (transformedEvent != null) _eventSubscriptionManager.HandleEventResponse(transformedEvent, _busConfig);
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
         {
@@ -192,9 +208,15 @@ namespace StatePipes.Comms.Internal
             Stop();
             base.Dispose();
         }
-        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.Subscribe(handler);
-        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
-            throw new Exception("This call should not be executed!");
+        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => Subscribe(typeof(TEvent).FullName, handler);
+        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
+        {
+            if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+            var eventType = typeof(TEvent);
+            var eventTypeFullName = eventType.FullName;
+            if (eventTypeFullName != receivedEventTypeFullName) _subscribedEventTypeDictionary.Add(receivedEventTypeFullName, eventType);
+            _eventSubscriptionManager.Subscribe(eventTypeFullName, handler);
+        }
         public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.UnSubscribe(handler);
     }
 }
