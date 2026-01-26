@@ -15,8 +15,8 @@ namespace StatePipes.Common
                 .Where(i => i.IsGenericMethod)
                 .Where(i => i.GetParameters().Select(a => a.ParameterType).SequenceEqual(parameterTypes))
                 .Single();
-            var deserializeMethodOfThisType = deserializeMethod.MakeGenericMethod(new[] { t });
-            return deserializeMethodOfThisType.Invoke(null, new object[] { jsonString, StatePipesJsonConverters.Converters });
+            var deserializeMethodOfThisType = deserializeMethod.MakeGenericMethod([t]);
+            return deserializeMethodOfThisType.Invoke(null, [jsonString, StatePipesJsonConverters.Converters]);
         }
         public static T Clone<T>(T obj) where T : class => GetObjectForJsonString<T>(GetJsonStringForObject(obj))!;
 

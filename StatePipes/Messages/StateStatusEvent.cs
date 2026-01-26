@@ -2,16 +2,11 @@
 
 namespace StatePipes.Messages
 {
-    public class StateStatusEvent : IEvent
+    public class StateStatusEvent(string state, string stateMachineName) : IEvent
     {
-        public string StateMachineName { get; }
-        public string State { get; }
+        public string StateMachineName { get; } = stateMachineName;
+        public string State { get; } = state;
 
-        public StateStatusEvent(string state, string stateMachineName)
-        {
-            State = state;
-            StateMachineName = stateMachineName;
-        }
         public override int GetHashCode()
         {
             unchecked

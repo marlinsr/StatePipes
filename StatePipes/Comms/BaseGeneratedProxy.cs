@@ -5,7 +5,7 @@ namespace StatePipes.Comms
 {
     public abstract class BaseGeneratedProxy
     {
-        internal readonly Dictionary<string, IStatePipesProxyInternal> _proxyDictionary = new Dictionary<string, IStatePipesProxyInternal>();
+        internal readonly Dictionary<string, IStatePipesProxyInternal> _proxyDictionary = [];
         protected readonly IStatePipesService _bus;
         public abstract string ProxyPrefix { get; }
         protected abstract void Subscribe(IStatePipesProxy proxy);
@@ -42,11 +42,11 @@ namespace StatePipes.Comms
                 SendToAll(sendCommandTypeFullName, command);
                 return;
             }
-            if (!_proxyDictionary.ContainsKey(proxyName)) return;
-            _proxyDictionary[proxyName].SendCommand(sendCommandTypeFullName, command);
+            if (_proxyDictionary.TryGetValue(proxyName, out IStatePipesProxyInternal? value))
+                value.SendCommand(sendCommandTypeFullName, command);
         }
-        protected void Subscribe<TEvent>(IStatePipesProxy proxy, string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
-            _proxyDictionary.Values.ToList().ForEach(proxy => proxy.Subscribe(receivedEventTypeFullName, handler));
+        protected static void Subscribe<TEvent>(IStatePipesProxy proxy, string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
+            ((IStatePipesProxyInternal)proxy).Subscribe(receivedEventTypeFullName, handler);
     }
 }
 

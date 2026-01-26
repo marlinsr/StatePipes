@@ -9,7 +9,7 @@ namespace StatePipes.SelfDescription
     {
         private readonly TypeRepo _typeRepo = typeRepo;
         private readonly TypeRepo _nullableTypeRepo = nullableTypeRepo;
-        private Dictionary<string, TypeBuilder> _builderRepo = new Dictionary<string, TypeBuilder>();
+        private Dictionary<string, TypeBuilder> _builderRepo = [];
         public Type? Convert(TypeSerialization typeSerialization)
         {
             _builderRepo.Clear();
@@ -54,7 +54,7 @@ namespace StatePipes.SelfDescription
             if (constructor is null) return null;
             var contructorParams = constructor.GetParameters();
             if (contructorParams == null || contructorParams.Length == 0) return new CustomAttributeBuilder(constructor, Type.EmptyTypes);
-            List<object?> constructorArgs = new List<object?>();
+            List<object?> constructorArgs = [];
             contructorParams.ToList().ForEach(cp => constructorArgs.Add(GetPropertyValueForConstructorParam(cp.Name, attribute)));
             return new CustomAttributeBuilder(constructor, constructorArgs.ToArray());
         }
@@ -178,7 +178,7 @@ namespace StatePipes.SelfDescription
                 tb.DefineMethod($"set_{p.Name}",
                                            getSetAttr,
                                            null,
-                                           new Type[] { pType });
+                                           [pType]);
 
             ILGenerator custNameSetIL = setPropMthdBldr.GetILGenerator();
             custNameSetIL.Emit(OpCodes.Ldarg_0);

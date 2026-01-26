@@ -6,7 +6,9 @@ namespace StatePipes.StateMachine
 {
     public abstract class BaseStateMachineState<StateMachineType> : IStateMachineState where StateMachineType : IStateMachine
     {
+#pragma warning disable IDE1006 // Naming Styles
         private BaseStateMachine? _stateMachine { get; set; }
+#pragma warning restore IDE1006 // Naming Styles
         public BaseStateMachineState()
         {
             if (TemporaryStateMachineHolder.BaseStateMachine == null) throw new Exception("TemporaryStateMachineHolder.BaseStateMachine == null");

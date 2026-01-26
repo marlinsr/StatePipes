@@ -5,17 +5,18 @@ using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
 using System.Diagnostics;
 using System.Reflection;
+
 namespace StatePipes.StateMachine.Test.Internal
 {
     internal class TestStatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService
     {
         private IContainer? _container = null;
-        private readonly object _cmdLock = new();
+        private readonly Lock _cmdLock = new();
         private readonly List<ICommand> _cmdInvocations = [];
         private readonly TimedBlockOnFilterList<ICommand> _cmdBlockingFilterList = new();
-        private readonly SendFilterList<ICommand> _cmdFilterList = new SendFilterList<ICommand>();
-        private readonly TimedBlockOnFilterList<IEvent> _eventBlockingFilterList = new TimedBlockOnFilterList<IEvent>();
-        private readonly object _eventLock = new();
+        private readonly SendFilterList<ICommand> _cmdFilterList = new();
+        private readonly TimedBlockOnFilterList<IEvent> _eventBlockingFilterList = new();
+        private readonly Lock _eventLock = new();
         private readonly List<IEvent> _eventInvocations = [];
         public TimedBlockOnFilter<ICommand>? TrapCommand<T>(int skip, int timeoutMsec, bool stopProcessingCmdsWhenTriggered) where T : class, ICommand
         {
@@ -104,7 +105,7 @@ namespace StatePipes.StateMachine.Test.Internal
                 var executeMethod = commandHandlerType.GetMethod("HandleMessage", BindingFlags.Public | BindingFlags.Instance);
                 if (executeMethod == null) return;
                 AddCommandToInvocations((ICommand)cmd.Command);
-                executeMethod.Invoke(cmdHandler, new object[] { cmd.Command, cmd.ReplyTo, false });
+                executeMethod.Invoke(cmdHandler, [cmd.Command, cmd.ReplyTo, false]);
             }
             catch (Exception ex)
             {
@@ -148,7 +149,7 @@ namespace StatePipes.StateMachine.Test.Internal
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
             if (_cmdFilterList.IsFiltered(command.GetType())) return;
-            Queue(new ReceivedCommandMessage(command, busConfig == null ? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty) : busConfig));
+            Queue(new ReceivedCommandMessage(command, busConfig ?? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty)));
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
         {

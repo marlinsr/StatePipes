@@ -21,7 +21,7 @@ namespace StatePipes.StateMachine.Internal
         public List<BaseStateMachine> GetAllStateMachines() => _stateMachineDictionary.Values.ToList(); 
         public List<string> SaveAllStateMachineDotGraphToPath(string path)
         {
-            List<string> ret = new List<string>();
+            List<string> ret = [];
             GetAllStateMachines().ForEach(s =>
             {
                 ret.Add(s.SaveDotGraphToPath(path));

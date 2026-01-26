@@ -120,7 +120,7 @@ namespace StatePipes.ServiceCreatorTool
             {
                 dllFileName = dialog.FileName;
                 Console.WriteLine($"dll file: {dllFileName}");
-                ProxyGenerator proxyCreator = new ProxyGenerator(dllFileName, projectName, moniker, _pathProvider);
+                ProxyGenerator proxyCreator = new(dllFileName, projectName, moniker, _pathProvider);
                 if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
                 string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}Proxy.cs");
                 bool outputFileAlreadExists = File.Exists(outputFile);

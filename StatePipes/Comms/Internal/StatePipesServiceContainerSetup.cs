@@ -32,7 +32,7 @@ namespace StatePipes.Comms.Internal
         {
             var types = _assembly.GetLoadableTypes().Where(t => (t.IsPublic && !t.IsAbstract && !t.IsGenericType && IsConcrete(t) &&
               typeof(ICommand).IsAssignableFrom(t) && !string.IsNullOrEmpty(t.FullName)));
-            Dictionary<string, Type> commandTypeDictionary = new();
+            Dictionary<string, Type> commandTypeDictionary = [];
             if (types == null) return commandTypeDictionary;
             types.ToList().ForEach(t => commandTypeDictionary.Add(t.FullName!, t));
             return commandTypeDictionary;
@@ -54,10 +54,10 @@ namespace StatePipes.Comms.Internal
             if (getCurrentStatusTriggerType != null) containerBuilder.RegisterType(getCurrentStatusTriggerType).As<IGetCurrentStatusCommand>();
             //Register all commandHandlers and eventHandlers in the app library assembly 
             var handlerList = _assembly.GetLoadableTypes().Where(t => IsConcrete(t) && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == handlerType && i.GetGenericArguments().Any(p => p.Assembly.FullName == _assembly.FullName)));
-            if (handlerList != null) handlerList.ToList().ForEach(handler => containerBuilder.RegisterType(handler).AsImplementedInterfaces().SingleInstance());
+            handlerList?.ToList().ForEach(handler => containerBuilder.RegisterType(handler).AsImplementedInterfaces().SingleInstance());
             //Register all commandHandlers and eventHandlers in the StatePipes assembly
             handlerList = _statePipesAssebly.GetLoadableTypes().Where(t => IsConcrete(t) && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == handlerType && i.GetGenericArguments().Any(p => p.Assembly.FullName == _statePipesAssebly.FullName)));
-            if (handlerList != null) handlerList.ToList().ForEach(handler => containerBuilder.RegisterType(handler).AsImplementedInterfaces().SingleInstance());
+            handlerList?.ToList().ForEach(handler => containerBuilder.RegisterType(handler).AsImplementedInterfaces().SingleInstance());
             _serviceContainerSetup.Register(containerBuilder);
             _stateMachineContainerSetup.Register(containerBuilder);
             _selfDescriptionContainerSetup.Register(containerBuilder);

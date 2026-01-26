@@ -18,9 +18,9 @@ internal class TypeToTypeSerializationConverter
     }
     public TypeSerialization Convert(Type t)
     {
-        TypeSerialization typeSerialization = new TypeSerialization();
+        TypeSerialization typeSerialization = new();
         typeSerialization.FullName = t.FullName ?? string.Empty;
-        typeSerialization.TypeRepo = new Dictionary<string, TypeDescription>();
+        typeSerialization.TypeRepo = [];
         CreateFromType(t, typeSerialization);
         return typeSerialization;
     }
@@ -106,7 +106,7 @@ internal class TypeToTypeSerializationConverter
     {
         CreateFromType(attributeData.AttributeType, tsi);
         var converter = new StringEnumConverter();
-        AttributeDescription attributeDescription = new AttributeDescription(attributeData.AttributeType.FullName ?? string.Empty, JsonConvert.SerializeObject(customAttribute, Formatting.None, converter));
+        AttributeDescription attributeDescription = new(attributeData.AttributeType.FullName ?? string.Empty, JsonConvert.SerializeObject(customAttribute, Formatting.None, converter));
         return attributeDescription;
     }
     private List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes.")).ToList();

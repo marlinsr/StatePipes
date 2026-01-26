@@ -5,7 +5,7 @@ namespace StatePipes.Diagrammer
 {
     public class DummyDependencyInjection
     {
-        private static Dictionary<Type, object> _dummyRepository = new Dictionary<Type, object>();
+        private static Dictionary<Type, object> _dummyRepository = [];
         public static void RegisterDummyForType(ContainerBuilder builder, Type t)
         {
             if (_dummyRepository.ContainsKey(t)) return;
@@ -20,14 +20,14 @@ namespace StatePipes.Diagrammer
             var myMethodBuilder = typeBuilder.DefineMethod(registerDummyForTypeMethodName,
                          MethodAttributes.Public | MethodAttributes.Virtual,
                          null,
-                         new Type[] { typeof(ContainerBuilder), typeof(Type) });
+                         [typeof(ContainerBuilder), typeof(Type)]);
             var myMethodIL = myMethodBuilder.GetILGenerator();
             myMethodIL.Emit(OpCodes.Nop);
             myMethodIL.Emit(OpCodes.Ldarg_1);
             myMethodIL.Emit(OpCodes.Ldarg_2);
             var methodToCall = typeof(DummyDependencyInjection).GetMethod(registerDummyForTypeMethodName,
-                BindingFlags.Public | BindingFlags.Static, Type.DefaultBinder, new Type[] { typeof(ContainerBuilder), typeof(Type) }, null);
-            myMethodIL.EmitCall(OpCodes.Call, methodToCall!, new Type[] { typeof(ContainerBuilder), typeof(Type) });
+                BindingFlags.Public | BindingFlags.Static, Type.DefaultBinder, [typeof(ContainerBuilder), typeof(Type)], null);
+            myMethodIL.EmitCall(OpCodes.Call, methodToCall!, [typeof(ContainerBuilder), typeof(Type)]);
             myMethodIL.Emit(OpCodes.Ret);
             var registerDummyForTypeMethod = iDummyDependencyRegistrationType.GetMethod(registerDummyForTypeMethodName)!;
             typeBuilder.DefineMethodOverride(myMethodBuilder, registerDummyForTypeMethod);

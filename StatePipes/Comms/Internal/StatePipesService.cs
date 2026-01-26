@@ -8,33 +8,25 @@ using StatePipes.Messages;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms.Internal
 {
-    internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
+    internal class StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true) : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
     {
-        private readonly TypeDictionary _externalMessageTypeDictionary = new TypeDictionary();
-        private readonly Dictionary<string, Type> _subscribedEventTypeDictionary = new Dictionary<string, Type>();
+        private readonly TypeDictionary _externalMessageTypeDictionary = new();
+        private readonly Dictionary<string, Type> _subscribedEventTypeDictionary = [];
         private readonly Guid _id = Guid.NewGuid();
-        private readonly IStatePipesProxyFactory? _parentProxyFactory;
-        private readonly ServiceConfiguration _serviceConfiguration;
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
-        private Dictionary<string, Type> _commandTypeDictionary = new Dictionary<string, Type>();
+        private Dictionary<string, Type> _commandTypeDictionary = [];
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
         private IContainer? _container;
         private ConnectionChannel? _connectionChannel;
         private List<string> PublicCommandsFullName = ConnectionChannel.DefaultRoutingKeys;
-        private BusConfig _busConfig => _serviceConfiguration.BusConfig;
+#pragma warning disable IDE1006 // Naming Styles
+        private BusConfig _busConfig => serviceConfiguration.BusConfig;
+#pragma warning restore IDE1006 // Naming Styles
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
-        public string Name { get; private set; } = string.Empty;
-        public bool IsConnectedToBroker => _remoteAccess && (_connectionChannel?.IsOpen ?? false);
+        public string Name { get; private set; } = name;
+        public bool IsConnectedToBroker => remoteAccess && (_connectionChannel?.IsOpen ?? false);
         public bool IsConnectedToService => true;
-        private readonly bool _remoteAccess;
         public StatePipesService(ServiceConfiguration serviceConfiguration) : this(string.Empty, serviceConfiguration) { }
-        public StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true)
-        {
-            Name = name;
-            _serviceConfiguration = serviceConfiguration;
-            _parentProxyFactory = parentProxyFactory;
-            _remoteAccess = remoteAccess;
-        }
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => onConnected.Invoke(null, EventArgs.Empty);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) { }
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(command, _busConfig);
@@ -47,7 +39,7 @@ namespace StatePipes.Comms.Internal
         }
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
-            if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig == null ? _busConfig : busConfig));
+            if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig ?? _busConfig));
         }
         private void EventSendHelper<TEvent>(TEvent eventMessage, string exchangeName, BusConfig busConfig) where TEvent : class, IEvent
         {
@@ -126,7 +118,7 @@ namespace StatePipes.Comms.Internal
         {
             if (_container != null) return;
             ContainerBuilder containerBuilder = new();
-            var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(_serviceConfiguration, _parentProxyFactory);
+            var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(serviceConfiguration, parentProxyFactory);
             _commandTypeDictionary = statePipesServiceContainerSetup.GetPublicCommandTypeDictionary();
             _externalMessageTypeDictionary.SetupAssembylyMessageTypes(statePipesServiceContainerSetup.ClassLibraryAssembly);
             statePipesServiceContainerSetup.Register(containerBuilder);
@@ -205,7 +197,7 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_connectionChannel == null && _remoteAccess)
+                if(_connectionChannel == null && remoteAccess)
                 {
                     try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
                 }

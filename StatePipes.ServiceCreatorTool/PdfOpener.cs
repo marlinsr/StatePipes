@@ -9,7 +9,7 @@ namespace StatePipes.ServiceCreatorTool
             try
             {
                 if (!File.Exists(filePath)) return;
-                ProcessStartInfo psi = new ProcessStartInfo
+                ProcessStartInfo psi = new()
                 {
                     FileName = filePath,
                     UseShellExecute = true

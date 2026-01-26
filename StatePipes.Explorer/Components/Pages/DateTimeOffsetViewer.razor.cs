@@ -8,9 +8,9 @@ namespace StatePipes.Explorer.Components.Pages
     public partial class DateTimeOffsetViewer
     {
         private PropertyValueClass? PreviousEditorObject;
-        private DateOnly _newDate = new DateOnly();
-        private TimeOnly _newTime = new TimeOnly();
-        private List<TimeZoneInfo> TimeZones = new();
+        private DateOnly _newDate = new();
+        private TimeOnly _newTime = new();
+        private List<TimeZoneInfo> TimeZones = [];
         private string SelectedTimeZone = string.Empty;
         private string _seconds = string.Empty;
         private string _newTimeStr = string.Empty;

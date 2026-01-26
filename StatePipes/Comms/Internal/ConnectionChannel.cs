@@ -12,11 +12,11 @@ namespace StatePipes.Comms.Internal
         private readonly Action<ConnectionChannel>? _configureBuses;
         private readonly CancellationToken _cancelToken;
         private readonly BusConfig _busConfig;
-        private readonly object _lock = new();
+        private readonly System.Threading.Lock _lock = new();
         private bool _disposedValue;
         private Timer? _timer;
         private readonly string? _hashedPassword;
-        public static List<string> DefaultRoutingKeys { get; } = new List<string> { "#" };
+        public static List<string> DefaultRoutingKeys { get; } = ["#"];
         public ConnectionChannel(BusConfig busConfig, string? hashedPassword, Action<ConnectionChannel>? configureBuses = null, CancellationToken cancelToken = default)
         {
             _configureBuses = configureBuses;
@@ -83,7 +83,7 @@ namespace StatePipes.Comms.Internal
                 }
             }
         }
-        private string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
+        private static string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
         public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, AsyncEventHandler<BasicDeliverEventArgs>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
         {
             //No Need to lock this because InstantiateConnectionAndChannel locks
@@ -98,7 +98,7 @@ namespace StatePipes.Comms.Internal
                 var queueName = GetQueueName(id, commsType);
                 _channel.QueueDeclareAsync(queueName).Wait();
 
-                if (routingKeys != null) routingKeys.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).Wait());
+                routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).Wait());
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += consumeMethod;
                 _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).Wait();

@@ -2,8 +2,8 @@
 {
     internal class TimedBlockOnFilterList<A> : IDisposable
     {
-        private readonly List<TimedBlockOnFilter<A>> _filterList = new List<TimedBlockOnFilter<A>>();
-        private readonly object _lock = new object();
+        private readonly List<TimedBlockOnFilter<A>> _filterList = [];
+        private readonly object _lock = new();
         private bool _disposed;
         public void Add(TimedBlockOnFilter<A> filter)
         {

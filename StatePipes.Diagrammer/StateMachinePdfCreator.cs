@@ -18,10 +18,10 @@ namespace StatePipes.Diagrammer
             Directory.SetCurrentDirectory(dllPath);
             var parameters = new ReaderParameters();
             var assembly = ModuleDefinition.ReadModule(dllFullPath, parameters);
-            var customAttribute = new CustomAttribute(assembly.ImportReference(typeof(InternalsVisibleToAttribute).GetConstructor(new[] { typeof(string) })));
+            var customAttribute = new CustomAttribute(assembly.ImportReference(typeof(InternalsVisibleToAttribute).GetConstructor([typeof(string)])));
             customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(assembly.TypeSystem.String, AppDomain.CurrentDomain.FriendlyName));
             assembly.Assembly.CustomAttributes.Add(customAttribute);
-            var customAttribute2 = new CustomAttribute(assembly.ImportReference(typeof(InternalsVisibleToAttribute).GetConstructor(new[] { typeof(string) })));
+            var customAttribute2 = new CustomAttribute(assembly.ImportReference(typeof(InternalsVisibleToAttribute).GetConstructor([typeof(string)])));
             customAttribute2.ConstructorArguments.Add(new CustomAttributeArgument(assembly.TypeSystem.String, "DynamicProxyGenAssembly2"));
             assembly.Assembly.CustomAttributes.Add(customAttribute2);
             assembly.Write(dllFullPathFileName);
@@ -31,22 +31,22 @@ namespace StatePipes.Diagrammer
         {
             var allStateMachineDummyContainerSetupType = assemblies.GetTypeFromAssemblies("StatePipes.StateMachine.Internal.AllStateMachineDummyContainerSetup")!;
             ContainerBuilder containerBuilder = new();
-            var dummyContainerSetup = Activator.CreateInstance(allStateMachineDummyContainerSetupType, new Object[] { (Assembly)assembly, DummyDependencyInjection.Create(assemblies) });
+            var dummyContainerSetup = Activator.CreateInstance(allStateMachineDummyContainerSetupType, [(Assembly)assembly, DummyDependencyInjection.Create(assemblies)]);
             var allStateMachineContainerSetupType = assemblies.GetTypeFromAssemblies("StatePipes.StateMachine.Internal.AllStateMachineContainerSetup")!;
-            var stateMachineContainerSetup = Activator.CreateInstance(allStateMachineContainerSetupType, new Object[] { (Assembly)assembly, false });
-            var allStateMachineDummyContainerSetupRegisterMethod = allStateMachineDummyContainerSetupType.GetMethod("Register", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, new System.Type[] { typeof(ContainerBuilder) }, null);
-            allStateMachineDummyContainerSetupRegisterMethod!.Invoke(dummyContainerSetup, new object[] { containerBuilder });
-            var allStateMachineContainerSetupRegisterMethod = allStateMachineContainerSetupType.GetMethod("Register", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, new System.Type[] { typeof(ContainerBuilder) }, null);
-            allStateMachineContainerSetupRegisterMethod!.Invoke(stateMachineContainerSetup, new object[] { containerBuilder });
+            var stateMachineContainerSetup = Activator.CreateInstance(allStateMachineContainerSetupType, [(Assembly)assembly, false]);
+            var allStateMachineDummyContainerSetupRegisterMethod = allStateMachineDummyContainerSetupType.GetMethod("Register", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(ContainerBuilder)], null);
+            allStateMachineDummyContainerSetupRegisterMethod!.Invoke(dummyContainerSetup, [containerBuilder]);
+            var allStateMachineContainerSetupRegisterMethod = allStateMachineContainerSetupType.GetMethod("Register", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(ContainerBuilder)], null);
+            allStateMachineContainerSetupRegisterMethod!.Invoke(stateMachineContainerSetup, [containerBuilder]);
             using var container = containerBuilder.Build();
-            var allStateMachineDummyContainerSetupBuildMethod = allStateMachineDummyContainerSetupType.GetMethod("Build", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, new System.Type[] { typeof(IContainer) }, null);
-            allStateMachineDummyContainerSetupBuildMethod!.Invoke(dummyContainerSetup, new object[] { container });
-            var allStateMachineContainerSetupBuildMethod = allStateMachineContainerSetupType.GetMethod("Build", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, new System.Type[] { typeof(IContainer) }, null);
-            allStateMachineContainerSetupBuildMethod!.Invoke(stateMachineContainerSetup, new object[] { container });
+            var allStateMachineDummyContainerSetupBuildMethod = allStateMachineDummyContainerSetupType.GetMethod("Build", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(IContainer)], null);
+            allStateMachineDummyContainerSetupBuildMethod!.Invoke(dummyContainerSetup, [container]);
+            var allStateMachineContainerSetupBuildMethod = allStateMachineContainerSetupType.GetMethod("Build", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(IContainer)], null);
+            allStateMachineContainerSetupBuildMethod!.Invoke(stateMachineContainerSetup, [container]);
             var stateMachineManagerContainerSetupType = assemblies.GetTypeFromAssemblies("StatePipes.StateMachine.Internal.StateMachineManager")!;
             var stateMachineManager = container.Resolve(stateMachineManagerContainerSetupType);
-            var stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod = stateMachineManagerContainerSetupType.GetMethod("SaveAllStateMachineDotGraphToPath", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, new System.Type[] { typeof(string) }, null);
-            var files = (List<string>)stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod?.Invoke(stateMachineManager, new object[] { outputPath })!;
+            var stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod = stateMachineManagerContainerSetupType.GetMethod("SaveAllStateMachineDotGraphToPath", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(string)], null);
+            var files = (List<string>)stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod?.Invoke(stateMachineManager, [outputPath])!;
             GraphGenerator graphGenerator = new(outputPath);
             files.ForEach(file => graphGenerator.GraphStateMachine(file));
         }

@@ -70,7 +70,7 @@ namespace StatePipes.Explorer.Components.Pages
         }
         private List<PropertyValueClass> GetArrayElements()
         {
-            List<PropertyValueClass> arrayElementsList = new();
+            List<PropertyValueClass> arrayElementsList = [];
             if (EditorObject?.Value == null) return arrayElementsList;
             var objListEnumerable = EditorObject.Value as IEnumerable;
             if (objListEnumerable == null) return arrayElementsList;

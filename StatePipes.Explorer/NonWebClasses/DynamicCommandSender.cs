@@ -3,27 +3,20 @@ using StatePipes.SelfDescription;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Explorer.NonWebClasses
 {
-    internal class DynamicCommandSender
+    internal class DynamicCommandSender(StatePipesProxyInternal proxy, TypeSerializationJsonHelper commandInstanceMgr)
     {
-        private readonly StatePipesProxyInternal _proxy;
-        private readonly TypeSerializationJsonHelper _commandInstanceMgr;
-        public DynamicCommandSender(StatePipesProxyInternal proxy, TypeSerializationJsonHelper commandInstanceMgr)
-        {
-            _proxy = proxy;
-            _commandInstanceMgr = commandInstanceMgr;
-        }
         public void Send(string commandJson)
         {
             try
             {
-                dynamic? command = _commandInstanceMgr.GetObjectFromJson(commandJson);
+                dynamic? command = commandInstanceMgr.GetObjectFromJson(commandJson);
                 if (command == null)
                 {
                     Log?.LogVerbose($"Couldn't get command for commandJson: {commandJson}");
                     return;
                 }
                 Log?.LogVerbose($"Sending command {command.GetType().FullName}");
-                _proxy.SendCommand(command);
+                proxy.SendCommand(command);
             }
             catch (Exception ex) 
             { 
@@ -34,7 +27,7 @@ namespace StatePipes.Explorer.NonWebClasses
         {
             try
             {
-                return _commandInstanceMgr.GetObjectFromJson(commandJson);
+                return commandInstanceMgr.GetObjectFromJson(commandJson);
             }
             catch (Exception ex)
             {
@@ -44,7 +37,7 @@ namespace StatePipes.Explorer.NonWebClasses
         }
         public dynamic? TypeDefault(Type t)
         {
-            return _commandInstanceMgr.TypeDefault(t);
+            return commandInstanceMgr.TypeDefault(t);
         }
     }
 }

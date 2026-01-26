@@ -87,7 +87,7 @@ namespace StatePipes.Explorer.Components.Pages
 
         private List<PropertyValueClass> GetDictionaryEntries()
         {
-            List<PropertyValueClass> dictionaryEntries = new();
+            List<PropertyValueClass> dictionaryEntries = [];
             if (EditorObject?.Value == null) return dictionaryEntries;
             var dictionary = EditorObject.Value as IDictionary;
             if (dictionary == null) return dictionaryEntries;

@@ -4,7 +4,7 @@ namespace StatePipes.Comms.Internal
 {
     internal class StatePipesProxyFactory : IStatePipesProxyFactory, IDisposable
     {
-        private readonly Dictionary<string, IStatePipesProxy> _proxyDictionary = new();
+        private readonly Dictionary<string, IStatePipesProxy> _proxyDictionary = [];
         private bool disposedValue;
 
         public StatePipesProxyFactory(ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory)
@@ -56,9 +56,9 @@ namespace StatePipes.Comms.Internal
             _proxyDictionary.Add(proxyConfiguration.Name, new SubstitutionProxy(proxyConfiguration.Name, (IStatePipesProxyInternal)substitutionProxy));
             return true;
         }
-        public List<IStatePipesProxy> GetAllClientProxies() => _proxyDictionary.Values.ToList();
+        public List<IStatePipesProxy> GetAllClientProxies() => [.. _proxyDictionary.Values];
         public IStatePipesProxy? GetStatePipesProxy(string name, bool connect = true) => _proxyDictionary.TryGetValue(name, out IStatePipesProxy? value) ? value : null;
-        public List<string> GetProxyConfigNames() => _proxyDictionary.Keys.ToList();
+        public List<string> GetProxyConfigNames() => [.. _proxyDictionary.Keys];
 
         protected virtual void Dispose(bool disposing)
         {

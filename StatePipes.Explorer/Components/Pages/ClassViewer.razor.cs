@@ -38,7 +38,7 @@ namespace StatePipes.Explorer.Components.Pages
 
         private Dictionary<string, PropertyValueClass> GetPrimitiveProperties()
         {
-            Dictionary<string, PropertyValueClass> propertyNameValueDictionary = new();
+            Dictionary<string, PropertyValueClass> propertyNameValueDictionary = [];
             if (EditorObject?.Value == null) return propertyNameValueDictionary;
             Type editorObjectType = EditorObject.Value.GetType();
             var properties = editorObjectType.GetProperties(BindingFlags.Public | BindingFlags.Instance);

@@ -2,7 +2,7 @@
 {
     public class StatePipesHandler : IStatePipesHandler
     {
-        private readonly Dictionary<Guid, StatePipesHandlerHelper> _helperDictionary = new Dictionary<Guid, StatePipesHandlerHelper>();
+        private readonly Dictionary<Guid, StatePipesHandlerHelper> _helperDictionary = [];
         private StatePipesHandlerHelper GetHelper(Guid instanceGuid)
         {
             lock (_helperDictionary)

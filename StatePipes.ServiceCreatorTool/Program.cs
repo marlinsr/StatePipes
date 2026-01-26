@@ -165,24 +165,24 @@ namespace StatePipes.ServiceCreatorTool
         }
         private static DialogResult ShowInputDialog(ref string input, string question)
         {
-            Size size = new Size(800, 70);
-            Form inputBox = new Form();
+            Size size = new(800, 70);
+            Form inputBox = new();
             inputBox.FormBorderStyle = FormBorderStyle.FixedDialog;
             inputBox.ClientSize = size;
             inputBox.Text = question;
-            TextBox textBox = new TextBox();
+            TextBox textBox = new();
             textBox.Size = new Size(size.Width - 10, 23);
             textBox.Location = new Point(5, 5);
             textBox.Text = input;
             inputBox.Controls.Add(textBox);
-            Button okButton = new Button();
+            Button okButton = new();
             okButton.DialogResult = DialogResult.OK;
             okButton.Name = "okButton";
             okButton.Size = new Size(75, 23);
             okButton.Text = "&OK";
             okButton.Location = new Point(size.Width - 80 - 80, 39);
             inputBox.Controls.Add(okButton);
-            Button cancelButton = new Button();
+            Button cancelButton = new();
             cancelButton.DialogResult = DialogResult.Cancel;
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(75, 23);

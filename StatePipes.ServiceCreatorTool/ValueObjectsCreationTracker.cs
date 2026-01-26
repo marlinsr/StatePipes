@@ -2,8 +2,8 @@
 {
     internal class ValueObjectsCreationTracker
     {
-        private List<string> _valueObjectTypeToCreateList = new();
-        private List<string> _valueObjectTypesCreatedList = new();
+        private List<string> _valueObjectTypeToCreateList = [];
+        private List<string> _valueObjectTypesCreatedList = [];
         public string? GetTopNeedsCreating()
         {
             if (CountNeedsCreating <= 0) return null;

@@ -4,7 +4,7 @@ namespace StatePipes.Comms.Internal
 {
     internal class EventSubscriptionManager
     {
-        private Dictionary<string, List<IEventSubscriptionAction>> _subscriptions = new Dictionary<string, List<IEventSubscriptionAction>>();
+        private readonly Dictionary<string, List<IEventSubscriptionAction>> _subscriptions = [];
         public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => Subscribe(typeof(TEvent).FullName, handler);
         public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
         {
@@ -12,7 +12,7 @@ namespace StatePipes.Comms.Internal
             Log?.LogVerbose($"Subscribing to Event {receivedEventTypeFullName}");
             lock (_subscriptions)
             {
-                if (_subscriptions.ContainsKey(receivedEventTypeFullName)) _subscriptions[receivedEventTypeFullName].Add(new EventSubscriptionAction<TEvent>(handler));
+                if (_subscriptions.TryGetValue(receivedEventTypeFullName, out List<IEventSubscriptionAction>? value)) value.Add(new EventSubscriptionAction<TEvent>(handler));
                 else _subscriptions.Add(receivedEventTypeFullName, [new EventSubscriptionAction<TEvent>(handler)]);
             }
         }
@@ -23,9 +23,9 @@ namespace StatePipes.Comms.Internal
             Log?.LogVerbose($"UnSubscribing to Event {receivedEventTypeFullName}");
             lock (_subscriptions)
             {
-                if (_subscriptions.ContainsKey(receivedEventTypeFullName))
+                if (_subscriptions.TryGetValue(receivedEventTypeFullName, out List<IEventSubscriptionAction>? value))
                 {
-                    _subscriptions[receivedEventTypeFullName].RemoveAll(s => s is EventSubscriptionAction<TEvent> esa && esa.Handler == handler);
+                    value.RemoveAll(s => s is EventSubscriptionAction<TEvent> esa && esa.Handler == handler);
                     if (_subscriptions[receivedEventTypeFullName].Count == 0) _subscriptions.Remove(receivedEventTypeFullName);
                 }
             }
@@ -43,7 +43,7 @@ namespace StatePipes.Comms.Internal
         {
             lock( _subscriptions)
             {
-                return _subscriptions.Keys.ToList();
+                return [.. _subscriptions.Keys];
             }
         }
         internal void HandleEvent<TEvent>(TEvent eventMessage, BusConfig busConfigFrom) where TEvent : class
@@ -52,8 +52,8 @@ namespace StatePipes.Comms.Internal
             {
                 var eventTypeFullName = eventMessage.GetType().FullName;
                 if (string.IsNullOrEmpty(eventTypeFullName)) return;
-                if (_subscriptions.ContainsKey(eventTypeFullName))
-                    _subscriptions[eventTypeFullName].ForEach(h =>
+                if (_subscriptions.TryGetValue(eventTypeFullName, out List<IEventSubscriptionAction>? value))
+                    value.ForEach(h =>
                     {
                         try
                         {
@@ -73,8 +73,8 @@ namespace StatePipes.Comms.Internal
             {
                 var eventTypeFullName = eventMessage.GetType().FullName;
                 if (string.IsNullOrEmpty(eventTypeFullName)) return;
-                if (_subscriptions.ContainsKey(eventTypeFullName))
-                    _subscriptions[eventTypeFullName].ForEach(h =>
+                if (_subscriptions.TryGetValue(eventTypeFullName, out List<IEventSubscriptionAction>? value))
+                    value.ForEach(h =>
                     {
                         try
                         {

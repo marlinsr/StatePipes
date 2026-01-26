@@ -5,7 +5,7 @@ namespace StatePipes.Common.Internal
     internal class DelayedMessageSender<TMessage> : IDelayedMessageSender<TMessage> where TMessage : class, IMessage
     {
         private readonly IMessageSender _bus;
-        private readonly object _lock = new object();
+        private readonly object _lock = new();
         private Timer? _timer;
         private bool _disposed;
         private bool _isPeriodic;

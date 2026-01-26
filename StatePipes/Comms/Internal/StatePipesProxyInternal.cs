@@ -14,10 +14,10 @@ namespace StatePipes.Comms.Internal
         private readonly BusConfig _busConfig;
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
         private readonly EventSubscriptionManager _routingKeyManager = new();
-        private readonly TypeDictionary _subscribedEventTypeDictionary = new TypeDictionary();
+        private readonly TypeDictionary _subscribedEventTypeDictionary = new();
         private readonly HeartbeatEventProcessor _heartbeatProcessor = new();
         private ConnectionChannel? _connectionChannel;
-        private string? _hashedPassword;
+        private readonly string? _hashedPassword;
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
         public string Name { get; private set; } = string.Empty;
         public bool IsConnectedToBroker => _connectionChannel?.IsOpen ?? false;
@@ -77,7 +77,7 @@ namespace StatePipes.Comms.Internal
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
         {
-            if (message is ICommand) SendCommand((ICommand)message);
+            if (message is ICommand command) SendCommand(command);
         }
         public void Start()
         {
@@ -117,8 +117,8 @@ namespace StatePipes.Comms.Internal
                 MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEvent), BindingFlags.NonPublic | BindingFlags.Instance);
-                var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod(new[] { eventMessage.GetType() });
-                handleEventMethodOfEventType?.Invoke(_eventSubscriptionManager, new object[] { eventMessage, busConfig });
+                var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod([eventMessage.GetType()]);
+                handleEventMethodOfEventType?.Invoke(_eventSubscriptionManager, [eventMessage, busConfig]);
             }
             catch (Exception ex)
             {
@@ -133,8 +133,8 @@ namespace StatePipes.Comms.Internal
                 MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEventResponse), BindingFlags.NonPublic | BindingFlags.Instance);
-                var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod(new[] { eventMessage.GetType() });
-                handleEventMethodOfEventType?.Invoke(_eventSubscriptionManager, new object[] { eventMessage, busConfig });
+                var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod([eventMessage.GetType()]);
+                handleEventMethodOfEventType?.Invoke(_eventSubscriptionManager, [eventMessage, busConfig]);
             }
             catch (Exception ex)
             {

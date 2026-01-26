@@ -11,7 +11,7 @@ namespace StatePipes.StateMachine.Internal
             if (responseInfo == null) return;
             var stateMachines = stateMachineManger.GetAllStateMachines();
             if (!stateMachines.Any()) return;
-            List<string> diagrams = new List<string>();
+            List<string> diagrams = [];
             stateMachines.ForEach(sm => diagrams.Add(sm.GetDotGraph()));
             stateMachines.First().SendResponse(new StateMachineDiagramsEvent(diagrams), responseInfo);
         }

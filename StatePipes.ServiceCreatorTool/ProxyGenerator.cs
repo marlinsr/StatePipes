@@ -17,7 +17,7 @@
         }
         private void GenerateCode()
         {
-            TypeSerializationConverter typeSerializationConverter = new TypeSerializationConverter();
+            TypeSerializationConverter typeSerializationConverter = new();
             _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.AllStateStatusEventType!);
             _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.StateStatusEventType!);
             _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.GetAllStateMachineStatusCommandType!);
@@ -72,7 +72,7 @@
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
                 if (typeDescription.IsEvent)
                 {
-                    var eventTypeName = _proxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
+                    var eventTypeName = ProxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
                     var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.FullName);
                     var valueObjectName = _proxyTriggersGenerator.CreateValueObjectTypeNameForEvent(typeDescription.FullName);
                     _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"Subscribe(proxy,\"{eventTypeName}\", ({valueObjectName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, ev)));");
@@ -99,7 +99,7 @@
                 if (typeDescription.IsCommand)
                 {
                     var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
-                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ Send(anEvent.ProxyName,\"{_proxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}\", anEvent.Data); }}");
+                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ Send(anEvent.ProxyName,\"{ProxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}\", anEvent.Data); }}");
                 }
             }
         }

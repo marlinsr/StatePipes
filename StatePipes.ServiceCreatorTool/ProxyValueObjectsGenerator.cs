@@ -1,27 +1,22 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class ProxyValueObjectsGenerator
+    internal class ProxyValueObjectsGenerator(ProxyGeneratorCommon proxyGeneratorCommon)
     {
-        private readonly ProxyGeneratorCommon _proxyGeneratorCommon;
         private readonly ValueObjectsCreationTracker _valueObjectsCreationTracker = new();
 
-        public ProxyValueObjectsGenerator(ProxyGeneratorCommon proxyGeneratorCommon)
-        {
-            _proxyGeneratorCommon = proxyGeneratorCommon;
-        }
         public void CreateValueObjectsStart()
         {
-            _proxyGeneratorCommon.CodeGenerationNamespace = $"{_proxyGeneratorCommon.CodeGenerationBaseNamespace}.ValueObjects.{_proxyGeneratorCommon.ProxyMoniker}";
-            _proxyGeneratorCommon.NamespaceList.AddNamespace(_proxyGeneratorCommon.CodeGenerationNamespace);
-            _proxyGeneratorCommon.CodeGenerationString.ResetIndention();
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"namespace {_proxyGeneratorCommon.CodeGenerationNamespace}");
-            _proxyGeneratorCommon.CodeGenerationString.Indent();
+            proxyGeneratorCommon.CodeGenerationNamespace = $"{proxyGeneratorCommon.CodeGenerationBaseNamespace}.ValueObjects.{proxyGeneratorCommon.ProxyMoniker}";
+            proxyGeneratorCommon.NamespaceList.AddNamespace(proxyGeneratorCommon.CodeGenerationNamespace);
+            proxyGeneratorCommon.CodeGenerationString.ResetIndention();
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"namespace {proxyGeneratorCommon.CodeGenerationNamespace}");
+            proxyGeneratorCommon.CodeGenerationString.Indent();
             CreateValueObjects();
-            _proxyGeneratorCommon.CodeGenerationString.Outdent();
+            proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
         private void CreateValueObjects()
         {
-            foreach (TypeSerialization typeSerialization in _proxyGeneratorCommon.TypeSerializations.TypeSerializations)
+            foreach (TypeSerialization typeSerialization in proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 CreateValueObject(typeSerialization.GetTopLevelTypeDescription());
             }
@@ -32,7 +27,7 @@
                 _valueObjectsCreationTracker.RegisterCreatedValueObject(typeFullName);
             }
         }
-        private TypeDescription? GetTypeDescription(string typeFullName) => _proxyGeneratorCommon.Assemblies.GetTypeDescription(typeFullName);
+        private TypeDescription? GetTypeDescription(string typeFullName) => proxyGeneratorCommon.Assemblies.GetTypeDescription(typeFullName);
         private void CreateSupportingValueObject(string typeFullName)
         {
             TypeDescription? typeDescription = GetTypeDescription(typeFullName);
@@ -59,41 +54,41 @@
         {
             if (typeDescription == null) return;
             _valueObjectsCreationTracker.RegisterCreatedValueObject(typeDescription.FullName);
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public class {_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}");
-            _proxyGeneratorCommon.CodeGenerationString.Indent();
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public class {proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}");
+            proxyGeneratorCommon.CodeGenerationString.Indent();
             foreach (var p in typeDescription.Properties) CreateClassProperty(p);
             CreateValueObjectContructor(typeDescription, postFix);
-            _proxyGeneratorCommon.CodeGenerationString.Outdent();
+            proxyGeneratorCommon.CodeGenerationString.Outdent();
 
         }
-        private string ConstructorParameterNameReplacement(string name)
+        private static string ConstructorParameterNameReplacement(string name)
         {
             if (name == "params") return "arams";
             if (name == "default") return "efault";
             return name;
         }
-        private string MakeConstructorParameterName(string name)
+        private static string MakeConstructorParameterName(string name)
         {
-            if (!char.IsLetter(name[0])) return ConstructorParameterNameReplacement(name.Substring(1));
-            if (char.IsUpper(name[0])) return ConstructorParameterNameReplacement(char.ToLower(name[0]) + name.Substring(1));
+            if (!char.IsLetter(name[0])) return ConstructorParameterNameReplacement(name[1..]);
+            if (char.IsUpper(name[0])) return ConstructorParameterNameReplacement(char.ToLower(name[0]) + name[1..]);
             var ret = name.ToLower();
             if (ret == name) ret = name.ToUpper();
             return ConstructorParameterNameReplacement(ret);
         }
         private void CreateValueObjectContructor(TypeDescription typeDescription, string postFix = "")
         {
-            string valueObjectName = $"{_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}";
+            string valueObjectName = $"{proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}{postFix}";
             if (typeDescription.Properties.Count <= 0)
             {
-                if (!_proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Keys.Contains(valueObjectName)) _proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Add(valueObjectName, new());
+                if (!proxyGeneratorCommon.ValueObjectContructorParametersDictionary.ContainsKey(valueObjectName)) proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Add(valueObjectName, []);
                 return;
             }
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {valueObjectName}(");
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {valueObjectName}(");
             var constructorParameterDictionary = CreateValueObjectContructorParametersDictionary(typeDescription.Properties);
-            if (!_proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Keys.Contains(valueObjectName)) _proxyGeneratorCommon.ValueObjectContructorParametersDictionary.Add(valueObjectName, constructorParameterDictionary);
-            _proxyGeneratorCommon.CodeGenerationString.Indent();
-            typeDescription.Properties.ForEach(p => _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"{p.Name} = {MakeConstructorParameterName(p.Name)};"));
-            _proxyGeneratorCommon.CodeGenerationString.Outdent();
+            proxyGeneratorCommon.ValueObjectContructorParametersDictionary.TryAdd(valueObjectName, constructorParameterDictionary);
+            proxyGeneratorCommon.CodeGenerationString.Indent();
+            typeDescription.Properties.ForEach(p => proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"{p.Name} = {MakeConstructorParameterName(p.Name)};"));
+            proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
         private Dictionary<string, string> CreateValueObjectContructorParametersDictionary(List<ParameterDescription> properties)
         {
@@ -104,7 +99,7 @@
                 string propertyType = GetPropertyType(properties[i].FullName);
                 if (properties[i].IsNullable) propertyType += "?";
                 string propertyName = MakeConstructorParameterName(properties[i].Name);
-                _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"   {propertyType} {propertyName}{commaString}");
+                proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"   {propertyType} {propertyName}{commaString}");
                 constructorParameterDictionary.Add(propertyName, propertyType);
             }
             return constructorParameterDictionary;
@@ -112,7 +107,7 @@
         private void CreateClassProperty(ParameterDescription p)
         {
             string nullableString = p.IsNullable ? "?" : "";
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {GetPropertyType(p.FullName)}{nullableString} {p.Name} {{ get; }}");
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {GetPropertyType(p.FullName)}{nullableString} {p.Name} {{ get; }}");
         }
         private string GetPropertyTypeForArray(string arrayFullName, int arrayRank)
         {
@@ -126,7 +121,7 @@
         }
         private string GetPropertyTypeForGeneric(string genericFullName, TypeNames[] genericArgumentsNames)
         {
-            string genericType = _proxyGeneratorCommon.GetTypeName(genericFullName);
+            string genericType = proxyGeneratorCommon.GetTypeName(genericFullName);
             string genericParameters = string.Empty;
             foreach (var genericArgument in genericArgumentsNames)
             {
@@ -140,30 +135,30 @@
             var typeDescription = GetTypeDescription(propertyFullName);
             if (typeDescription == null)
             {
-                return _proxyGeneratorCommon.GetTypeName(propertyFullName);
+                return proxyGeneratorCommon.GetTypeName(propertyFullName);
             }
             if (typeDescription.IsArray()) return GetPropertyTypeForArray(typeDescription.ArrayFullName, typeDescription.ArrayRank);
             if (typeDescription.IsGeneric()) 
                 return GetPropertyTypeForGeneric(typeDescription.GenericNames!.FullName, typeDescription.GenericArgumentsNames);
             if (typeDescription.Namespace.StartsWith("StatePipes.Common") || typeDescription.Namespace.StartsWith("System.")) 
-                return _proxyGeneratorCommon.GetTypeName(propertyFullName);
+                return proxyGeneratorCommon.GetTypeName(propertyFullName);
             _valueObjectsCreationTracker.RegisterNeedsCreating(propertyFullName);
-            return _proxyGeneratorCommon.GetTypeName(propertyFullName);
+            return proxyGeneratorCommon.GetTypeName(propertyFullName);
         }
         private void CreateValueObjectFromEnum(TypeDescription typeDescription)
         {
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public enum {_proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}");
-            _proxyGeneratorCommon.CodeGenerationString.Indent();
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public enum {proxyGeneratorCommon.GetTypeName(typeDescription.FullName)}");
+            proxyGeneratorCommon.CodeGenerationString.Indent();
             for (int i = 0; i < typeDescription.EnumValues.Count; i++)
             {
                 string commaString = i < typeDescription.EnumValues.Count - 1 ? "," : string.Empty;
-                _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"{typeDescription.EnumValues[i].Name} = {typeDescription.EnumValues[i].Value}{commaString}");
+                proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"{typeDescription.EnumValues[i].Name} = {typeDescription.EnumValues[i].Value}{commaString}");
             }
-            _proxyGeneratorCommon.CodeGenerationString.Outdent();
+            proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
         private void CreateValueObjectFromEvent(TypeDescription typeDescription) =>
-            CreateValueObjectFromClass(typeDescription, $"From{_proxyGeneratorCommon.ProxyMoniker}");
+            CreateValueObjectFromClass(typeDescription, $"From{proxyGeneratorCommon.ProxyMoniker}");
         private void CreateValueObjectFromCommand(TypeDescription typeDescription) =>
-            CreateValueObjectFromClass(typeDescription, $"To{_proxyGeneratorCommon.ProxyMoniker}");
+            CreateValueObjectFromClass(typeDescription, $"To{proxyGeneratorCommon.ProxyMoniker}");
     }
 }

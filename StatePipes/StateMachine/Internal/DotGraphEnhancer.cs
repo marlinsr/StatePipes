@@ -5,7 +5,7 @@ namespace StatePipes.StateMachine.Internal
     internal class DotGraphEnhancer
     {
         private const string LabelValue = "label";
-        private List<string> _stateLabels = new List<string>();
+        private List<string> _stateLabels = [];
         private readonly EventRegistrationManager _eventRegistrationManager;
         public DotGraphEnhancer(EventRegistrationManager eventRegistrationManager)
         {
@@ -24,7 +24,7 @@ namespace StatePipes.StateMachine.Internal
         }
         private AttributeListSyntax? AddPublishedEvents(AttributeListSyntax? attributes, string stateName)
         {
-            List<AttributeSyntax> newAttributes = new();
+            List<AttributeSyntax> newAttributes = [];
             if (attributes is null)
             {
                 newAttributes.Add(new AttributeSyntax(LabelValue, AppendPublishedEvents(LabelValue, string.Empty, stateName)));
@@ -43,7 +43,7 @@ namespace StatePipes.StateMachine.Internal
         }
         private AttributeListSyntax? AddCurrentState(AttributeListSyntax? attributes, string currentState)
         {
-            List<AttributeSyntax> newAttributes = new();
+            List<AttributeSyntax> newAttributes = [];
             if (attributes is not null) AddPublishedEvents(attributes, currentState)?.Attributes.ToList().ForEach(a => newAttributes.Add(a));
             newAttributes.Add(new AttributeSyntax("style", "filled"));
             newAttributes.Add(new AttributeSyntax("fillcolor", "yellow"));
@@ -72,7 +72,7 @@ namespace StatePipes.StateMachine.Internal
         }
         private SubgraphStatementSyntax HandleSubgraph(SubgraphStatementSyntax subgraph, string currentState)
         {
-            List<StatementSyntax> newSubgraphStatements = new();
+            List<StatementSyntax> newSubgraphStatements = [];
             foreach (var statement in subgraph.Statements)
             {
                 var newStatement = HandleStatement(statement, currentState);
@@ -82,7 +82,7 @@ namespace StatePipes.StateMachine.Internal
         }
         private ToplevelGraphSyntax HandleGraph(ToplevelGraphSyntax graph, string currentState)
         {
-            List<StatementSyntax> newGraphStatements = new();
+            List<StatementSyntax> newGraphStatements = [];
             foreach (var statement in graph.Statements)
             {
                 var newStatement = HandleStatement(statement, currentState);
@@ -92,7 +92,7 @@ namespace StatePipes.StateMachine.Internal
         }
         private SyntaxTree HandleSyntaxTree(SyntaxTree tree, string currentState)
         {
-            List<ToplevelGraphSyntax> newGraphList = new();
+            List<ToplevelGraphSyntax> newGraphList = [];
             foreach (var graph in tree.Graphs)
             {
                 var newGraph = HandleGraph(graph, currentState);

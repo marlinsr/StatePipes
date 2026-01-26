@@ -29,7 +29,7 @@
 
         public Type? PropertyType { get; }
 
-        public List<string> EnumValueList { get; } = new();
+        public List<string> EnumValueList { get; } = [];
 
         public bool Nullable { get; }
 

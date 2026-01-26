@@ -18,7 +18,7 @@ namespace StatePipes.ServiceCreatorTool
             Assembly assembly = Assembly.GetExecutingAssembly();
             using Stream? stream = assembly.GetManifestResourceStream(resourceName);
             if (stream == null) throw new ArgumentException($"Resource '{resourceName}' not found.");
-            using StreamReader reader = new StreamReader(stream);
+            using StreamReader reader = new(stream);
             return reader.ReadToEnd();
         }
         private byte[] ReadEmbeddedBinaryFile(string resourceName)

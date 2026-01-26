@@ -22,7 +22,7 @@ namespace StatePipes.ServiceCreatorTool
         }
         private static IEnumerable<ISetupInstance> GetSetupInstances()
         {
-            List<ISetupInstance> instances = new List<ISetupInstance>();
+            List<ISetupInstance> instances = [];
             ISetupConfiguration setupConfiguration = new SetupConfiguration();
             IEnumSetupInstances enumerator = setupConfiguration.EnumInstances();
             int count;
