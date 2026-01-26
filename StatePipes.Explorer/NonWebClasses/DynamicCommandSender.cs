@@ -1,13 +1,13 @@
-﻿using StatePipes.Comms;
+﻿using StatePipes.Comms.Internal;
 using StatePipes.SelfDescription;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Explorer.NonWebClasses
 {
     internal class DynamicCommandSender
     {
-        private readonly StatePipesProxy _proxy;
+        private readonly StatePipesProxyInternal _proxy;
         private readonly TypeSerializationJsonHelper _commandInstanceMgr;
-        public DynamicCommandSender(StatePipesProxy proxy, TypeSerializationJsonHelper commandInstanceMgr)
+        public DynamicCommandSender(StatePipesProxyInternal proxy, TypeSerializationJsonHelper commandInstanceMgr)
         {
             _proxy = proxy;
             _commandInstanceMgr = commandInstanceMgr;

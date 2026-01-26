@@ -1,6 +1,4 @@
-﻿using StatePipes.Interfaces;
-
-namespace StatePipes.Comms.Internal
+﻿namespace StatePipes.Comms.Internal
 {
     internal class ReceivedCommandMessage(object command, BusConfig replyTo)
     {

@@ -43,7 +43,7 @@ namespace StatePipes.Comms.Internal
         {
             if (proxyConfiguration.ProxyType == ProxyConfiguration.ProxyTypeEnum.RemoteService)
             {
-                _proxyDictionary.Add(proxyConfiguration.Name, new StatePipesProxy(proxyConfiguration.Name, proxyConfiguration.ServiceConfiguration.BusConfig));
+                _proxyDictionary.Add(proxyConfiguration.Name, new StatePipesProxyInternal(proxyConfiguration.Name, proxyConfiguration.ServiceConfiguration.BusConfig));
             }
         }
         private bool AddSubstitution(ProxyConfiguration proxyConfiguration, IReadOnlyList<ProxySubstitution> proxySubstitutions, IStatePipesProxyFactory? parentProxyFactory)
@@ -53,7 +53,7 @@ namespace StatePipes.Comms.Internal
             if (substitution == null) return false;
             var substitutionProxy = parentProxyFactory.GetStatePipesProxy(substitution.ParentName);
             if (substitutionProxy == null) return false;
-            _proxyDictionary.Add(proxyConfiguration.Name, new SubstitutionProxy(proxyConfiguration.Name, substitutionProxy));
+            _proxyDictionary.Add(proxyConfiguration.Name, new SubstitutionProxy(proxyConfiguration.Name, (IStatePipesProxyInternal)substitutionProxy));
             return true;
         }
         public List<IStatePipesProxy> GetAllClientProxies() => _proxyDictionary.Values.ToList();

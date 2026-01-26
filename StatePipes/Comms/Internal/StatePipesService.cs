@@ -8,7 +8,7 @@ using StatePipes.Messages;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms.Internal
 {
-    internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxy, IDisposable
+    internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
     {
         private readonly TypeDictionary _externalMessageTypeDictionary = new TypeDictionary();
         private readonly Dictionary<string, Type> _subscribedEventTypeDictionary = new Dictionary<string, Type>();

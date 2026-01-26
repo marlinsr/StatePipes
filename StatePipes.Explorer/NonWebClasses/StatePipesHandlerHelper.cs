@@ -1,4 +1,5 @@
 ﻿using StatePipes.Comms;
+using StatePipes.Comms.Internal;
 using StatePipes.Messages;
 using StatePipes.SelfDescription;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
@@ -6,7 +7,7 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     public class StatePipesHandlerHelper : IDisposable
     {
-        private StatePipesProxy? _proxy;
+        private StatePipesProxyInternal? _proxy;
         private readonly EventJsonRepository _eventJosonRepo = new();
         private readonly CommandJsonRepository _cmdExampleJsonRepo = new();
         private Dictionary<string, DynamicEventHandler> _dynamicEventHandlerDictionary = [];
@@ -28,7 +29,7 @@ namespace StatePipes.Explorer.NonWebClasses
             else
             {
                 var busConfig = new BusConfig(brokerUri, exchangeName, clientCertFileName, clientCertPasswordFileName);
-                _proxy = new StatePipesProxy(string.Empty, busConfig, hashedPassword);
+                _proxy = new StatePipesProxyInternal(string.Empty, busConfig, hashedPassword);
                 _proxy.SubscribeConnectedToService(OnConnected, OnDisconnected);
                 _proxy.Start();
             }

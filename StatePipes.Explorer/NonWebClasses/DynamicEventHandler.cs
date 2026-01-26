@@ -1,4 +1,5 @@
 ﻿using StatePipes.Comms;
+using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
 using StatePipes.SelfDescription;
 using System.Reflection;
@@ -8,11 +9,11 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     internal class DynamicEventHandler : IDisposable
     {
-        private readonly StatePipesProxy _proxy;
+        private readonly StatePipesProxyInternal _proxy;
         private readonly EventJsonRepository _josonRepo = new EventJsonRepository();
         private readonly TypeSerializationJsonHelper _eventInstanceMgr;
         private bool disposedValue;
-        public DynamicEventHandler(StatePipesProxy proxy, EventJsonRepository josonRepo, TypeSerializationJsonHelper eventInstanceMgr)
+        public DynamicEventHandler(StatePipesProxyInternal proxy, EventJsonRepository josonRepo, TypeSerializationJsonHelper eventInstanceMgr)
         {
             _proxy = proxy;
             _josonRepo = josonRepo;

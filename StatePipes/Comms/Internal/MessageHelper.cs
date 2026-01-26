@@ -2,7 +2,6 @@
 using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
-using StatePipes.Interfaces;
 using System.Text;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 

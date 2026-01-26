@@ -75,7 +75,7 @@
                     var eventTypeName = _proxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
                     var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.FullName);
                     var valueObjectName = _proxyTriggersGenerator.CreateValueObjectTypeNameForEvent(typeDescription.FullName);
-                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"proxy.Subscribe(\"{eventTypeName}\", ({valueObjectName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, ev)));");
+                    _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"Subscribe(proxy,\"{eventTypeName}\", ({valueObjectName} ev, BusConfig responseInfo, bool isResponse) => _bus.SendCommand(new {triggerName}(proxy.Name, ev)));");
                 }
             }
         }

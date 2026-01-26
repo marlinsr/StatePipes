@@ -2,10 +2,10 @@
 
 namespace StatePipes.Comms.Internal
 {
-    internal class SubstitutionProxy(string name, IStatePipesProxy innerProxy) : IStatePipesProxy
+    internal class SubstitutionProxy(string name, IStatePipesProxyInternal innerProxy) : IStatePipesProxyInternal
     {
         private readonly string _name = name;
-        private readonly IStatePipesProxy _innerProxy = innerProxy;
+        private readonly IStatePipesProxyInternal _innerProxy = innerProxy;
         public BusConfig BusConfig => _innerProxy.BusConfig;
         public string Name => _name;
         public bool IsConnectedToService => _innerProxy.IsConnectedToService;

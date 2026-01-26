@@ -8,7 +8,7 @@ namespace StatePipes.Common.Internal
     //For dynamically created types used by the explorer
     internal class TypeDictionary
     {
-        private Dictionary<string, Type> _typeDictionary = [];
+        private readonly Dictionary<string, Type> _typeDictionary = [];
         private static bool IsConcrete(Type type) => !type.IsAbstract && !type.IsInterface && !type.IsGenericTypeDefinition;
         public void SetupAssembylyMessageTypes(Assembly? assembly)
         {

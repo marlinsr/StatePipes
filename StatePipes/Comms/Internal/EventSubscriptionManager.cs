@@ -30,6 +30,7 @@ namespace StatePipes.Comms.Internal
                 }
             }
         }
+        public bool AlreadyHasSubscriptionForType(Type type) => AlreadyHasSubscriptionForType(type.FullName);
         public bool AlreadyHasSubscriptionForType(string? typeFullName)
         {
             lock (_subscriptions)
