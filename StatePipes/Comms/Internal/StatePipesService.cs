@@ -16,6 +16,7 @@ namespace StatePipes.Comms.Internal
         private readonly IStatePipesProxyFactory? _parentProxyFactory;
         private readonly ServiceConfiguration _serviceConfiguration;
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
+        private Dictionary<string, Type> _commandTypeDictionary = new Dictionary<string, Type>();
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
         private IContainer? _container;
         private ConnectionChannel? _connectionChannel;
@@ -37,7 +38,13 @@ namespace StatePipes.Comms.Internal
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => onConnected.Invoke(null, EventArgs.Empty);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) { }
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(command, _busConfig);
-        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class => throw new Exception("This call should not be executed!");
+        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class
+        {
+            if (string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            dynamic? transformedCommand = TransformCommand(sendCommandTypeFullName, command);
+            if (transformedCommand == null) return;
+            SendCommand(transformedCommand);
+        }
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
             if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig == null ? _busConfig : busConfig));
@@ -82,6 +89,16 @@ namespace StatePipes.Comms.Internal
             }
             return null;
         }
+        private dynamic? TransformCommand<TCommand>(string? sendCommandFullName, TCommand commandMessage) where TCommand : class
+        {
+            //This json cloning only effects locally deployed services.
+            if (string.IsNullOrEmpty(sendCommandFullName)) return null;
+            if (_commandTypeDictionary.TryGetValue(sendCommandFullName, out Type? commandType))
+            {
+                return JsonConvert.DeserializeObject(JsonUtility.GetJsonStringForObject(commandMessage, false), commandType, StatePipesJsonConverters.Converters);
+            }
+            return null;
+        }
         public void SendResponse<TEvent>(TEvent replyMessage, BusConfig busConfig) where TEvent : class, IEvent
         {
             if (busConfig.BrokerUri != _busConfig.BrokerUri)
@@ -110,6 +127,7 @@ namespace StatePipes.Comms.Internal
             if (_container != null) return;
             ContainerBuilder containerBuilder = new();
             var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(_serviceConfiguration, _parentProxyFactory);
+            _commandTypeDictionary = statePipesServiceContainerSetup.GetPublicCommandTypeDictionary();
             _externalMessageTypeDictionary.SetupAssembylyMessageTypes(statePipesServiceContainerSetup.ClassLibraryAssembly);
             statePipesServiceContainerSetup.Register(containerBuilder);
             containerBuilder.Register(c => this).As<IStatePipesService>().SingleInstance();

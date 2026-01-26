@@ -4,7 +4,6 @@ using StatePipes.Interfaces;
 using StatePipes.SelfDescription;
 using StatePipes.StateMachine.Internal;
 using System.Reflection;
-
 namespace StatePipes.Comms.Internal
 {
     internal class StatePipesServiceContainerSetup : IContainerSetup
@@ -29,7 +28,15 @@ namespace StatePipes.Comms.Internal
             _statePipesAssebly = typeof(StatePipesService).Assembly;
             _selfDescriptionContainerSetup = new(_assembly,_statePipesAssebly);
         }
-
+        public Dictionary<string, Type>? GetPublicCommandTypeDictionary()
+        {
+            var types = _assembly.GetLoadableTypes().Where(t => (t.IsPublic && !t.IsAbstract && !t.IsGenericType && IsConcrete(t) &&
+              typeof(ICommand).IsAssignableFrom(t) && !string.IsNullOrEmpty(t.FullName)));
+            if (types == null) return null;
+            Dictionary<string, Type> commandTypeDictionary = new();
+            types.ToList().ForEach(t => commandTypeDictionary.Add(t.FullName!, t));
+            return commandTypeDictionary;
+        }
         public void Build(IContainer container)
         {
             _stateMachineContainerSetup.Build(container);
