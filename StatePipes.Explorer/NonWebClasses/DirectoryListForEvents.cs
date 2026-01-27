@@ -3,7 +3,7 @@
     public class DirectoryListForEvents
     { 
         public string? DirectoryName { get; private set; }
-        public List<DirectoryListForEvents> Subdirectories { get; } = new List<DirectoryListForEvents>();
+        public List<DirectoryListForEvents> Subdirectories { get; } = [];
         public EventEntry? Event { get; }
         public string? Namespace
         {
@@ -17,7 +17,7 @@
         }
         private void CreateUniqueSubDirectories(string? directoryName, List<EventEntry> childrenEventEntryList)
         {
-            List<string> uniqueSubDirectories = new List<string>();
+            List<string> uniqueSubDirectories = [];
             foreach (var subDirectory in childrenEventEntryList)
             {
                 var subDirectoryDirectoryName = string.IsNullOrEmpty(directoryName) ? subDirectory.FullName.Split('.')[0]

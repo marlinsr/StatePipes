@@ -11,7 +11,7 @@ namespace StatePipes.StateMachine.Test
         public ContainerBuilder? Builder;
         public IContainer? Container;
         private TestStatePipesService? _testBus = new();
-        private TestDependencyRegistration _testDependencyRegistration = new TestDependencyRegistration();
+        private TestDependencyRegistration _testDependencyRegistration = new();
         private BaseStateMachine? _stateMachine;
         public void ConfigureStateMachine<StateMachineType, NextStateAfterInitType>(IDummyDependencyRegistration dummyRegisterator, bool disableAutomaticMoveToState = true) where StateMachineType : IStateMachine where NextStateAfterInitType : IStateMachineState
         {            

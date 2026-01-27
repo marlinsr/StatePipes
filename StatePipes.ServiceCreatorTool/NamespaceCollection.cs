@@ -2,7 +2,7 @@
 {
     internal class NamespaceCollection : List<string>
     {
-        private List<string> _typeFullNameAddedList = new List<string>();
+        private List<string> _typeFullNameAddedList = [];
         public void AddNamespace(string element)
         {
             

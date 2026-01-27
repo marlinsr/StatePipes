@@ -5,7 +5,7 @@ namespace StatePipes.Diagrammer
 {
     internal class AssemblyManager
     {
-        private Dictionary<string, Assembly> _loadedAssemblies = new Dictionary<string, Assembly>();
+        private Dictionary<string, Assembly> _loadedAssemblies = [];
         public AssemblyManager(string path)
         {
             var files = Directory.GetFiles(path).Where(f => f.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase)).ToList();
@@ -31,7 +31,7 @@ namespace StatePipes.Diagrammer
         }
         public List<Assembly> GetAssembliesContainingType(Type t)
         {
-            List<Assembly> assemblies = new List<Assembly>();
+            List<Assembly> assemblies = [];
             foreach (var assembly in _loadedAssemblies.Values)
             {
                 if (!t.Assembly.Equals(assembly))

@@ -9,20 +9,20 @@ namespace StatePipes.Explorer.Components.Pages
     public partial class ChartViewer
     {
         private string PreviousEditorObjectString = string.Empty;
-        private LineChart _lineChart = new LineChart();
+        private LineChart _lineChart = new();
         private readonly ChartData _data = new()
         {
-            Labels = new List<string> { "0" },
-            Datasets = new List<IChartDataset>
-        {
+            Labels = ["0"],
+            Datasets =
+        [
             new LineChartDataset()
             {
-                Data = new List<double?>
-                {
+                Data =
+                [
                     0.00
-                }
+                ]
             }
-        }
+        ]
         };
 
         private static LineChartOptions GetDefaultLineChartOption()
@@ -96,7 +96,7 @@ namespace StatePipes.Explorer.Components.Pages
                 if (labels == null) return;
                 var charData = bvLineChart.DataPoints.OrderBy(d => d.X).Select(x => x.Y).ToList();
                 if (charData == null) return;
-                List<double?>? charDataList = new List<double?>();
+                List<double?>? charDataList = [];
                 charData.ForEach(d => charDataList.Add(d));
 
                 _data.Labels = labels;

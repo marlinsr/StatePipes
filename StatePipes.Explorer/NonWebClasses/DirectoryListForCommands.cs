@@ -3,7 +3,7 @@
     public class DirectoryListForCommands
     {
         public string? DirectoryName { get; private set; }
-        public List<DirectoryListForCommands> Subdirectories { get; } = new List<DirectoryListForCommands>();
+        public List<DirectoryListForCommands> Subdirectories { get; } = [];
         public CommandEntry? Command { get; }
         public string? Namespace
         {
@@ -17,7 +17,7 @@
         }
         private void CreateUniqueSubDirectories(string? directoryName, List<CommandEntry> childrenCommandEntryList)
         {
-            List<string> uniqueSubDirectories = new List<string>();
+            List<string> uniqueSubDirectories = [];
             foreach (var subDirectory in childrenCommandEntryList)
             {
                 var subDirectoryDirectoryName = string.IsNullOrEmpty(directoryName) ? subDirectory.FullName.Split('.')[0]

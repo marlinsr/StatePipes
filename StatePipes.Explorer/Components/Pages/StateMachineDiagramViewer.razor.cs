@@ -10,9 +10,9 @@ namespace StatePipes.Explorer.Components.Pages
     public partial class StateMachineDiagramViewer 
     {
         private System.Threading.Timer? _timer;
-        private List<EventEntry> _eventJsonDictionary = new List<EventEntry>();
-        private string[] _stateMachineDiagramsStrings = new string[0];
-        private string[] _prevStateMachineDiagramsStrings = new string[0];
+        private List<EventEntry> _eventJsonDictionary = [];
+        private string[] _stateMachineDiagramsStrings = [];
+        private string[] _prevStateMachineDiagramsStrings = [];
         private string _getAllStateMachineDiagsCmdJson = string.Empty;
         private string _getAllStateMachineDiagsCmdFullName = string.Empty;
         private StateMachineDiagramsEvent? _stateMachineDiagramsEvent;
@@ -74,7 +74,7 @@ namespace StatePipes.Explorer.Components.Pages
             if (eventVar?.Obj != null)
             {
                 _stateMachineDiagramsEvent = JsonUtility.CloneToType<StateMachineDiagramsEvent>(eventVar.Obj)!;
-                _stateMachineDiagramsStrings = _stateMachineDiagramsEvent?.Diagrams.ToArray() ?? new string[0];
+                _stateMachineDiagramsStrings = _stateMachineDiagramsEvent?.Diagrams.ToArray() ?? [];
             }
             else
             {

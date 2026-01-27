@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Newtonsoft.Json;
 using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
@@ -7,64 +8,54 @@ using StatePipes.Messages;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms.Internal
 {
-    internal class StatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxy, IDisposable
+    internal class StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true) : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
     {
-        private readonly TypeDictionary _externalMessageTypeDictionary = new TypeDictionary();
+        private readonly LocalProxyMessageTypeTransformer _localProxyMessageTypeTransformer = new();
+        private readonly TypeDictionary _externalMessageTypeDictionary = new();
         private readonly Guid _id = Guid.NewGuid();
-        private readonly IStatePipesProxyFactory? _parentProxyFactory;
-        private readonly ServiceConfiguration _serviceConfiguration;
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
         private IContainer? _container;
         private ConnectionChannel? _connectionChannel;
         private List<string> PublicCommandsFullName = ConnectionChannel.DefaultRoutingKeys;
-        private BusConfig _busConfig => _serviceConfiguration.BusConfig;
+#pragma warning disable IDE1006 // Naming Styles
+        private BusConfig _busConfig => serviceConfiguration.BusConfig;
+#pragma warning restore IDE1006 // Naming Styles
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
-        public string Name { get; private set; } = string.Empty;
-        public bool IsConnectedToBroker => _remoteAccess && (_connectionChannel?.IsOpen ?? false);
+        public string Name { get; private set; } = name;
+        public bool IsConnectedToBroker => remoteAccess && (_connectionChannel?.IsOpen ?? false);
         public bool IsConnectedToService => true;
-        private readonly bool _remoteAccess;
         public StatePipesService(ServiceConfiguration serviceConfiguration) : this(string.Empty, serviceConfiguration) { }
-        public StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true)
-        {
-            Name = name;
-            _serviceConfiguration = serviceConfiguration;
-            _parentProxyFactory = parentProxyFactory;
-            _remoteAccess = remoteAccess;
-        }
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => onConnected.Invoke(null, EventArgs.Empty);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) { }
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(command, _busConfig);
+        public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class
+        {
+            if (string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            dynamic? transformedCommand = _localProxyMessageTypeTransformer.TransformValueObjectToCommand(sendCommandTypeFullName, command);
+            if (transformedCommand == null) return;
+            SendCommand(transformedCommand);
+        }
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
-            if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig == null ? _busConfig : busConfig));
+            if (_container != null) Queue(new ReceivedCommandMessage(command, busConfig ?? _busConfig));
         }
         private void EventSendHelper<TEvent>(TEvent eventMessage, string exchangeName, BusConfig busConfig) where TEvent : class, IEvent
         {
             try
             {
-                if (_connectionChannel != null && eventMessage.GetType().IsPublic)
-                {
-                    if (_connectionChannel.IsOpen)
-                    {
-                        _connectionChannel.Send(eventMessage, busConfig, exchangeName);
-                    }
-                    else
-                    {
-                        Log?.LogVerbose($"Failed to send {eventMessage.GetType().FullName}");
-                    }
-                }
+                if (_connectionChannel == null || !eventMessage.GetType().IsPublic) return;
+                if (_connectionChannel.IsOpen) _connectionChannel.Send(eventMessage, busConfig, exchangeName);
+                else Log?.LogVerbose($"Failed to send {eventMessage.GetType().FullName}");
             }
-            catch (Exception ex)
-            {
-                Log?.LogException(ex);
-            }
+            catch (Exception ex) { Log?.LogException(ex); }
         }
         public void PublishEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
         {
-            Log?.LogVerbose($"Publishing {typeof(TEvent).FullName}");
             EventSendHelper(eventMessage, _busConfig.EventExchangeName, _busConfig);
             _eventSubscriptionManager.HandleEvent(eventMessage, _busConfig);
+            var transformedEvent = _localProxyMessageTypeTransformer.TransformEventToValueObject(eventMessage);
+            if (transformedEvent != null) _eventSubscriptionManager.HandleEvent(transformedEvent, _busConfig);
             if (_container != null) ExecuteMessageHelper.ExecuteMessage(eventMessage, _busConfig, false, _container);
         }
         public void SendResponse<TEvent>(TEvent replyMessage, BusConfig busConfig) where TEvent : class, IEvent
@@ -82,6 +73,8 @@ namespace StatePipes.Comms.Internal
             Log?.LogVerbose($"Sending response {typeof(TEvent).FullName} to {busConfig.ResponseExchangeName}");
             EventSendHelper(replyMessage, busConfig.ResponseExchangeName, busConfig);
             _eventSubscriptionManager.HandleEventResponse(replyMessage, _busConfig);
+            var transformedEvent = _localProxyMessageTypeTransformer.TransformEventToValueObject(replyMessage);
+            if (transformedEvent != null) _eventSubscriptionManager.HandleEventResponse(transformedEvent, _busConfig);
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
         {
@@ -92,7 +85,8 @@ namespace StatePipes.Comms.Internal
         {
             if (_container != null) return;
             ContainerBuilder containerBuilder = new();
-            var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(_serviceConfiguration, _parentProxyFactory);
+            var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(serviceConfiguration, parentProxyFactory);
+            _localProxyMessageTypeTransformer.PopulatePublicCommandTypeDictionary(statePipesServiceContainerSetup.ClassLibraryAssembly);
             _externalMessageTypeDictionary.SetupAssembylyMessageTypes(statePipesServiceContainerSetup.ClassLibraryAssembly);
             statePipesServiceContainerSetup.Register(containerBuilder);
             containerBuilder.Register(c => this).As<IStatePipesService>().SingleInstance();
@@ -127,9 +121,9 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (command == null || busConfig == null) return Task.CompletedTask;
-                Queue(new ReceivedCommandMessage((ICommand)command, busConfig));
+                Queue(new ReceivedCommandMessage((object)command, busConfig));
             }
             catch (Exception ex)
             {
@@ -142,7 +136,7 @@ namespace StatePipes.Comms.Internal
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out IMessage? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 ExecuteMessageHelper.ExecuteMessage(eventMessage, busConfig, true, _container);
             }
@@ -170,20 +164,14 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_connectionChannel == null && _remoteAccess)
-                {
-                    try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
-                }
+                if(_connectionChannel == null && remoteAccess) try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
                 if (_container != null)
                 {
                     var cmd = WaitGetNext(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
                     PerformCancellation();
                     if (cmd != null) ExecuteMessageHelper.ExecuteMessage(cmd.Command, cmd.ReplyTo, false, _container);
                 }
-                else
-                {
-                    Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
-                }
+                else Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
             }
         }
         public override void Dispose()
@@ -191,7 +179,15 @@ namespace StatePipes.Comms.Internal
             Stop();
             base.Dispose();
         }
-        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.Subscribe(handler);
+        public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => Subscribe(typeof(TEvent).FullName, handler);
+        public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
+        {
+            if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+            var eventType = typeof(TEvent);
+            var eventTypeFullName = eventType.FullName;
+            if (eventTypeFullName != receivedEventTypeFullName) _localProxyMessageTypeTransformer.AddEventType(receivedEventTypeFullName, eventType);
+            _eventSubscriptionManager.Subscribe(eventTypeFullName, handler);
+        }
         public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.UnSubscribe(handler);
     }
 }

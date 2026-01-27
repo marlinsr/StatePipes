@@ -6,7 +6,7 @@ namespace StatePipes.ProcessLevelServices
 {
     public class ConfigurationSettingsHelper
     {
-        private static readonly Dictionary<string, object> ConfigSettingsDictionary = new Dictionary<string, object>();
+        private static readonly Dictionary<string, object> ConfigSettingsDictionary = [];
         public static T Instance<T>(bool useDefaults = false) where T : class, IConfigSettings, new()
         {
             lock (ConfigSettingsDictionary)

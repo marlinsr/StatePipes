@@ -8,7 +8,7 @@ namespace StatePipes.Common.Internal
     //For dynamically created types used by the explorer
     internal class TypeDictionary
     {
-        private Dictionary<string, Type> _typeDictionary = [];
+        private readonly Dictionary<string, Type> _typeDictionary = [];
         private static bool IsConcrete(Type type) => !type.IsAbstract && !type.IsInterface && !type.IsGenericTypeDefinition;
         public void SetupAssembylyMessageTypes(Assembly? assembly)
         {
@@ -27,14 +27,12 @@ namespace StatePipes.Common.Internal
             var statePipesAssebly = typeof(StatePipesService).Assembly;
             SetupAssembylyMessageTypes(statePipesAssebly);
         }
-        public void Add(Type type)
+        public void Add(string? receivedEventTypeFullName, Type convertToType)
         {
             lock (_typeDictionary)
             {
-                var fullName = type.FullName;
-                if (string.IsNullOrEmpty(fullName)) return;
-                if (_typeDictionary.ContainsKey(fullName)) return;
-                _typeDictionary[fullName] = type;
+                if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+                _typeDictionary[receivedEventTypeFullName] = convertToType;
             }
         }
         public Type? Get(string fullName)

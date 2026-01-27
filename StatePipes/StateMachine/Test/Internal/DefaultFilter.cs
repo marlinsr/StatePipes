@@ -23,7 +23,7 @@
         public void Clear() => CommandsFiltered.Clear();
         public override object Clone()
         {
-            DefaultFilter<A> ret = new DefaultFilter<A>();
+            DefaultFilter<A> ret = new();
             CommandsFiltered.ToList().ForEach(rejectedCommand => ret.CommandsFiltered.Add(rejectedCommand.Key, new FilterConditions(rejectedCommand.Value.Skip, rejectedCommand.Value.Block)));
             return ret;
         }

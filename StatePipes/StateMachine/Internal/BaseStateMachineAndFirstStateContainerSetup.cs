@@ -29,14 +29,14 @@ namespace StatePipes.StateMachine.Internal
         public static Type GetStateClassType(Type stateMachineType)
         {
             Type genericBaseStateMachineStateType = typeof(BaseStateMachineState<>);
-            Type[] typeArgs = { stateMachineType };
+            Type[] typeArgs = [stateMachineType];
             return genericBaseStateMachineStateType.MakeGenericType(typeArgs);
         }
 
         private static Type GetTriggerClassType(Type stateMachineType)
         {
             Type genericBaseStateMachineStateType = typeof(BaseTriggerCommand<>);
-            Type[] typeArgs = { stateMachineType };
+            Type[] typeArgs = [stateMachineType];
             return genericBaseStateMachineStateType.MakeGenericType(typeArgs);
         }
 
@@ -87,7 +87,7 @@ namespace StatePipes.StateMachine.Internal
         private void RegisterCommandHandler(ContainerBuilder containerBuilder, Type triggerCommandType)
         {
             Type genericTriggerCommandHandlerType = typeof(BaseTriggerCommandHandler<,>);
-            Type[] typeArgs = { triggerCommandType, _stateMachineType };
+            Type[] typeArgs = [triggerCommandType, _stateMachineType];
             Type constructedTriggerCommandHandlerType = genericTriggerCommandHandlerType.MakeGenericType(typeArgs);
             _ = containerBuilder.RegisterType(constructedTriggerCommandHandlerType).AsSelf().AsImplementedInterfaces().SingleInstance();
         }

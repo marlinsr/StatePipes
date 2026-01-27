@@ -1,4 +1,5 @@
 ﻿using StatePipes.Comms;
+using StatePipes.Comms.Internal;
 using StatePipes.Messages;
 using StatePipes.SelfDescription;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
@@ -6,15 +7,15 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     public class StatePipesHandlerHelper : IDisposable
     {
-        private StatePipesProxy? _proxy;
+        private StatePipesProxyInternal? _proxy;
         private readonly EventJsonRepository _eventJosonRepo = new();
         private readonly CommandJsonRepository _cmdExampleJsonRepo = new();
-        private Dictionary<string, DynamicEventHandler> _dynamicEventHandlerDictionary = [];
-        private Dictionary<string, DynamicCommandSender> _dynamicCommandSenderDictionary = [];
+        private readonly Dictionary<string, DynamicEventHandler> _dynamicEventHandlerDictionary = [];
+        private readonly Dictionary<string, DynamicCommandSender> _dynamicCommandSenderDictionary = [];
         private System.Threading.Timer? _timer;
         private bool disposedValue;
-        private ExcludeAndIncludeLists _filters = new ExcludeAndIncludeLists();
-        private readonly TypeSerializationConverter _typeSerializationConverter = new TypeSerializationConverter();
+        private ExcludeAndIncludeLists _filters = new();
+        private readonly TypeSerializationConverter _typeSerializationConverter = new();
         public void Initialize(string brokerUri, string exchangeName, ExcludeAndIncludeLists filters, string? clientCertFileName, string? clientCertPasswordFileName, string? hashedPassword)
         {
             if (string.IsNullOrEmpty(brokerUri)) return;
@@ -28,7 +29,7 @@ namespace StatePipes.Explorer.NonWebClasses
             else
             {
                 var busConfig = new BusConfig(brokerUri, exchangeName, clientCertFileName, clientCertPasswordFileName);
-                _proxy = new StatePipesProxy(string.Empty, busConfig, hashedPassword);
+                _proxy = new StatePipesProxyInternal(string.Empty, busConfig, hashedPassword);
                 _proxy.SubscribeConnectedToService(OnConnected, OnDisconnected);
                 _proxy.Start();
             }
@@ -43,30 +44,30 @@ namespace StatePipes.Explorer.NonWebClasses
         public void SendCommand(string commandTypeFullName, string commandJson)
         {
             if (!(_proxy?.IsConnectedToService ?? false)) return;
-            if (!_dynamicCommandSenderDictionary.ContainsKey(commandTypeFullName))
+            if (!_dynamicCommandSenderDictionary.TryGetValue(commandTypeFullName, out DynamicCommandSender? value))
             {
                 Log?.LogError($"_dynamicCommandSenderDictionary {commandTypeFullName} does not exist");
                 return;
             }
-            _dynamicCommandSenderDictionary[commandTypeFullName].Send(commandJson);
+            value.Send(commandJson);
         }
         public object? GetCommandObject(string commandTypeFullName, string commandJson)
         {
-            if (!_dynamicCommandSenderDictionary.ContainsKey(commandTypeFullName))
+            if (!_dynamicCommandSenderDictionary.TryGetValue(commandTypeFullName, out DynamicCommandSender? value))
             {
                 Log?.LogError($"_dynamicCommandSenderDictionary {commandTypeFullName} does not exist");
                 return null;
             }
-            return _dynamicCommandSenderDictionary[commandTypeFullName].GetCommandObject(commandJson);
+            return value.GetCommandObject(commandJson);
         }
         public dynamic? TypeDefault(string commandTypeFullName, Type t)
         {
-            if (!_dynamicCommandSenderDictionary.ContainsKey(commandTypeFullName))
+            if (!_dynamicCommandSenderDictionary.TryGetValue(commandTypeFullName, out DynamicCommandSender? value))
             {
                 Log?.LogError($"_dynamicCommandSenderDictionary {commandTypeFullName} does not exist");
                 return null;
             }
-            return _dynamicCommandSenderDictionary[commandTypeFullName].TypeDefault(t);
+            return value.TypeDefault(t);
         }
         public void ResetJson(string commandTypeFullName) => _cmdExampleJsonRepo.ResetJson(commandTypeFullName);
         private void UpdateEvent(TypeDescription typeDescription, TypeSerialization typeSerialization, List<TypeSerializationJsonHelper> eventList)
@@ -80,7 +81,7 @@ namespace StatePipes.Explorer.NonWebClasses
                 {
                     var eventInstanceMgr = new TypeSerializationJsonHelper(typeSerialization, _typeSerializationConverter);
                     eventList.Add(eventInstanceMgr);
-                    DynamicEventHandler dynamicEventHandler = new DynamicEventHandler(_proxy!, _eventJosonRepo, eventInstanceMgr);
+                    DynamicEventHandler dynamicEventHandler = new(_proxy!, _eventJosonRepo, eventInstanceMgr);
                     _dynamicEventHandlerDictionary.Add(typeDescription.FullName, dynamicEventHandler);
                 }
             }
@@ -93,7 +94,7 @@ namespace StatePipes.Explorer.NonWebClasses
             {
                 var commandInstanceMgr = new TypeSerializationJsonHelper(typeSerialization, _typeSerializationConverter);
                 cmdList.Add(commandInstanceMgr);
-                DynamicCommandSender dynamicCommandSender = new DynamicCommandSender(_proxy!, commandInstanceMgr);
+                DynamicCommandSender dynamicCommandSender = new(_proxy!, commandInstanceMgr);
                 _dynamicCommandSenderDictionary.Add(typeDescription.FullName, dynamicCommandSender);
             }
             catch (Exception ex) { Log?.LogException(ex); }
@@ -104,8 +105,8 @@ namespace StatePipes.Explorer.NonWebClasses
             _timer = null;
             _dynamicEventHandlerDictionary.Clear();
             _dynamicCommandSenderDictionary.Clear();
-            List<TypeSerializationJsonHelper> cmdList = new List<TypeSerializationJsonHelper>();
-            List<TypeSerializationJsonHelper> eventList = new List<TypeSerializationJsonHelper>();
+            List<TypeSerializationJsonHelper> cmdList = [];
+            List<TypeSerializationJsonHelper> eventList = [];
             ev.TypeList.TypeSerializations.ForEach(typeSerialization =>
             {
                 var typeDescription = typeSerialization.GetTopLevelDescription();

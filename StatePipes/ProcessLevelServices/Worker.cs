@@ -9,7 +9,7 @@ namespace StatePipes.ProcessLevelServices
     {
         private static ServiceArgs GetPostFixServiceArgs(ServiceArgs serviceArgs)
         {
-            List<string> argsForPostFix = new();
+            List<string> argsForPostFix = [];
             var postFix = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_POSTFIX", ServiceArgs.PostFix);
             if (!string.IsNullOrEmpty(postFix))
             {

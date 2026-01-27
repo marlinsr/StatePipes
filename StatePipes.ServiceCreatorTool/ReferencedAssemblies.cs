@@ -10,15 +10,15 @@ namespace StatePipes.ServiceCreatorTool
         public Type? GetAllStateMachineStatusCommandType { get; }
         public Type? CommandType { get; }
         public Type? EventType { get; }
-        private readonly Dictionary<string, Assembly> _assemblyDictionary = new Dictionary<string, Assembly>();
+        private readonly Dictionary<string, Assembly> _assemblyDictionary = [];
         private readonly Assembly? _assembly;
-        private readonly TypeSerializationList _typeSerialization = new TypeSerializationList();
-        private readonly Dictionary<string, Type> _typeDictionary = new Dictionary<string, Type>();
+        private readonly TypeSerializationList _typeSerialization = new();
+        private readonly Dictionary<string, Type> _typeDictionary = [];
         private readonly Assembly? _statepipesCommonAssembly;
         public ReferencedAssemblies(string dllFullFilePath)
         {
             LoadDlls(dllFullFilePath, out _statepipesCommonAssembly, out _assembly);
-            TypeSerializationConverter typeSerializationConverter = new TypeSerializationConverter();
+            TypeSerializationConverter typeSerializationConverter = new();
             if (_statepipesCommonAssembly is not null)
             {
                 var types = _statepipesCommonAssembly.GetTypesNoExceptions();
@@ -65,7 +65,7 @@ namespace StatePipes.ServiceCreatorTool
                 {
                     foreach (var t in types)
                     {
-                        if (!_typeDictionary.ContainsKey(t.Name)) _typeDictionary.Add(t.Name, t);
+                        _typeDictionary.TryAdd(t.Name, t);
                         _typeSerialization.TypeSerializations.Add(typeSerializationConverter.CreateFromType(t, CommandType!, EventType!));
                     }
                 }
@@ -88,8 +88,7 @@ namespace StatePipes.ServiceCreatorTool
         public Assembly? GetTargetAssembly() => _assembly;
         public Type? GetTypeOf(string name)
         {
-            Type? ret = null;
-            _typeDictionary.TryGetValue(name, out ret);
+            _typeDictionary.TryGetValue(name, out Type? ret);
             return ret;
         }
     }

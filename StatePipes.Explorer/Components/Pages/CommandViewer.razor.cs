@@ -41,8 +41,12 @@ namespace StatePipes.Explorer.Components.Pages
         }
 
         private ClassViewer _classEditor = default!;
+#pragma warning disable IDE1006 // Naming Styles
         private int periodicSendInSeconds { get; set; } = 0;
+#pragma warning restore IDE1006 // Naming Styles
+#pragma warning disable IDE1006 // Naming Styles
         private bool stopPeriodic { get; set; }
+#pragma warning restore IDE1006 // Naming Styles
         private System.Threading.Timer? timer;
         private bool ShowObjectEditor = true;
         private PropertyValueClass? CommandObject;

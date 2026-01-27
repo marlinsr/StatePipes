@@ -8,7 +8,7 @@ namespace StatePipes.SelfDescription
 {
     internal class SelfDescriptionContainerSetup(Assembly assembly, Assembly statePipesAssebly) : IContainerSetup
     {
-        public List<string> PublicCommandsFullName { get; private set; } = new List<string>();
+        public List<string> PublicCommandsFullName { get; private set; } = [];
         public void Build(IContainer container)
         {
         }

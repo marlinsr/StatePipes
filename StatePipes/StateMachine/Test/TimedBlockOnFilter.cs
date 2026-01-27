@@ -4,9 +4,9 @@ namespace StatePipes.StateMachine.Test
 {
     public class TimedBlockOnFilter<A> : IDisposable
     {
-        private readonly ManualResetEvent _event = new ManualResetEvent(false);
+        private readonly ManualResetEvent _event = new(false);
         private readonly int _timeoutMsec;
-        private readonly object _lock = new object();
+        private readonly object _lock = new();
         private readonly DefaultFilter<A> _filter;
         private bool _disposed;
         private A? _retObject;

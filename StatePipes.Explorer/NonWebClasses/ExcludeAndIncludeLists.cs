@@ -4,8 +4,8 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     public class ExcludeAndIncludeLists
     {
-        public List<string> Include { get; set; } = new List<string>();
-        public List<string> Exclude { get; set; } = new List<string>();
+        public List<string> Include { get; set; } = [];
+        public List<string> Exclude { get; set; } = [];
 
         public const string ExcludeAllString = "*ALL*";
         public ExcludeAndIncludeLists Clone()
@@ -25,7 +25,7 @@ namespace StatePipes.Explorer.NonWebClasses
         }
         public static ExcludeAndIncludeLists GetFromCsvs(string includeList, string excludeList)
         {
-            ExcludeAndIncludeLists excludeIncludeLists = new ExcludeAndIncludeLists();
+            ExcludeAndIncludeLists excludeIncludeLists = new();
             if(!string.IsNullOrEmpty(includeList))
             {
                 includeList = includeList.Trim();

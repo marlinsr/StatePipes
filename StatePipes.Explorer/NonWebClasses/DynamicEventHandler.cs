@@ -1,4 +1,5 @@
 ﻿using StatePipes.Comms;
+using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
 using StatePipes.SelfDescription;
 using System.Reflection;
@@ -8,11 +9,11 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     internal class DynamicEventHandler : IDisposable
     {
-        private readonly StatePipesProxy _proxy;
-        private readonly EventJsonRepository _josonRepo = new EventJsonRepository();
+        private readonly StatePipesProxyInternal _proxy;
+        private readonly EventJsonRepository _josonRepo = new();
         private readonly TypeSerializationJsonHelper _eventInstanceMgr;
         private bool disposedValue;
-        public DynamicEventHandler(StatePipesProxy proxy, EventJsonRepository josonRepo, TypeSerializationJsonHelper eventInstanceMgr)
+        public DynamicEventHandler(StatePipesProxyInternal proxy, EventJsonRepository josonRepo, TypeSerializationJsonHelper eventInstanceMgr)
         {
             _proxy = proxy;
             _josonRepo = josonRepo;
@@ -28,8 +29,8 @@ namespace StatePipes.Explorer.NonWebClasses
             if (action == null) return;
             var subscribeMethod = _proxy.GetType()?.GetMethod("Subscribe", BindingFlags.Public | BindingFlags.Instance);
             if (subscribeMethod == null) return;
-            var subscribeMethodOfEventType = subscribeMethod.MakeGenericMethod(new[] { _eventInstanceMgr.ThisType });
-            subscribeMethodOfEventType?.Invoke(_proxy, new object[] { action });
+            var subscribeMethodOfEventType = subscribeMethod.MakeGenericMethod([_eventInstanceMgr.ThisType]);
+            subscribeMethodOfEventType?.Invoke(_proxy, [action]);
         }
         private void UnSubscribe()
         {
@@ -40,15 +41,15 @@ namespace StatePipes.Explorer.NonWebClasses
             if(action == null) return;  
             var unsubscribeMethod = _proxy.GetType().GetMethod("UnSubscribe", BindingFlags.Public | BindingFlags.Instance);
             if(unsubscribeMethod == null) return;
-            var unsubscribeMethodOfEventType = unsubscribeMethod.MakeGenericMethod(new[] { _eventInstanceMgr.ThisType });
-            unsubscribeMethodOfEventType?.Invoke(_proxy, new object[] { action });
+            var unsubscribeMethodOfEventType = unsubscribeMethod.MakeGenericMethod([_eventInstanceMgr.ThisType]);
+            unsubscribeMethodOfEventType?.Invoke(_proxy, [action]);
         }
         private object? CreateDelegateByParameter(Type parameterType, MethodInfo method)
         {
             var createDelegate = GetType()?.GetMethod(nameof(CreateDelegate), BindingFlags.NonPublic | BindingFlags.Instance)
-                ?.MakeGenericMethod(new Type[] { parameterType });
+                ?.MakeGenericMethod([parameterType]);
 
-            var del = createDelegate?.Invoke(this, new object[] { method });
+            var del = createDelegate?.Invoke(this, [method]);
 
             return del;
         }
@@ -57,7 +58,9 @@ namespace StatePipes.Explorer.NonWebClasses
             var del = (Action<TEvent, BusConfig, bool>?)Delegate.CreateDelegate(typeof(Action<TEvent, BusConfig, bool>), this, method, false)!;
             return del;
         }
+#pragma warning disable IDE0060 // Remove unused parameter
         private void OnTestEvent<T>(T ev, BusConfig busConfig, bool isResponse) where T : IEvent
+#pragma warning restore IDE0060 // Remove unused parameter
         {
             Log?.LogVerbose($"Received Event {ev.GetType().Name}");
             _josonRepo.SetJsonString(ev);

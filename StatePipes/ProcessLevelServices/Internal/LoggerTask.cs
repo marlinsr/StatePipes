@@ -17,7 +17,7 @@ namespace StatePipes.ProcessLevelServices.Internal
         }
         private void PurgeLogFiles()
         {
-            DirectoryInfo directoryInfo = new DirectoryInfo(_logFileDirectory);
+            DirectoryInfo directoryInfo = new(_logFileDirectory);
             FileInfo[] files = directoryInfo.GetFiles()
                                            .OrderBy(f => f.CreationTime)
                                            .ToArray();

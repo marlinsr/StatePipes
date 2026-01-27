@@ -4,7 +4,7 @@ namespace StatePipes.ServiceCreatorTool
 {
     public static class StringBuilderExtensions
     {
-        private static TabGenerator _tabGenerator = new TabGenerator();
+        private static TabGenerator _tabGenerator = new();
         public static void AppendTabbedLine(this StringBuilder sb, string text)
         {
             sb.AppendLine($"{_tabGenerator.TabString}{text}");

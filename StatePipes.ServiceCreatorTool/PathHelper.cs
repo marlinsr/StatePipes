@@ -11,7 +11,7 @@
     public class PathHelper
     {
         private Dictionary<PathName, string> _paths;
-        public PathHelper() => _paths = new Dictionary<PathName, string>();
+        public PathHelper() => _paths = [];
         public PathHelper(string solutionDir) : this()
         {
             var root = Directory.GetParent(solutionDir)!.FullName;

@@ -10,7 +10,7 @@ namespace StatePipes.StateMachine.Internal
         private readonly List<BaseDummyContainerSetup> _stateMachineDummyBinding;
         public AllStateMachineDummyContainerSetup(Assembly assembly, IDummyDependencyRegistration dummyRegisterator)
         {
-            _stateMachineDummyBinding = new List<BaseDummyContainerSetup>();
+            _stateMachineDummyBinding = [];
             var baseStateMachineType = typeof(IStateMachine);
             assembly.GetLoadableTypes().Where(t => baseStateMachineType.IsAssignableFrom(t) && !t.Equals(baseStateMachineType)).ToList()
                 .ForEach(smt => _stateMachineDummyBinding.Add(new BaseDummyContainerSetup(smt, dummyRegisterator)));

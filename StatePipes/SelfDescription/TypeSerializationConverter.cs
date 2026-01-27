@@ -17,7 +17,7 @@ namespace StatePipes.SelfDescription
         }
         public TypeSerialization CreateFromType(Type type)
         {
-            TypeToTypeSerializationConverter converter = new TypeToTypeSerializationConverter(_typeRepo);
+            TypeToTypeSerializationConverter converter = new(_typeRepo);
             return converter.Convert(type);
         }
         public Type? CreateType(TypeSerialization typeSerialization)

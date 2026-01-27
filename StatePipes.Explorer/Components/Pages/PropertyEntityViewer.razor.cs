@@ -14,7 +14,7 @@ namespace StatePipes.Explorer.Components.Pages
         {
             var ret = new List<List<T>>();
             int count = 0;
-            List<T> elementList = new List<T>();
+            List<T> elementList = [];
             foreach (var element in rawList)
             {
                 elementList.Add(element);
@@ -22,7 +22,7 @@ namespace StatePipes.Explorer.Components.Pages
                 {
                     count = 0;
                     ret.Add(elementList);
-                    elementList = new List<T>();
+                    elementList = [];
                 }
                 else
                 {
@@ -38,13 +38,13 @@ namespace StatePipes.Explorer.Components.Pages
                 .Where(i => i.Name.Equals("Cast", StringComparison.InvariantCulture))
                 .Where(i => i.IsGenericMethod)
                 .Single();
-            var castMethodOfThisType = castMethod.MakeGenericMethod(new[] { elementType });
+            var castMethodOfThisType = castMethod.MakeGenericMethod([elementType]);
             dynamic enumerable = castMethodOfThisType.Invoke(null, new[] { arr })!;
             var toListMethod = typeof(Enumerable).GetMethods()
                 .Where(i => i.Name.Equals("ToList", StringComparison.InvariantCulture))
                 .Where(i => i.IsGenericMethod)
                 .Single();
-            var toListMethodOfThisType = toListMethod.MakeGenericMethod(new[] { elementType });
+            var toListMethodOfThisType = toListMethod.MakeGenericMethod([elementType]);
             return toListMethodOfThisType.Invoke(null, new[] { enumerable })!;
         }
         private static dynamic? RectangularToJagged(object obj)

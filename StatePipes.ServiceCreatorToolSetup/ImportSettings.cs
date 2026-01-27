@@ -14,7 +14,7 @@ namespace StatePipes.ServiceCreatorToolSetup
                 var assembly = Assembly.GetExecutingAssembly();
                 using Stream? stream = assembly.GetManifestResourceStream(resourceFileName);
                 if (stream == null) throw new FileNotFoundException($"Embedded resource '{resourceFileName}' not found.");
-                using FileStream fileStream = new FileStream(tempVsSettingsFileName, FileMode.Create, FileAccess.Write);
+                using FileStream fileStream = new(tempVsSettingsFileName, FileMode.Create, FileAccess.Write);
                 stream.CopyTo(fileStream);
                 fileStream.Close();
                 stream.Close();

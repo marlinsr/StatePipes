@@ -5,7 +5,7 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     internal class EventJsonRepository
     {
-        private readonly List<EventEntry> _eventJsonRepo = new List<EventEntry>();
+        private readonly List<EventEntry> _eventJsonRepo = [];
         public EventJsonRepository() { }
         public void SetJsonString(IEvent ev)
         {
@@ -34,7 +34,7 @@ namespace StatePipes.Explorer.NonWebClasses
                     var eventJsonRepoEvent = _eventJsonRepo.FirstOrDefault(t => t.FullName == name);
                     if (eventJsonRepoEvent == null) _eventJsonRepo.Add(new EventEntry(name, null));
                 }
-                List<EventEntry> eventListToRemove = new List<EventEntry>();
+                List<EventEntry> eventListToRemove = [];
                 foreach (var eventRepoEntry in _eventJsonRepo)
                 {
                     if (tList.FirstOrDefault(tEvent => tEvent.ThisType?.FullName == eventRepoEntry.FullName) == null) 
@@ -45,7 +45,7 @@ namespace StatePipes.Explorer.NonWebClasses
         }
         public List<EventEntry> GetEventJsons()
         {
-            List<EventEntry> ret = new List<EventEntry>();
+            List<EventEntry> ret = [];
             lock (_eventJsonRepo)
             {
                 _eventJsonRepo.ForEach(i => ret.Add(i));

@@ -12,11 +12,11 @@ namespace StatePipes.Comms.Internal
         private readonly Action<ConnectionChannel>? _configureBuses;
         private readonly CancellationToken _cancelToken;
         private readonly BusConfig _busConfig;
-        private readonly object _lock = new();
+        private readonly System.Threading.Lock _lock = new();
         private bool _disposedValue;
         private Timer? _timer;
         private readonly string? _hashedPassword;
-        public static List<string> DefaultRoutingKeys { get; } = new List<string> { "#" };
+        public static List<string> DefaultRoutingKeys { get; } = ["#"];
         public ConnectionChannel(BusConfig busConfig, string? hashedPassword, Action<ConnectionChannel>? configureBuses = null, CancellationToken cancelToken = default)
         {
             _configureBuses = configureBuses;
@@ -56,7 +56,6 @@ namespace StatePipes.Comms.Internal
                 TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds),
                 TimeSpan.FromMilliseconds(Timeout.Infinite));
         }
-
         private void CreateChannel()
         {
             if (_connection == null)
@@ -84,7 +83,7 @@ namespace StatePipes.Comms.Internal
                 }
             }
         }
-        private string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
+        private static string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
         public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, AsyncEventHandler<BasicDeliverEventArgs>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
         {
             //No Need to lock this because InstantiateConnectionAndChannel locks
@@ -99,13 +98,12 @@ namespace StatePipes.Comms.Internal
                 var queueName = GetQueueName(id, commsType);
                 _channel.QueueDeclareAsync(queueName).Wait();
 
-                if (routingKeys != null) routingKeys.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).Wait());
+                routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).Wait());
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += consumeMethod;
                 _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).Wait();
             }
         }
-        //SRM Need to see if EventSubscriptionManager should be owned here
         public void Subscribe(Guid id, string routingKey, BusConfig busConfig)
         {
             lock (_lock)
@@ -120,35 +118,21 @@ namespace StatePipes.Comms.Internal
                 _channel?.QueueUnbindAsync(queue: GetQueueName(id, CommunicationsType.Event), exchange: busConfig.EventExchangeName, routingKey: routingKey);
             }
         }
-        public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage
+        public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage => Send<T>(message.GetType().FullName, message, busConfigFrom, exchangeName);
+        public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName) 
         {
+            if(message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            MessageHelper.Serialize(sendCommandTypeFullName, message, busConfigFrom, out byte[] body, out BasicProperties properties);
             lock (_lock)
             {
-                var routingKey = message.GetType().FullName;
-                if (string.IsNullOrEmpty(routingKey))
-                {
-                    Log?.LogError("Failed to get FullName for message.");
-                    return;
-                }
-                if (_channel == null)
-                {
-                    Log?.LogError($"Failed to send message {routingKey} because _channel == null");
-                    return;
-                }
-                MessageHelper.Serialize(message, busConfigFrom, out byte[] body, out BasicProperties properties);
+                if (_channel == null) return;
                 try
                 {
-                    var result = _channel.BasicPublishAsync(exchange: exchangeName,
-                                         routingKey: routingKey,
-                                         basicProperties: properties,
-                                         body: body,
-                                         mandatory: false, cancellationToken: _cancelToken);
+                    var result = _channel.BasicPublishAsync(exchange: exchangeName, routingKey: sendCommandTypeFullName, basicProperties: properties,
+                                         body: body, mandatory: false, cancellationToken: _cancelToken);
                     if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message{message.GetType().FullName} to exchange {exchangeName}");
                 }
-                catch (Exception e)
-                {
-                    Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {routingKey} Exception: {e.Message}");
-                }
+                catch (Exception e) { Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {sendCommandTypeFullName} Exception: {e.Message}"); }
             }
         }
         protected void Cleanup()

@@ -12,7 +12,7 @@ namespace StatePipes.StateMachine.Test.Internal
             if (obj == null) return;
             var t = typeof(T);
             if (preRepo.ContainsKey(t)) preRepo[t].Add(obj);
-            else preRepo.Add(t, new List<object> { obj });
+            else preRepo.Add(t, [obj]);
         }
         internal void Register(ContainerBuilder builder)
         {

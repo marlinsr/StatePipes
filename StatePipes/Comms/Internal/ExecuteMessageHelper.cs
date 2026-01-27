@@ -7,7 +7,7 @@ namespace StatePipes.Comms.Internal
 {
     internal static class ExecuteMessageHelper
     {
-        internal static void HandleMessage(IMessage message, BusConfig busConfig, bool isResponse, object? handler, Type messageType)
+        internal static void HandleMessage(object message, BusConfig busConfig, bool isResponse, object? handler, Type messageType)
         {
             try
             {
@@ -21,13 +21,13 @@ namespace StatePipes.Comms.Internal
                 if (handleMessageType == null) return;
                 Log?.LogVerbose($"Handling message {messageType.FullName}");
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                handleMessageType?.Invoke(handler, new object[] { message, busConfig, isResponse });
+                handleMessageType?.Invoke(handler, [message, busConfig, isResponse]);
                 stopwatch.Stop();
                 if (stopwatch.ElapsedMilliseconds > 500) Log?.LogWarning($"Long running command handler detected. Type: {messageType.FullName}, Time: {stopwatch.ElapsedMilliseconds} ms");
             }
             catch (Exception ex) { Log?.LogInfo(ex.Message); }
         }
-        internal static void ExecuteMessage(IMessage message, BusConfig busConfig, bool isResponse, IContainer container)
+        internal static void ExecuteMessage(object message, BusConfig busConfig, bool isResponse, IContainer container)
         {
             try
             {

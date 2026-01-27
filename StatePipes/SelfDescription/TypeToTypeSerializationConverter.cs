@@ -10,9 +10,9 @@ namespace StatePipes.SelfDescription
         private readonly TypeRepo _typeRepo = typeRepo;
         public TypeSerialization Convert(Type t)
         {
-            TypeSerialization typeSerialization = new TypeSerialization();
+            TypeSerialization typeSerialization = new();
             typeSerialization.FullName = t.FullName ?? string.Empty;
-            typeSerialization.TypeRepo = new Dictionary<string, TypeDescription>();
+            typeSerialization.TypeRepo = [];
             CreateFromType(t, typeSerialization);
             return typeSerialization;
         }
@@ -96,7 +96,7 @@ namespace StatePipes.SelfDescription
         private AttributeDescription GetAttributeTypeDescription(CustomAttributeData attributeData, Attribute customAttribute, TypeSerialization tsi)
         {
             CreateFromType(attributeData.AttributeType, tsi);
-            AttributeDescription attributeDescription = new AttributeDescription(attributeData.AttributeType.FullName ?? string.Empty, JsonUtility.GetJsonStringForObject(customAttribute));
+            AttributeDescription attributeDescription = new(attributeData.AttributeType.FullName ?? string.Empty, JsonUtility.GetJsonStringForObject(customAttribute));
             return attributeDescription;
         }
         private List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes.")).ToList();

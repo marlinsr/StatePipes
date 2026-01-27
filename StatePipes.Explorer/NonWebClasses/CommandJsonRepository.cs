@@ -4,7 +4,7 @@ namespace StatePipes.Explorer.NonWebClasses
 {
     internal class CommandJsonRepository
     {
-        private readonly List<CommandEntry> _commandList = new List<CommandEntry>();
+        private readonly List<CommandEntry> _commandList = [];
         public CommandJsonRepository() { }
         private void AddCommandEntry(TypeSerializationJsonHelper t)
         {
@@ -30,7 +30,7 @@ namespace StatePipes.Explorer.NonWebClasses
             lock (_commandList)
             {
                 tList.ForEach(t => AddCommandEntry(t));
-                List<CommandEntry> commandListToRemove = new List<CommandEntry>();
+                List<CommandEntry> commandListToRemove = [];
                 _commandList.ForEach(cmd =>
                 {
                     if (tList.FirstOrDefault(tCmd => tCmd.ThisType?.FullName == cmd.FullName) == null) commandListToRemove.Add(cmd);
@@ -55,11 +55,7 @@ namespace StatePipes.Explorer.NonWebClasses
         {
             lock (_commandList)
             {
-                List<CommandEntry> commandListClone = new List<CommandEntry>();
-                foreach (var cmd in _commandList)
-                {
-                    commandListClone.Add(cmd);
-                }
+                List<CommandEntry> commandListClone = [.. _commandList];
                 return commandListClone;
             }
         }

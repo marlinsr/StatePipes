@@ -1,11 +1,11 @@
-﻿using StatePipes.Common;
+﻿using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
 
 namespace StatePipes.Comms
 {
     public abstract class BaseGeneratedProxy
     {
-        protected readonly Dictionary<string, IStatePipesProxy> _proxyDictionary = new Dictionary<string, IStatePipesProxy>();
+        internal readonly Dictionary<string, IStatePipesProxyInternal> _proxyDictionary = [];
         protected readonly IStatePipesService _bus;
         public abstract string ProxyPrefix { get; }
         protected abstract void Subscribe(IStatePipesProxy proxy);
@@ -26,7 +26,7 @@ namespace StatePipes.Comms
             var proxyList = proxyFactory.GetAllClientProxies().Where(p => p.Name.StartsWith(ProxyPrefix, StringComparison.OrdinalIgnoreCase)).ToList();
             proxyList.ForEach(proxy =>
             {
-                _proxyDictionary.Add(proxy.Name, proxy);
+                _proxyDictionary.Add(proxy.Name, (IStatePipesProxyInternal)proxy);
             });
             SubscribeAll();
             ConnectionStatusSetup();
@@ -34,29 +34,19 @@ namespace StatePipes.Comms
         public void Start() => StartAll();
         protected void StartAll() => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.Start());
         protected void SubscribeAll() => _proxyDictionary.Values.ToList().ForEach(proxy => Subscribe(proxy));
-        protected void SendToAll<TCommand>(TCommand command) where TCommand : class, ICommand => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.SendCommand(command));
-        protected void Send<TCommand>(string proxyName, TCommand command) where TCommand : class, ICommand
+        protected void SendToAll<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class => _proxyDictionary.Values.ToList().ForEach(proxy => proxy.SendCommand(sendCommandTypeFullName, command));
+        protected void Send<TCommand>(string proxyName, string? sendCommandTypeFullName, TCommand command) where TCommand : class
         {
             if (string.IsNullOrEmpty(proxyName))
             {
-                SendToAll(command);
+                SendToAll(sendCommandTypeFullName, command);
                 return;
             }
-            if (!_proxyDictionary.ContainsKey(proxyName)) return;
-            _proxyDictionary[proxyName].SendCommand(command);
+            if (_proxyDictionary.TryGetValue(proxyName, out IStatePipesProxyInternal? value))
+                value.SendCommand(sendCommandTypeFullName, command);
         }
-        public static T? Convert<T>(object obj)
-            where T : class
-        {
-            var json = JsonUtility.GetJsonStringForObject(obj);
-            return JsonUtility.GetObjectForJsonString<T>(json);
-        }
-        protected void ConvertAndSend<TCommand>(string proxyName, object obj) where TCommand : class, ICommand
-        {
-            var cmd = Convert<TCommand>(obj);
-            if (cmd == null) return;
-            Send(proxyName, cmd);
-        }
+        protected static void Subscribe<TEvent>(IStatePipesProxy proxy, string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
+            ((IStatePipesProxyInternal)proxy).Subscribe(receivedEventTypeFullName, handler);
     }
 }
 

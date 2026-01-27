@@ -10,7 +10,7 @@ namespace StatePipes.StateMachine.Internal
         private readonly List<BaseStateMachineContainerSetup> _stateMachineContainerSetup;
         public AllStateMachineContainerSetup(Assembly assembly, bool sendInitAfterInitialize = true)
         {
-            _stateMachineContainerSetup = new List<BaseStateMachineContainerSetup>();
+            _stateMachineContainerSetup = [];
             var baseStateMachineType = typeof(IStateMachine);
             assembly.GetLoadableTypes().Where(t => baseStateMachineType.IsAssignableFrom(t) && !t.Equals(baseStateMachineType)).ToList()
                 .ForEach(smt => _stateMachineContainerSetup.Add(new BaseStateMachineContainerSetup(smt, sendInitAfterInitialize)));

@@ -58,7 +58,7 @@ namespace StatePipes.Comms.Internal
                 Log?.LogInfo(errString);
                 return string.Empty;
             }
-            Dictionary<DateTime, string> fileCreationDateDictionary = new Dictionary<DateTime, string>();
+            Dictionary<DateTime, string> fileCreationDateDictionary = [];
             files.ToList().ForEach(file => fileCreationDateDictionary.Add(File.GetCreationTime(file), file));
             var newestCreationDate = fileCreationDateDictionary.Keys.OrderByDescending(k => k).First();
             var newestLogFile = fileCreationDateDictionary[newestCreationDate];

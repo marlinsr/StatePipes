@@ -47,7 +47,7 @@ namespace StatePipes.Explorer.Components.Pages
                     EditorObjectString = string.Empty;
                     return;
                 }
-                StringBuilder builder = new StringBuilder();
+                StringBuilder builder = new();
                 bool isNotFirstElement = false;
                 foreach (var p in arrayElements)
                 {

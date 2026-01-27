@@ -8,8 +8,8 @@ namespace StatePipes.Explorer.Components.Pages
     public partial class DateTimeViewer
     {
         private PropertyValueClass? PreviousEditorObject;
-        private DateOnly _newDate = new DateOnly();
-        private TimeOnly _newTime = new TimeOnly();
+        private DateOnly _newDate = new();
+        private TimeOnly _newTime = new();
         private string _seconds = string.Empty;
         private string _newTimeStr = string.Empty;
         private string _newDateStr = string.Empty;
@@ -24,7 +24,7 @@ namespace StatePipes.Explorer.Components.Pages
 
         private static double GetSeconds(DateTime dt)
         {
-            DateTime majorPart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+            DateTime majorPart = new(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
             long secondsTicks = dt.Ticks - majorPart.Ticks;
             return (new TimeSpan(secondsTicks)).TotalSeconds;
         }

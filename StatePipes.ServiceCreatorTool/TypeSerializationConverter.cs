@@ -2,13 +2,13 @@
 {
     public class TypeSerializationConverter
     {
-        private TypeRepo _typeRepo = new TypeRepo();
+        private TypeRepo _typeRepo = new();
 
         public TypeSerialization CreateFromType(Type type,
             Type commandType,
             Type eventType)
         {
-            TypeToTypeSerializationConverter converter = new TypeToTypeSerializationConverter(_typeRepo, commandType, eventType);
+            TypeToTypeSerializationConverter converter = new(_typeRepo, commandType, eventType);
             return converter.Convert(type);
         }
     }
