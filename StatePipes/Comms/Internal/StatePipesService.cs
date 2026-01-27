@@ -10,11 +10,10 @@ namespace StatePipes.Comms.Internal
 {
     internal class StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true) : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
     {
+        private readonly LocalProxyMessageTypeTransformer _localProxyMessageTypeTransformer = new();
         private readonly TypeDictionary _externalMessageTypeDictionary = new();
-        private readonly Dictionary<string, Type> _subscribedEventTypeDictionary = [];
         private readonly Guid _id = Guid.NewGuid();
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
-        private Dictionary<string, Type> _commandTypeDictionary = [];
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
         private IContainer? _container;
         private ConnectionChannel? _connectionChannel;
@@ -33,7 +32,7 @@ namespace StatePipes.Comms.Internal
         public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class
         {
             if (string.IsNullOrEmpty(sendCommandTypeFullName)) return;
-            dynamic? transformedCommand = TransformCommand(sendCommandTypeFullName, command);
+            dynamic? transformedCommand = _localProxyMessageTypeTransformer.TransformValueObjectToCommand(sendCommandTypeFullName, command);
             if (transformedCommand == null) return;
             SendCommand(transformedCommand);
         }
@@ -45,51 +44,19 @@ namespace StatePipes.Comms.Internal
         {
             try
             {
-                if (_connectionChannel != null && eventMessage.GetType().IsPublic)
-                {
-                    if (_connectionChannel.IsOpen)
-                    {
-                        _connectionChannel.Send(eventMessage, busConfig, exchangeName);
-                    }
-                    else
-                    {
-                        Log?.LogVerbose($"Failed to send {eventMessage.GetType().FullName}");
-                    }
-                }
+                if (_connectionChannel == null || !eventMessage.GetType().IsPublic) return;
+                if (_connectionChannel.IsOpen) _connectionChannel.Send(eventMessage, busConfig, exchangeName);
+                else Log?.LogVerbose($"Failed to send {eventMessage.GetType().FullName}");
             }
-            catch (Exception ex)
-            {
-                Log?.LogException(ex);
-            }
+            catch (Exception ex) { Log?.LogException(ex); }
         }
         public void PublishEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
         {
             EventSendHelper(eventMessage, _busConfig.EventExchangeName, _busConfig);
             _eventSubscriptionManager.HandleEvent(eventMessage, _busConfig);
-            var transformedEvent = TransformEvent(eventMessage);
+            var transformedEvent = _localProxyMessageTypeTransformer.TransformEventToValueObject(eventMessage);
             if (transformedEvent != null) _eventSubscriptionManager.HandleEvent(transformedEvent, _busConfig);
             if (_container != null) ExecuteMessageHelper.ExecuteMessage(eventMessage, _busConfig, false, _container);
-        }
-        private dynamic? TransformEvent<TEvent>(TEvent eventMessage) where TEvent : class, IEvent
-        {
-            //This json cloning only effects locally deployed services.
-            var eventTypeFullName = typeof(TEvent).FullName;
-            if (string.IsNullOrEmpty(eventTypeFullName)) return null;
-            if (_subscribedEventTypeDictionary.TryGetValue(eventTypeFullName, out Type? subscribedEventType))
-            {
-                return JsonConvert.DeserializeObject(JsonUtility.GetJsonStringForObject(eventMessage, false), subscribedEventType, StatePipesJsonConverters.Converters);
-            }
-            return null;
-        }
-        private dynamic? TransformCommand<TCommand>(string? sendCommandFullName, TCommand commandMessage) where TCommand : class
-        {
-            //This json cloning only effects locally deployed services.
-            if (string.IsNullOrEmpty(sendCommandFullName)) return null;
-            if (_commandTypeDictionary.TryGetValue(sendCommandFullName, out Type? commandType))
-            {
-                return JsonConvert.DeserializeObject(JsonUtility.GetJsonStringForObject(commandMessage, false), commandType, StatePipesJsonConverters.Converters);
-            }
-            return null;
         }
         public void SendResponse<TEvent>(TEvent replyMessage, BusConfig busConfig) where TEvent : class, IEvent
         {
@@ -106,7 +73,7 @@ namespace StatePipes.Comms.Internal
             Log?.LogVerbose($"Sending response {typeof(TEvent).FullName} to {busConfig.ResponseExchangeName}");
             EventSendHelper(replyMessage, busConfig.ResponseExchangeName, busConfig);
             _eventSubscriptionManager.HandleEventResponse(replyMessage, _busConfig);
-            var transformedEvent = TransformEvent(replyMessage);
+            var transformedEvent = _localProxyMessageTypeTransformer.TransformEventToValueObject(replyMessage);
             if (transformedEvent != null) _eventSubscriptionManager.HandleEventResponse(transformedEvent, _busConfig);
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
@@ -119,7 +86,7 @@ namespace StatePipes.Comms.Internal
             if (_container != null) return;
             ContainerBuilder containerBuilder = new();
             var statePipesServiceContainerSetup = new StatePipesServiceContainerSetup(serviceConfiguration, parentProxyFactory);
-            _commandTypeDictionary = statePipesServiceContainerSetup.GetPublicCommandTypeDictionary();
+            _localProxyMessageTypeTransformer.PopulatePublicCommandTypeDictionary(statePipesServiceContainerSetup.ClassLibraryAssembly);
             _externalMessageTypeDictionary.SetupAssembylyMessageTypes(statePipesServiceContainerSetup.ClassLibraryAssembly);
             statePipesServiceContainerSetup.Register(containerBuilder);
             containerBuilder.Register(c => this).As<IStatePipesService>().SingleInstance();
@@ -197,20 +164,14 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_connectionChannel == null && remoteAccess)
-                {
-                    try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
-                }
+                if(_connectionChannel == null && remoteAccess) try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
                 if (_container != null)
                 {
                     var cmd = WaitGetNext(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
                     PerformCancellation();
                     if (cmd != null) ExecuteMessageHelper.ExecuteMessage(cmd.Command, cmd.ReplyTo, false, _container);
                 }
-                else
-                {
-                    Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
-                }
+                else Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
             }
         }
         public override void Dispose()
@@ -224,7 +185,7 @@ namespace StatePipes.Comms.Internal
             if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
             var eventType = typeof(TEvent);
             var eventTypeFullName = eventType.FullName;
-            if (eventTypeFullName != receivedEventTypeFullName) _subscribedEventTypeDictionary.Add(receivedEventTypeFullName, eventType);
+            if (eventTypeFullName != receivedEventTypeFullName) _localProxyMessageTypeTransformer.AddEventType(receivedEventTypeFullName, eventType);
             _eventSubscriptionManager.Subscribe(eventTypeFullName, handler);
         }
         public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _eventSubscriptionManager.UnSubscribe(handler);

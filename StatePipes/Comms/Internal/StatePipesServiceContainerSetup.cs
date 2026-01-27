@@ -28,15 +28,6 @@ namespace StatePipes.Comms.Internal
             _statePipesAssebly = typeof(StatePipesService).Assembly;
             _selfDescriptionContainerSetup = new(_assembly,_statePipesAssebly);
         }
-        public Dictionary<string, Type> GetPublicCommandTypeDictionary()
-        {
-            var types = _assembly.GetLoadableTypes().Where(t => (t.IsPublic && !t.IsAbstract && !t.IsGenericType && IsConcrete(t) &&
-              typeof(ICommand).IsAssignableFrom(t) && !string.IsNullOrEmpty(t.FullName)));
-            Dictionary<string, Type> commandTypeDictionary = [];
-            if (types == null) return commandTypeDictionary;
-            types.ToList().ForEach(t => commandTypeDictionary.Add(t.FullName!, t));
-            return commandTypeDictionary;
-        }
         public void Build(IContainer container)
         {
             _stateMachineContainerSetup.Build(container);
