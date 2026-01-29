@@ -36,4 +36,7 @@ Changes 3.0.2:
 Updated to latest nuget versions for solution generation tool by @marlinsr in #33
 Changes 3.0.3:
 Remove json clone for type transform in proxies by @marlinsr in #35
+Changes 3.0.4:
+Make ServiceConfiguration a part of generated proxy to remove reference needed to proxied service by @marlinsr in #37
+
 
