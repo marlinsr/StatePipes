@@ -10,7 +10,7 @@
     }
     public class PathHelper
     {
-        private Dictionary<PathName, string> _paths;
+        private readonly Dictionary<PathName, string> _paths;
         public PathHelper() => _paths = [];
         public PathHelper(string solutionDir) : this()
         {

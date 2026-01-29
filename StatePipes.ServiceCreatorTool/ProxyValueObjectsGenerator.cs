@@ -6,10 +6,8 @@
 
         public void CreateValueObjectsStart()
         {
-            proxyGeneratorCommon.CodeGenerationNamespace = $"{proxyGeneratorCommon.CodeGenerationBaseNamespace}.ValueObjects.{proxyGeneratorCommon.ProxyMoniker}";
-            proxyGeneratorCommon.NamespaceList.AddNamespace(proxyGeneratorCommon.CodeGenerationNamespace);
             proxyGeneratorCommon.CodeGenerationString.ResetIndention();
-            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"namespace {proxyGeneratorCommon.CodeGenerationNamespace}");
+            proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"namespace {proxyGeneratorCommon.CodeGenerationBaseNamespace}.ValueObjects.{proxyGeneratorCommon.ProxyMoniker}");
             proxyGeneratorCommon.CodeGenerationString.Indent();
             CreateValueObjects();
             proxyGeneratorCommon.CodeGenerationString.Outdent();

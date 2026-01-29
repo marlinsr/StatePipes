@@ -22,25 +22,25 @@ namespace StatePipes.ServiceCreatorTool
         private static string GetProductName(string solutionName)
         {
             solutionName = GetSolutionNameNoPackages(GetSolutionNameNoExtension(solutionName));
-            if (solutionName.Contains('.')) solutionName = solutionName.Substring(solutionName.IndexOf(".") + 1);
+            if (solutionName.Contains('.')) solutionName = solutionName[(solutionName.IndexOf('.') + 1)..];
             return solutionName;
         }
         private static string GetCompanyName(string solutionName)
         {
             solutionName = GetSolutionNameNoPackages(GetSolutionNameNoExtension(solutionName));
-            if(solutionName.Contains('.')) solutionName = solutionName.Substring(0, solutionName.IndexOf("."));
+            if(solutionName.Contains('.')) solutionName = solutionName[..solutionName.IndexOf('.')];
             return solutionName;
         }
         public static string GetProjectNameNoExtension(string projectName) =>
-            projectName.EndsWith(projectExtension, StringComparison.InvariantCultureIgnoreCase) ? projectName.Substring(0, projectName.LastIndexOf(projectExtension, StringComparison.InvariantCultureIgnoreCase)) : projectName;
+            projectName.EndsWith(projectExtension, StringComparison.InvariantCultureIgnoreCase) ? projectName[..projectName.LastIndexOf(projectExtension, StringComparison.InvariantCultureIgnoreCase)] : projectName;
         public static string GetSolutionNameNoExtension(string solutionName) =>
-            solutionName.EndsWith(solutionExtension, StringComparison.InvariantCultureIgnoreCase) ? solutionName.Substring(0, solutionName.LastIndexOf(solutionExtension, StringComparison.InvariantCultureIgnoreCase)) : solutionName;
+            solutionName.EndsWith(solutionExtension, StringComparison.InvariantCultureIgnoreCase) ? solutionName[..solutionName.LastIndexOf(solutionExtension, StringComparison.InvariantCultureIgnoreCase)] : solutionName;
         public static string GetSolutionNameNoPackages(string solutionName) =>
-            solutionName.StartsWith(packagePrefix, StringComparison.InvariantCultureIgnoreCase) ? solutionName.Substring(solutionName.IndexOf(packagePrefix, StringComparison.InvariantCultureIgnoreCase) + packagePrefix.Length) : solutionName; 
-        private static string GetComponentName(string classLibraryName) => classLibraryName.Contains(".") ? classLibraryName.Substring(classLibraryName.LastIndexOf(".") + 1) : classLibraryName;
+            solutionName.StartsWith(packagePrefix, StringComparison.InvariantCultureIgnoreCase) ? solutionName[(solutionName.IndexOf(packagePrefix, StringComparison.InvariantCultureIgnoreCase) + packagePrefix.Length)..] : solutionName; 
+        private static string GetComponentName(string classLibraryName) => classLibraryName.Contains('.') ? classLibraryName[(classLibraryName.LastIndexOf('.') + 1)..] : classLibraryName;
         private static string GetDefaultStateMachineName(string classLibraryName) => $"{GetComponentName(classLibraryName)}StateMachine";
 
-        private MonikerSubstitution CreateMonikers(string solutionName, string projectName)
+        private static MonikerSubstitution CreateMonikers(string solutionName, string projectName)
         {
             //Define Monikers
             var monikers = new MonikerSubstitution();
@@ -99,10 +99,12 @@ namespace StatePipes.ServiceCreatorTool
         //Generate Proxy
         public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string moniker)
         {
-            var dialog = new OpenFileDialog();
-            dialog.Title = "Select Class Library To Create Proxy To";
-            dialog.Filter = "dll files (*.dll)|*.dll|All files (*.*)|*.*";
-            dialog.Multiselect = false;
+            OpenFileDialog dialog = new()
+            {
+                Title = "Select Class Library To Create Proxy To",
+                Filter = "dll files (*.dll)|*.dll|All files (*.*)|*.*",
+                Multiselect = false
+            };
             var solutionName = GetSolutionNameNoExtension(solutionFileName);
             var projectName = GetProjectNameNoExtension(projectFileName);
             _pathProvider = new PathHelper(solutionDir, projectDir, projectName);
@@ -115,7 +117,7 @@ namespace StatePipes.ServiceCreatorTool
                 dialog.InitialDirectory = serviceBinDirectory;
                 dialog.RestoreDirectory = true;
             }
-            string dllFileName = string.Empty;
+            string dllFileName;
             if (DialogResult.OK == dialog.ShowDialog())
             {
                 dllFileName = dialog.FileName;
@@ -126,7 +128,6 @@ namespace StatePipes.ServiceCreatorTool
                 bool outputFileAlreadExists = File.Exists(outputFile);
                 proxyCreator.SaveToFile(outputFile);
                 if (outputFileAlreadExists) return;
-                monikers.AddMoniker("@#$ProxyCoreLibTopLevelNamespace@#$", proxyCreator.DefaultConfigNamespace);
                 monikers.AddMoniker("@#$ProxyName@#$", moniker);
                 GenerateProxyFiles();
             }

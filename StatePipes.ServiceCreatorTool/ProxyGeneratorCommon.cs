@@ -9,18 +9,14 @@ namespace StatePipes.ServiceCreatorTool
         public List<Type> Types { get; private set; }
         public TypeSerializationList TypeSerializations { get; private set; }
         public string StateMachineFullName { get; private set; }
-#pragma warning disable IDE1006 // Naming Styles
-        public string stateMachineNamespace { get; private set; }
-#pragma warning restore IDE1006 // Naming Styles
+        public string StateMachineNamespace { get; private set; }
         public PathHelper PathProvider { get; private set; }
         public string CodeGenerationBaseNamespace { get; private set; }
         public string ProxyMoniker { get; private set; }
         public StringBuilder CodeGenerationString { get;} = new StringBuilder();
         public NamespaceCollection NamespaceList { get; } = [];
-        public string CodeGenerationNamespace { get; set; } = string.Empty;
         public Dictionary<string, Dictionary<string, string>> ValueObjectContructorParametersDictionary;
-        public string DefaultConfigNamespace { get; private set; }
-
+        public string DefaultServiceConfigurationJson { get; }
         public ProxyGeneratorCommon(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider)
         {
             ValueObjectContructorParametersDictionary = [];
@@ -31,13 +27,12 @@ namespace StatePipes.ServiceCreatorTool
             if (Assemblies.CommandType is null || Assemblies.EventType is null) throw new Exception("Command or Event type not found in statepipes!");
             var stateMachineType = GetStateMachineName(codeGenerationBaseNamespace) ?? throw new Exception("stateMachineType is null");
             StateMachineFullName = stateMachineType.FullName!;
-            stateMachineNamespace = stateMachineType.Namespace!;
+            StateMachineNamespace = stateMachineType.Namespace!;
             var targetAssembly = Assemblies.GetTargetAssembly() ?? throw new Exception("Target assembly not found");
-            var defaultServiceConfiguration = targetAssembly.GetTypesNoExceptions().FirstOrDefault(t => t.Name == "DefaultServiceConfiguration");
-            DefaultConfigNamespace = defaultServiceConfiguration?.Namespace ?? "Unable To Find DefaultServiceConfiguration";
             TypeSerializations = new TypeSerializationList();
             Types = [.. targetAssembly.GetTypesNoExceptions().Where(t => t.IsPublic && !t.IsAbstract && !t.IsGenericType &&
                    (Assemblies.CommandType.IsAssignableFrom(t) || Assemblies.EventType.IsAssignableFrom(t)))];
+            DefaultServiceConfigurationJson = Assemblies.GetDefaultServiceConfigurationJson();
         }
         private Type? GetStateMachineName(string projectName)
         {
