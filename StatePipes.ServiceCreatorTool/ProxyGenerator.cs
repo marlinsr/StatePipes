@@ -6,7 +6,6 @@
         private readonly ProxyValueObjectsGenerator _proxyValueObjectsGenerator;
         private readonly ProxyTriggersGenerator _proxyTriggersGenerator;
         private readonly ProxyEventsGenerator _proxyEventsGenerator;
-        public string DefaultConfigNamespace => _proxyGeneratorCommon.DefaultConfigNamespace;
         public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider)
         {
             _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider);
@@ -45,7 +44,9 @@
             _proxyGeneratorCommon.CodeGenerationString.ResetIndention();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"namespace {_proxyGeneratorCommon.CodeGenerationBaseNamespace}.Proxies");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine("");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using {_proxyGeneratorCommon.StateMachineNamespace}.Triggers.Internal;");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using {_proxyGeneratorCommon.CodeGenerationBaseNamespace}.Events.Internal;");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using {_proxyGeneratorCommon.CodeGenerationBaseNamespace}.ValueObjects.{_proxyGeneratorCommon.ProxyMoniker};");
             CreateProxy();
             _proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
@@ -57,6 +58,7 @@
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public {_proxyGeneratorCommon.ProxyMoniker}Proxy(IStatePipesProxyFactory proxyFactory, IStatePipesService bus) : base(proxyFactory, bus) {{ }}");
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public override string ProxyPrefix => \"{_proxyGeneratorCommon.ProxyMoniker}\";");
+            CreateGetServiceConfigurationMethod();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"protected override void SendConnectionStatusTrigger(string proxyName, bool isConnected) => _bus.SendCommand(new ProxyConnectionStatusTrigger(proxyName, isConnected));");
             CreateHandleMessageMethods();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"protected override void Subscribe(IStatePipesProxy proxy)");
@@ -64,6 +66,15 @@
             CreateSubscriptions();
             _proxyGeneratorCommon.CodeGenerationString.Outdent();
             _proxyGeneratorCommon.CodeGenerationString.Outdent();
+        }
+        private void CreateGetServiceConfigurationMethod()
+        {
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public static ServiceConfiguration GetServiceConfiguration()");
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine("{");
+            _proxyGeneratorCommon.CodeGenerationString.Indent();
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"return JsonUtility.GetObjectForJsonString<ServiceConfiguration>(@\"{_proxyGeneratorCommon.DefaultServiceConfigurationJson}\")!;");
+            _proxyGeneratorCommon.CodeGenerationString.Outdent();
+            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine("}");
         }
         private void CreateSubscriptions()
         {

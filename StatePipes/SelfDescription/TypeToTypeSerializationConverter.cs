@@ -10,9 +10,11 @@ namespace StatePipes.SelfDescription
         private readonly TypeRepo _typeRepo = typeRepo;
         public TypeSerialization Convert(Type t)
         {
-            TypeSerialization typeSerialization = new();
-            typeSerialization.FullName = t.FullName ?? string.Empty;
-            typeSerialization.TypeRepo = [];
+            TypeSerialization typeSerialization = new()
+            {
+                FullName = t.FullName ?? string.Empty,
+                TypeRepo = []
+            };
             CreateFromType(t, typeSerialization);
             return typeSerialization;
         }
@@ -78,7 +80,7 @@ namespace StatePipes.SelfDescription
             }
             return false;
         }
-        private bool CreateEnum(Type t, TypeDescription typeDescription)
+        private static bool CreateEnum(Type t, TypeDescription typeDescription)
         {
             if (t.IsEnum)
             {
@@ -99,7 +101,7 @@ namespace StatePipes.SelfDescription
             AttributeDescription attributeDescription = new(attributeData.AttributeType.FullName ?? string.Empty, JsonUtility.GetJsonStringForObject(customAttribute));
             return attributeDescription;
         }
-        private List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes.")).ToList();
+        private static List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => [.. attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes."))];
         private List<AttributeDescription> CreatePropertyAttributeList(PropertyInfo p, TypeSerialization ts) 
         {
             List<AttributeDescription> attributeDescriptions = [];
@@ -149,7 +151,7 @@ namespace StatePipes.SelfDescription
             {
                 fields.ToList().ForEach(f =>
                 {
-                    if (!f.GetCustomAttributes(typeof(JsonIgnoreAttribute), false).Any()) AddFieldAsProperty(f, typeDescription, ts);
+                    if (f.GetCustomAttributes(typeof(JsonIgnoreAttribute), false).Length == 0) AddFieldAsProperty(f, typeDescription, ts);
                 });
             }
         }

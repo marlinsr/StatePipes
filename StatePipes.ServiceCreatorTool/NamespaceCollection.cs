@@ -1,13 +1,15 @@
-﻿namespace StatePipes.ServiceCreatorTool
+﻿using System.ComponentModel;
+
+namespace StatePipes.ServiceCreatorTool
 {
     internal class NamespaceCollection : List<string>
     {
-        private List<string> _typeFullNameAddedList = [];
+        private readonly List<string> _typeFullNameAddedList = [];
         public void AddNamespace(string element)
         {
             
             if (Contains(element)) return;
-            Add(element);
+            if (element.StartsWith("System") || element.StartsWith("StatePipes")) Add(element);
         }
         public void AddNameSpaceFromTypeFullName(string typeFullName, ReferencedAssemblies assemblies)
         {

@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System.Reflection;
 using System.Runtime.Loader;
 
 namespace StatePipes.ServiceCreatorTool
@@ -33,6 +35,20 @@ namespace StatePipes.ServiceCreatorTool
             }
             LoadTypes(typeSerializationConverter);
             if (_assembly == null) throw new ArgumentException($"{dllFullFilePath} does not exist.");
+        }
+        public string GetDefaultServiceConfigurationJson()
+        {
+            const string emptyJson = "{}";
+            if(_assembly == null) return emptyJson;
+            var defaultServiceConfiguration = _assembly.GetTypesNoExceptions().FirstOrDefault(t => t.Name == "DefaultServiceConfiguration");
+            MethodInfo? methodInfo = defaultServiceConfiguration?.GetMethod("Get");
+            object? result = methodInfo?.Invoke(null, null);
+            if (result == null) return emptyJson;
+            var converter = new StringEnumConverter();
+            var json = JsonConvert.SerializeObject(result, Formatting.Indented, converter);
+            if (json == null) return emptyJson;
+            if (json.Contains('\"')) json = json.Replace("\"", "\"\"");
+            return json;
         }
         private void LoadDlls(string dllFullFilePath, out Assembly? statepipesCommonAssembly, out Assembly? targetAssembly)
         {

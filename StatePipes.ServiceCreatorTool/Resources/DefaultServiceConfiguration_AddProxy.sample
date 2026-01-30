@@ -1,1 +1,1 @@
-﻿                    proxies.Add(new ProxyConfiguration(ProxyMonikers.@#$ProxyName@#$Moniker, ProxyConfiguration.ProxyTypeEnum.RemoteService, @#$ProxyCoreLibTopLevelNamespace@#$.DefaultServiceConfiguration.Get()));
+﻿                    proxies.Add(new ProxyConfiguration(ProxyMonikers.@#$ProxyName@#$Moniker, ProxyConfiguration.ProxyTypeEnum.RemoteService, @#$ClassLibraryName@#$.Proxies.@#$ProxyName@#$Proxy.GetServiceConfiguration()));
