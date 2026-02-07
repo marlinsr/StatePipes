@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\StatePipes.Explorer\StatePipes.Explorer.csproj" />
+    <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
     <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
   </ItemGroup>
 
