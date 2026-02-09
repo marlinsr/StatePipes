@@ -1,6 +1,6 @@
 ﻿using StatePipes.Common.Internal;
 
-namespace StatePipes.Test
+namespace StatePipes.Test.Common
 {
     [TestClass]
     public class PasswordHashTest

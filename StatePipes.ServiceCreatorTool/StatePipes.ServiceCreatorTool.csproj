@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="StatePipes.Test" />
+  </ItemGroup>
   <Import Project="..\SolutionInfo.proj" />
   <PropertyGroup>
     <Description>StatePipes.ServiceCreatorTool</Description>

@@ -27,10 +27,9 @@ namespace StatePipes.Common
             return obj;
         }
         public static T? CloneToType<T>(object? obj) => (T?)CloneObject(obj);
-        public static string GetJsonStringForObject(object? obj, bool noForatting = false)
+        public static string GetJsonStringForObject(object? obj, bool noFormatting = false)
         {
-            var converter = new StringEnumConverter();
-            return noForatting ? JsonConvert.SerializeObject(obj, Formatting.None, converter): JsonConvert.SerializeObject(obj, Formatting.Indented, converter);
+            return noFormatting ? JsonConvert.SerializeObject(obj, Formatting.None, StatePipesJsonConverters.Converters) : JsonConvert.SerializeObject(obj, Formatting.Indented, StatePipesJsonConverters.Converters);
         }
         public static T? GetObjectForJsonString<T>(string jsonString) where T : class => JsonConvert.DeserializeObject<T>(jsonString, StatePipesJsonConverters.Converters);
     }
