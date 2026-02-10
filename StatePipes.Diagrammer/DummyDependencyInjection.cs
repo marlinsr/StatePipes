@@ -5,7 +5,7 @@ namespace StatePipes.Diagrammer
 {
     public class DummyDependencyInjection
     {
-        private static Dictionary<Type, object> _dummyRepository = [];
+        private static readonly Dictionary<Type, object> _dummyRepository = [];
         public static void RegisterDummyForType(ContainerBuilder builder, Type t)
         {
             if (_dummyRepository.ContainsKey(t)) return;
@@ -35,7 +35,7 @@ namespace StatePipes.Diagrammer
         internal static object Create(AssemblyManager assemblyManager)
         {
             _dummyRepository.Clear();
-            var assemblyName = new AssemblyName($"{Guid.NewGuid().ToString("N")}_{typeof(DummyDependencyInjection).Name}");
+            var assemblyName = new AssemblyName($"{Guid.NewGuid():N}_{typeof(DummyDependencyInjection).Name}");
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
             var moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name!);
             var typeBuilder = moduleBuilder.DefineType($"{typeof(DummyDependencyInjection).FullName}2", TypeAttributes.Public);

@@ -4,7 +4,7 @@ namespace StatePipes.StateMachine.Internal
 {
     internal class StateMachineManager
     {
-        private Dictionary<Type, BaseStateMachine> _stateMachineDictionary = [];
+        private readonly Dictionary<Type, BaseStateMachine> _stateMachineDictionary = [];
         public void RegisterStateMachine(Type stateMachineType, BaseStateMachine stateMachine)
         {
             stateMachine.SetStateMachineManagerAndType(this, stateMachineType);
@@ -18,7 +18,7 @@ namespace StatePipes.StateMachine.Internal
             if (t == null) return null;
             return GetStateMachineForType(t);
         }
-        public List<BaseStateMachine> GetAllStateMachines() => _stateMachineDictionary.Values.ToList(); 
+        public List<BaseStateMachine> GetAllStateMachines() => [.. _stateMachineDictionary.Values]; 
         public List<string> SaveAllStateMachineDotGraphToPath(string path)
         {
             List<string> ret = [];

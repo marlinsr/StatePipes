@@ -2,13 +2,10 @@
 using StatePipes.Interfaces;
 namespace StatePipes.StateMachine.Internal
 {
-    internal class StateMachineContainerSetup<StateMachineType> : IContainerSetup where StateMachineType : IStateMachine
+    internal class StateMachineContainerSetup<StateMachineType>(bool disableAutomaticMoveToState = true) : IContainerSetup where StateMachineType : IStateMachine
     {
-        private readonly BaseStateMachineContainerSetup _baseContainerSetup;
-        public StateMachineContainerSetup(bool disableAutomaticMoveToState = true)
-        {
-            _baseContainerSetup = new BaseStateMachineContainerSetup(typeof(StateMachineType), false, disableAutomaticMoveToState);
-        }
+        private readonly BaseStateMachineContainerSetup _baseContainerSetup = new(typeof(StateMachineType), false, disableAutomaticMoveToState);
+
         public void Register(ContainerBuilder containerBuilder)
         {
             BaseStateMachineAndFirstStateContainerSetup.RegisterOnce(containerBuilder);

@@ -1,5 +1,4 @@
 ﻿using Autofac;
-using Newtonsoft.Json;
 using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Common.Internal;

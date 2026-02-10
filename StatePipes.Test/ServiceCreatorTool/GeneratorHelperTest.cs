@@ -1,4 +1,3 @@
-using System.Reflection;
 using StatePipes.ServiceCreatorTool;
 
 namespace StatePipes.Test.ServiceCreatorTool

@@ -35,9 +35,10 @@ namespace StatePipes.StateMachine
             var result = _stateConfiguration.PermitReentry(TriggerType.Name);
             return new StateConfigurationWrapper(this, result);
         }
-        public StateConfigurationWrapper PermitReentryIf<Trigger>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger
+        public StateConfigurationWrapper PermitReentryIf<Trigger>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger => PermitReentryIf(typeof(Trigger), guard, guardDescription);
+        internal StateConfigurationWrapper PermitReentryIf(Type triggerType, Func<bool> guard, string? guardDescription = null)
         {
-            var result = _stateConfiguration.PermitReentryIf(typeof(Trigger).Name, guard, guardDescription);
+            var result = _stateConfiguration.PermitReentryIf(triggerType.Name, guard, guardDescription);
             return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper PermitReentryIf<Trigger>(params Tuple<Func<bool>, string>[] guards) where Trigger : ITrigger
@@ -46,8 +47,10 @@ namespace StatePipes.StateMachine
             return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper PermitIf<Trigger, DestinationState>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger where DestinationState : IStateMachineState
+        => PermitIf(typeof(Trigger), typeof(DestinationState), guard, guardDescription);
+        internal StateConfigurationWrapper PermitIf(Type triggerType, Type destinationState, Func<bool> guard, string? guardDescription = null) 
         {
-            var result = _stateConfiguration.PermitIf(typeof(Trigger).Name, typeof(DestinationState).Name, guard, guardDescription);
+            var result = _stateConfiguration.PermitIf(triggerType.Name, destinationState.Name, guard, guardDescription);
             return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper PermitIf<Trigger, DestinationState>(params Tuple<Func<bool>, string>[] guards) where Trigger : ITrigger where DestinationState : IStateMachineState
@@ -60,9 +63,10 @@ namespace StatePipes.StateMachine
             var result = _stateConfiguration.Ignore(typeof(Trigger).Name);
             return new StateConfigurationWrapper(this, result);
         }
-        public StateConfigurationWrapper IgnoreIf<Trigger>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger
+        public StateConfigurationWrapper IgnoreIf<Trigger>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger => IgnoreIf(typeof(Trigger), guard, guardDescription);
+        internal StateConfigurationWrapper IgnoreIf(Type triggerType, Func<bool> guard, string? guardDescription = null)
         {
-            var result = _stateConfiguration.IgnoreIf(typeof(Trigger).Name, guard, guardDescription);
+            var result = _stateConfiguration.IgnoreIf(triggerType.Name, guard, guardDescription);
             return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper IgnoreIf<Trigger>(params Tuple<Func<bool>, string>[] guards) where Trigger : ITrigger
@@ -80,7 +84,7 @@ namespace StatePipes.StateMachine
             var result = _stateConfiguration.OnDeactivate(deactivateAction, deactivateActionDescription);
             return new StateConfigurationWrapper(this, result);
         }
-        public StateConfigurationWrapper OnEntry(Action entryAction, string? entryActionDescription = null)
+        public StateConfigurationWrapper OnEntry(Action entryAction)
         {
             _state.SetEntryAction(entryAction);
             return this;
@@ -90,7 +94,7 @@ namespace StatePipes.StateMachine
             var result = _stateConfiguration.OnEntryFrom(typeof(Trigger).Name, entryAction, entryActionDescription);
             return new StateConfigurationWrapper(this, result);
         }
-        public StateConfigurationWrapper OnExit(Action exitAction, string? exitActionDescription = null)
+        public StateConfigurationWrapper OnExit(Action exitAction)
         {
             _state.SetExitAction(exitAction);
             return this;
@@ -100,14 +104,17 @@ namespace StatePipes.StateMachine
             var result = _stateConfiguration.SubstateOf(typeof(SuperState).Name);
             return new StateConfigurationWrapper(this, result);
         }
-        public StateConfigurationWrapper MoveToState<DestinationState>() where DestinationState : IStateMachineState
+        public StateConfigurationWrapper MoveToState<DestinationState>() where DestinationState : IStateMachineState => MoveToState(typeof(DestinationState));
+        internal StateConfigurationWrapper MoveToState(Type? destinationState) 
         {
-            var moveToState = new MoveToStateWorker(_state, _stateMachine, typeof(DestinationState));
+            if (destinationState == null) return this;
+            var moveToState = new MoveToStateWorker(_state, _stateMachine, destinationState);
             return moveToState.Configure(this);
         }
-        public StateConfigurationWrapper RegisterEvent<TEvent>() where TEvent : IEvent
+        public StateConfigurationWrapper RegisterEvent<TEvent>() where TEvent : IEvent => RegisterEvent(typeof(TEvent));
+        internal StateConfigurationWrapper RegisterEvent(Type ev)
         {
-            _stateMachine.EventRegistrationManager.RegisterEvent<TEvent>(_stateConfiguration.State);
+            _stateMachine.EventRegistrationManager.RegisterEvent(ev, _stateConfiguration.State);
             return this;
         }
     }
