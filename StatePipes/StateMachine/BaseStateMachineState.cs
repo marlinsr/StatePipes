@@ -8,7 +8,7 @@ using System.Reflection;
 
 namespace StatePipes.StateMachine
 {
-    public abstract class BaseStateMachineState<StateMachineType> : IStateMachineState where StateMachineType : IStateMachine
+    public class BaseStateMachineState<StateMachineType> : IStateMachineState where StateMachineType : IStateMachine
     {
         private static readonly ConcurrentDictionary<string, AssemblyDefinition> _assemblyDefinitionCache = new();
 #pragma warning disable IDE1006 // Naming Styles
@@ -153,10 +153,10 @@ namespace StatePipes.StateMachine
                 }
             }
         }
-        public abstract void OnEntry();
-        public abstract void OnExit();
-        public abstract void OnActivate();
-        public abstract void OnDeActivate();
+        public virtual void OnEntry() { }
+        public virtual void OnExit() { }
+        public virtual void OnActivate() { }
+        public virtual void OnDeActivate() { }
     }
 }
 
