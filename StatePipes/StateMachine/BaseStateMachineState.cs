@@ -54,54 +54,54 @@ namespace StatePipes.StateMachine
             if(methods == null) return;
             foreach (var method in methods)
             {
-                HandlePermitReentryIfMethod(stateType, method, stateConfig);
-                HandleIgnoreIfMethod(stateType, method, stateConfig);
-                HandlePermitIfMethod(stateType, method, stateConfig);
+                HandlePermitReentryIfMethod(method, stateConfig);
+                HandleIgnoreIfMethod(method, stateConfig);
+                HandlePermitIfMethod( method, stateConfig);
             }
         }
-        private void HandlePermitIfMethod(Type thisType, MethodInfo method, StateConfigurationWrapper stateConfig)
+        private void HandlePermitIfMethod(MethodInfo method, StateConfigurationWrapper stateConfig)
         {
             var permitIfAttr = method.GetCustomAttribute<PermitIf>();
             if (permitIfAttr == null) return;
             var triggerType = method.GetParameters()[0].ParameterType;
             var guardMethod = method; // capture for closure
-            Func<bool> guard = () =>
+            bool guard()
             {
                 var trigger = GetCurrentTrigger(triggerType);
                 if (trigger == null) return false;
                 var busConfig = GetCurrentResponseInfo();
-                return (bool)guardMethod.Invoke(this, new object?[] { trigger, busConfig })!;
-            };
+                return (bool)guardMethod.Invoke(this, [trigger, busConfig])!;
+            }
             stateConfig = stateConfig.PermitIf(triggerType, permitIfAttr.DestinationState, guard, permitIfAttr.GuardDescription);
         }
-        private void HandleIgnoreIfMethod(Type thisType, MethodInfo method, StateConfigurationWrapper stateConfig)
+        private void HandleIgnoreIfMethod(MethodInfo method, StateConfigurationWrapper stateConfig)
         {
             var ignoreIfAttr = method.GetCustomAttribute<IgnoreIf>();
             if (ignoreIfAttr == null) return;
             var triggerType = method.GetParameters()[0].ParameterType;
             var guardMethod = method; // capture for closure
-            Func<bool> guard = () =>
+            bool guard()
             {
                 var trigger = GetCurrentTrigger(triggerType);
                 if (trigger == null) return false;
                 var busConfig = GetCurrentResponseInfo();
-                return (bool)guardMethod.Invoke(this, new object?[] { trigger, busConfig })!;
-            };
+                return (bool)guardMethod.Invoke(this, [trigger, busConfig])!;
+            }
             stateConfig = stateConfig.IgnoreIf(triggerType, guard, ignoreIfAttr.GuardDescription);
         }
-        private void HandlePermitReentryIfMethod(Type thisType, MethodInfo method, StateConfigurationWrapper stateConfig)
+        private void HandlePermitReentryIfMethod(MethodInfo method, StateConfigurationWrapper stateConfig)
         {
             var permitReentryIfAttr = method.GetCustomAttribute<PermitReentryIf>();
             if (permitReentryIfAttr == null) return;
             var triggerType = method.GetParameters()[0].ParameterType;
             var guardMethod = method; // capture for closure
-            Func<bool> guard = () =>
+            bool guard()
             {
                 var trigger = GetCurrentTrigger(triggerType);
                 if (trigger == null) return false;
                 var busConfig = GetCurrentResponseInfo();
-                return (bool)guardMethod.Invoke(this, new object?[] { trigger, busConfig })!;
-            };
+                return (bool)guardMethod.Invoke(this, [trigger, busConfig])!;
+            }
             stateConfig = stateConfig.PermitReentryIf(triggerType, guard, permitReentryIfAttr.GuardDescription);
         }
         private static Type? GetFirstSubstateType(Type thisType)

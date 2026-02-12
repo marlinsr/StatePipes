@@ -2,10 +2,9 @@
 
 namespace StatePipes.Common.Internal
 {
-    internal class DelayedMessageSender<TMessage> : IDelayedMessageSender<TMessage> where TMessage : class, IMessage
+    internal class DelayedMessageSender<TMessage>(IMessageSender bus) : IDelayedMessageSender<TMessage> where TMessage : class, IMessage
     {
-        private readonly IMessageSender _bus;
-        private readonly object _lock = new();
+        private readonly Lock _lock = new();
         private Timer? _timer;
         private bool _disposed;
         private bool _isPeriodic;
@@ -14,10 +13,7 @@ namespace StatePipes.Common.Internal
             get;
             private set;
         }
-        public DelayedMessageSender(IMessageSender bus)
-        {
-            _bus = bus;
-        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -61,9 +57,8 @@ namespace StatePipes.Common.Internal
         {
             lock (_lock)
             {
-                var message = state as TMessage;
-                if (message != null) _bus.SendMessage(message);
-                if(!_isPeriodic) Enabled = false;
+                if (state is TMessage message) bus.SendMessage(message);
+                if (!_isPeriodic) Enabled = false;
             }
         }
     }
