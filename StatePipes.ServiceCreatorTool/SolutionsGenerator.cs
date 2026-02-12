@@ -96,6 +96,20 @@ namespace StatePipes.ServiceCreatorTool
             GenerateProjectFiles();
             SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
         }
+        //Generate State Machine
+#pragma warning disable IDE0060 // Remove unused parameter
+        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string stateMachineName, bool isStateMachine)
+#pragma warning restore IDE0060 // Remove unused parameter
+        {
+            var solutionName = GetSolutionNameNoExtension(solutionFileName);
+            var projectName = GetProjectNameNoExtension(projectFileName);
+            _pathProvider = new PathHelper(solutionDir, projectDir, projectName);
+            SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
+            var monikers = CreateMonikers(solutionName, projectFileName);
+            monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
+            _helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
+            GenerateStateMachineFiles();
+        }
         //Generate Proxy
         public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string moniker)
         {
@@ -217,6 +231,19 @@ namespace StatePipes.ServiceCreatorTool
             _helper.SaveTextFile("DummyDependencyRegistration_cs.sample", "DummyDependencyRegistration.cs");
             _helper.SaveTextFile("StateMachineDummyTests_cs.sample", "StateMachineDummyTests.cs");
             _helper.SaveTextFile("TestCategories_cs.sample", "TestCategories.cs");
+        }
+        private void GenerateStateMachineFiles()
+        {
+            _helper.MoveToRootDirectory();
+            _helper.MoveTo("@#$ClassLibraryName@#$");
+            _helper.MoveTo("StateMachines");
+            _helper.MoveTo("@#$StateMachineName@#$");
+            _helper.SaveTextFile("StateMachine_cs.sample", "@#$StateMachineName@#$.cs");
+            _helper.MoveTo("States");
+            _helper.SaveTextFile("TopLevelState_cs.sample", "TopLevelState.cs");
+            _helper.MoveUp();
+            _helper.MoveTo("Triggers");
+            _helper.SaveTextFile("DummyTrigger_cs.sample", "DummyTrigger.cs");
         }
         private void GenerateProxyFiles()
         {

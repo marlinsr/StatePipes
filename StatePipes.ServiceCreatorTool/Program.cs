@@ -7,6 +7,7 @@ namespace StatePipes.ServiceCreatorTool
         static string solutionDir = string.Empty;
         static string solutionFileName = string.Empty;
         static string projectFileName = string.Empty;
+        static bool addStateMachine = false;
         private static void ParseArgs(string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -14,6 +15,7 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].ToLower() == "-r") solutionDir = args[++i];
                 if (args[i].ToLower() == "-s") solutionFileName = args[++i];
                 if (args[i].ToLower() == "-p") projectFileName = args[++i];
+                if (args[i].ToLower() == "-m") addStateMachine = true;
             }
         }
         private static void ParameterErrors()
@@ -53,6 +55,11 @@ namespace StatePipes.ServiceCreatorTool
                 CreateNewProjects(solutionDir, solutionFileName);
                 return true;
             }
+            if (!string.IsNullOrEmpty(solutionFileName) && !string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(projectFileName) && addStateMachine)
+            {
+                CreateNewStateMachine();
+                return true;
+            }
             if (!string.IsNullOrEmpty(solutionFileName) && !string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(projectFileName))
             {
                 CreateNewProxy();
@@ -83,6 +90,30 @@ namespace StatePipes.ServiceCreatorTool
                     return;
                 }
                 SolutionsGenerator sc = new(solutionDir, solutionFileName, projectDir, projectName, answer);
+            }
+        }
+        private static void CreateNewStateMachine()
+        {
+            var projectName = SolutionsGenerator.GetProjectNameNoExtension(projectFileName);
+            var projDir = Path.Combine(solutionDir, projectName);
+            if (projectFileName.EndsWith(".Service.csproj"))
+            {
+                Console.WriteLine("Service project highlighted, need to be in the class library!");
+                return;
+            }
+            AddNewStateMachine(solutionDir, solutionFileName, projDir, projectName);
+        }
+        private static void AddNewStateMachine(string solutionDir, string solutionFileName, string projectDir, string projectName)
+        {
+            string answer = "";
+            if (ShowInputDialog(ref answer, "Enter the name for the new state machine") == DialogResult.OK)
+            {
+                if (string.IsNullOrEmpty(answer))
+                {
+                    Console.WriteLine($"Bad state machine name: {answer}");
+                    return;
+                }
+                SolutionsGenerator sc = new(solutionDir, solutionFileName, projectDir, projectName, answer, isStateMachine: true);
             }
         }
         private static void CreateNewProjects(string solutionDir, string solutionFileName)
