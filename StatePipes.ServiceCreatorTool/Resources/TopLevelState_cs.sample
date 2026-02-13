@@ -12,11 +12,5 @@ namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
         public override void OnExit(){}
         public override void OnActivate(){}
         public override void OnDeActivate(){}
-        [PermitReentryIf()]
-        private bool DummyTriggerGuard(DummyTrigger trigger, BusConfig? responseInfo)
-        {
-            PublishEvent(new DummyEvent(trigger.Good));
-            return false;
-        }
     }
 }

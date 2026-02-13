@@ -241,9 +241,6 @@ namespace StatePipes.ServiceCreatorTool
             _helper.SaveTextFile("StateMachine_cs.sample", "@#$StateMachineName@#$.cs");
             _helper.MoveTo("States");
             _helper.SaveTextFile("TopLevelState_cs.sample", "TopLevelState.cs");
-            _helper.MoveUp();
-            _helper.MoveTo("Triggers");
-            _helper.SaveTextFile("DummyTrigger_cs.sample", "DummyTrigger.cs");
         }
         private void GenerateProxyFiles()
         {
