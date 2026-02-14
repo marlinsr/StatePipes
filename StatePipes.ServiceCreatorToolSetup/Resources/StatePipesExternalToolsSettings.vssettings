@@ -37,7 +37,7 @@
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
         <UserCreatedTool>
-          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName)</Arguments>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir)</Arguments>
           <CloseOnExit>true</CloseOnExit>
           <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>302</Index>
@@ -69,7 +69,7 @@
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
         <UserCreatedTool>
-          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -m</Arguments>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -m</Arguments>
           <CloseOnExit>true</CloseOnExit>
           <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>304</Index>
@@ -83,7 +83,23 @@
           <Unicode>false</Unicode>
           <UseOutputWindow>true</UseOutputWindow>
           <UseTaskList>false</UseTaskList>
-        </UserCreatedTool>        
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -t</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>305</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add Trigger</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
       </ExternalTools>
     </Category>
   </Category>

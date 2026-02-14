@@ -38,7 +38,7 @@ namespace StatePipes.SelfDescription
         private static object? GetPropertyValueForConstructorParam(string? constructorParameterName, object attribute)
         {
             if (string.IsNullOrEmpty(constructorParameterName)) return null;
-            var prop = attribute.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p  => p.Name.ToLower() == constructorParameterName.ToLower());
+            var prop = attribute.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p  => p.Name.Equals(constructorParameterName, StringComparison.CurrentCultureIgnoreCase));
             if (prop == null) return null;
             return prop.GetValue(attribute);
         }

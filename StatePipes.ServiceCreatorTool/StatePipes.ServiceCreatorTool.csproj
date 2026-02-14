@@ -66,6 +66,8 @@
     <EmbeddedResource Include="Resources\Stop_ps1.sample" />
     <EmbeddedResource Include="Resources\Test_csproj.sample" />
     <EmbeddedResource Include="Resources\TestCategories_cs.sample" />
+    <EmbeddedResource Include="Resources\InternalTrigger_cs.sample" />
+    <EmbeddedResource Include="Resources\Trigger_cs.sample" />
     <EmbeddedResource Include="Resources\Tests_runsettings.sample" />
   </ItemGroup>
 </Project>

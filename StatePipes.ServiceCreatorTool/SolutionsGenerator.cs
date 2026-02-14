@@ -97,21 +97,31 @@ namespace StatePipes.ServiceCreatorTool
             SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
         }
         //Generate State Machine
-#pragma warning disable IDE0060 // Remove unused parameter
-        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string stateMachineName, bool isStateMachine)
-#pragma warning restore IDE0060 // Remove unused parameter
+        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectName, string targetDirectory, string stateMachineName, bool isStateMachine)
         {
+            if(!isStateMachine) throw new ArgumentException("This constructor is only for generating state machines. For other uses, please use the appropriate constructor overload.");
             var solutionName = GetSolutionNameNoExtension(solutionFileName);
-            var projectName = GetProjectNameNoExtension(projectFileName);
-            _pathProvider = new PathHelper(solutionDir, projectDir, projectName);
+            _pathProvider = new PathHelper(solutionDir, projectDir, projectName, targetDirectory);
             SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
-            var monikers = CreateMonikers(solutionName, projectFileName);
+            var monikers = CreateMonikers(solutionName, projectName);
             monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
             _helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             GenerateStateMachineFiles();
         }
+        //Generate Trigger
+        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectName, string targetDirectory, string stateMachineName, string triggerName, bool isInternal)
+        {
+            var solutionName = GetSolutionNameNoExtension(solutionFileName);
+            _pathProvider = new PathHelper(solutionDir, projectDir, projectName, targetDirectory);
+            SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
+            var monikers = CreateMonikers(solutionName, projectName);
+            monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
+            monikers.AddMoniker("@#$TriggerName@#$", triggerName);
+            _helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
+            GenerateTriggerFile(isInternal);
+        }
         //Generate Proxy
-        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string moniker)
+        public SolutionsGenerator(string solutionDir, string solutionFileName, string projectDir, string projectFileName, string targetDirectory, string moniker)
         {
             OpenFileDialog dialog = new()
             {
@@ -121,7 +131,7 @@ namespace StatePipes.ServiceCreatorTool
             };
             var solutionName = GetSolutionNameNoExtension(solutionFileName);
             var projectName = GetProjectNameNoExtension(projectFileName);
-            _pathProvider = new PathHelper(solutionDir, projectDir, projectName);
+            _pathProvider = new PathHelper(solutionDir, projectDir, projectName, targetDirectory);
             SolutionFullPath = Path.Combine(_pathProvider.GetPath(PathName.Solution), solutionFileName);
             var monikers = CreateMonikers(solutionName, projectFileName);
             _helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
@@ -241,6 +251,23 @@ namespace StatePipes.ServiceCreatorTool
             _helper.SaveTextFile("StateMachine_cs.sample", "@#$StateMachineName@#$.cs");
             _helper.MoveTo("States");
             _helper.SaveTextFile("TopLevelState_cs.sample", "TopLevelState.cs");
+        }
+        private void GenerateTriggerFile(bool isInternal)
+        {
+            _helper.MoveToRootDirectory();
+            _helper.MoveTo("@#$ClassLibraryName@#$");
+            _helper.MoveTo("StateMachines");
+            _helper.MoveTo("@#$StateMachineName@#$");
+            _helper.MoveTo("Triggers");
+            if (isInternal)
+            {
+                _helper.MoveTo("Internal");
+                _helper.SaveTextFile("InternalTrigger_cs.sample", "@#$TriggerName@#$.cs");
+            }
+            else
+            {
+                _helper.SaveTextFile("Trigger_cs.sample", "@#$TriggerName@#$.cs");
+            }
         }
         private void GenerateProxyFiles()
         {

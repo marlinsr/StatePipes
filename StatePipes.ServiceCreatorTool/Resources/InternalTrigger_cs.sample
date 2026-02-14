@@ -1,0 +1,7 @@
+﻿using StatePipes.StateMachine;
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers.Internal
+{
+    internal class @#$TriggerName@#$ : BaseTriggerCommand<@#$StateMachineName@#$>
+    {
+    }
+}

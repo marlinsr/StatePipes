@@ -4,7 +4,7 @@ using System.Reflection;
 string classLibraryPath = string.Empty;
 try
 {
-    for (int i = 0; i < args.Length; i++) if (args[i].ToLower() == "-c") classLibraryPath = args[++i];
+    for (int i = 0; i < args.Length; i++) if (args[i].Equals("-c", StringComparison.CurrentCultureIgnoreCase)) classLibraryPath = args[++i];
     Console.WriteLine($"Target = {classLibraryPath}");
     var programDataDirectory = $@"{Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)}\StatePipes\{Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly()!.Location)}";
     Directory.CreateDirectory(programDataDirectory);

@@ -2,7 +2,6 @@
 using StatePipes.Interfaces;
 using StatePipes.Comms;
 using @#$ClassLibraryName@#$.Events;
-using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers;
 
 namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
 {

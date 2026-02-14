@@ -25,7 +25,7 @@ namespace StatePipes.ServiceCreatorTool
             ProxyMoniker = proxyMoniker;
             Assemblies = new ReferencedAssemblies(fullPathFileName);
             if (Assemblies.CommandType is null || Assemblies.EventType is null) throw new Exception("Command or Event type not found in statepipes!");
-            var stateMachineType = GetStateMachineName(codeGenerationBaseNamespace) ?? throw new Exception("stateMachineType is null");
+            var stateMachineType = StateMachineSelection.GetStateMachineName(codeGenerationBaseNamespace, PathProvider) ?? throw new Exception("stateMachineType is null");
             StateMachineFullName = stateMachineType.FullName!;
             StateMachineNamespace = stateMachineType.Namespace!;
             var targetAssembly = Assemblies.GetTargetAssembly() ?? throw new Exception("Target assembly not found");
@@ -34,73 +34,7 @@ namespace StatePipes.ServiceCreatorTool
                    (Assemblies.CommandType.IsAssignableFrom(t) || Assemblies.EventType.IsAssignableFrom(t)))];
             DefaultServiceConfigurationJson = Assemblies.GetDefaultServiceConfigurationJson();
         }
-        private Type? GetStateMachineName(string projectName)
-        {
-            List<Type> stateMachineOptions = [];
-            try
-            {
-                var assemblyFilePath = Path.Combine(PathProvider.GetPath(PathName.Bin), $"{projectName}.dll");
-                var commonFilePath = Path.Combine(PathProvider.GetPath(PathName.Bin), $"StatePipes.dll");
-                var assemblyLoadContext = new AssemblyLoadContext("Common");
-                var commonAssembly = assemblyLoadContext.LoadFromAssemblyPath(commonFilePath);
-                var commonTypes = commonAssembly.GetTypesNoExceptions();
-                var iStateMachineType = commonTypes.FirstOrDefault(t => t.FullName == "StatePipes.Interfaces.IStateMachine");
-                var assemblies = assemblyLoadContext.LoadFromAssemblyPath(assemblyFilePath);
-                var types = assemblies.GetTypesNoExceptions();
-                var stateMachineTypes = types.Where(t => t.IsInterface && iStateMachineType!.IsAssignableFrom(t)).ToArray();
-                stateMachineOptions = [.. stateMachineTypes];
-            }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
-            if (stateMachineOptions.Count == 1) return stateMachineOptions[0];
-            if (stateMachineOptions.Count > 1) return SelectStateMachine(stateMachineOptions);
-            return null;
-        }
-        private static Type SelectStateMachine(List<Type> names)
-        {
-            Size size = new(700, 200);
-            Form inputBox = new()
-            {
-                Size = size,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                ClientSize = size,
-                Text = "Select State Machine:"
-            };
-            var typeMap = new Dictionary<string, Type>();
-            ListBox listBox = new();
-            foreach (Type type in names)
-            {
-                listBox.Items.Add(type.FullName!);
-                typeMap.Add(type.FullName!, type);
-            }
-            listBox.Size = new Size(size.Width - 80 - 80 - 80, size.Height - 30);
-            inputBox.Controls.Add(listBox);
-            Button okButton = new()
-            {
-                DialogResult = DialogResult.OK,
-                Name = "okButton",
-                Size = new Size(75, 23),
-                Text = "&OK",
-                Location = new Point(size.Width - 80 - 80, size.Height - 30)
-            };
-            inputBox.Controls.Add(okButton);
-            Button cancelButton = new()
-            {
-                DialogResult = DialogResult.Cancel,
-                Name = "cancelButton",
-                Size = new Size(75, 23),
-                Text = "&Cancel",
-                Location = new Point(size.Width - 80, size.Height - 30)
-            };
-            inputBox.Controls.Add(cancelButton);
-            inputBox.AcceptButton = okButton;
-            inputBox.CancelButton = cancelButton;
-            if (inputBox.ShowDialog() == DialogResult.OK)
-            {
-                string selectedItem = listBox.SelectedItem?.ToString() ?? string.Empty;
-                return typeMap[selectedItem];
-            }
-            else throw new OperationCanceledException();
-        }
+ 
         public string GetTypeName(string typeFullName)
         {
             var t = Assemblies.GetTypeOf(typeFullName) ?? Assemblies.GetTypeOf(GetTypeFromFullNameString(typeFullName));
