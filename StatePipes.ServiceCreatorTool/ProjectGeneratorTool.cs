@@ -1,8 +1,7 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class ProjectGeneratorTool : BaseToolGenerator
+    internal class ProjectGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public ProjectGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) {}
         public void GenerateProject(string projectName)
         {
             var monikers = CreateMonikers(SolutionNameNoExtension, projectName);

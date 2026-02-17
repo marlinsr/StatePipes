@@ -1,8 +1,7 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class TriggerGeneratorTool : BaseToolGenerator
+    internal class TriggerGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public TriggerGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) { }
         public void GenerateTrigger(string projectDir, string projectName, string targetDirectory, string stateMachineName, string triggerName, bool isInternal)
         {
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);

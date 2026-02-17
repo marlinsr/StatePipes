@@ -1,13 +1,8 @@
 ﻿namespace StatePipes.Messages
 {
-    public class AttributeDescription
+    public class AttributeDescription(string fullName, string value)
     {
-        public string FullName { get; }
-        public string Value { get; }
-        public AttributeDescription(string fullName, string value)
-        {
-            FullName = fullName;
-            Value = value;
-        }
+        public string FullName { get; } = fullName;
+        public string Value { get; } = value;
     }
 }

@@ -2,7 +2,7 @@
 {
     public class TypeSerializationConverter
     {
-        private TypeRepo _typeRepo = new();
+        private readonly TypeRepo _typeRepo = new();
 
         public TypeSerialization CreateFromType(Type type,
             Type commandType,

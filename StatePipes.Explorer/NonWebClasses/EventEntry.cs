@@ -2,11 +2,11 @@
 
 namespace StatePipes.Explorer.NonWebClasses
 {
-    public class EventEntry
+    public class EventEntry(string fullName, IEvent? obj)
     {
-        private IEvent? _obj;
-        private string _timestamp;
-        public string FullName { get; }
+        private IEvent? _obj = obj;
+        private string _timestamp = DateTime.Now.ToString();
+        public string FullName { get; } = fullName;
         public IEvent? Obj
         {
             get => _obj;
@@ -17,11 +17,5 @@ namespace StatePipes.Explorer.NonWebClasses
             }
         }
         public string Timestamp => _timestamp;
-        public EventEntry(string fullName, IEvent? obj)
-        {
-            _obj = obj;
-            _timestamp = DateTime.Now.ToString();
-            FullName = fullName;
-        }
     }
 }

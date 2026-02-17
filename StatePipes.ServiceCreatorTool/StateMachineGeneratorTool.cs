@@ -1,8 +1,7 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class StateMachineGeneratorTool : BaseToolGenerator
+    internal class StateMachineGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public StateMachineGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) { }
         public void GenerateStateMachine(string projectDir, string projectName, string targetDirectory, string stateMachineName, bool isStateMachine)
         {
             if (!isStateMachine) throw new ArgumentException("This constructor is only for generating state machines. For other uses, please use the appropriate constructor overload.");

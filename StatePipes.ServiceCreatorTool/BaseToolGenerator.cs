@@ -13,6 +13,9 @@ namespace StatePipes.ServiceCreatorTool
         protected const string proxyInjection3Moniker = "// Injection Point 3, Do Not Delete or Modify";
         protected const string proxyInjection4Moniker = "// Injection Point 4, Do Not Delete or Modify";
         protected const string containerInjection1Moniker = "# Injection Point 1, Do Not Delete or Modify";
+        protected const string guardInjection1Moniker = "// Injection Point 5, Do Not Delete or Modify";
+        protected const string publicTriggerUsingCommentMoniker = "//@#$PublicTriggers@#$";
+        protected const string internalTriggerUsingCommentMoniker = "//@#$InternalTriggers@#$";
         public const string packagePrefix = "Packages.";
         public const string solutionExtension = ".sln";
         public const string projectExtension = ".csproj";

@@ -14,6 +14,7 @@
     <Description>StatePipes.ServiceCreatorTool</Description>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Resources\PermitIfGuard_cs.sample" />
     <None Remove="Resources\ReadMe_md.sample" />
     <None Remove="Resources\TopLevelState_cs.sample" />
   </ItemGroup>
@@ -72,5 +73,8 @@
     <EmbeddedResource Include="Resources\UnparentedState_cs.sample" />
     <EmbeddedResource Include="Resources\ParentedState_cs.sample" />
     <EmbeddedResource Include="Resources\FirstParentedState_cs.sample" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PermitIfGuard_cs.sample" />
   </ItemGroup>
 </Project>

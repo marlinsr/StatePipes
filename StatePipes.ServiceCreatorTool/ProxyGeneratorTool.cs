@@ -1,8 +1,7 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class ProxyGeneratorTool : BaseToolGenerator
+    internal class ProxyGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public ProxyGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) { }
         public void GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string moniker)
         {
             var projectName = GetProjectNameNoExtension(projectFileName);

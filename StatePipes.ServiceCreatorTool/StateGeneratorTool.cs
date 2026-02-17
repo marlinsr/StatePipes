@@ -1,8 +1,7 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    internal class StateGeneratorTool : BaseToolGenerator
+    internal class StateGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public StateGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) { }
         public void GenerateState(string projectDir, string projectName, string targetDirectory, string stateMachineName, 
             string stateName, string? parentStateName, bool isFirstChild)
         {
@@ -64,7 +63,6 @@
             if (!IsServiceProject(projectFileName)) return;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            var pathHelper = new PathHelper(solutionDir, projDir, projectName, targetDirectory);
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
             var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName();
             if (selectedStateMachine == null) return;

@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.RegularExpressions;
 
 namespace StatePipes.ServiceCreatorTool
 {
@@ -71,5 +72,49 @@ namespace StatePipes.ServiceCreatorTool
             return stateTypes;
         }
 
+        public List<Type> GetTriggerTypes(string stateMachineName)
+        {
+            List<Type> triggerTypes = [];
+            try
+            {
+                var baseTriggerCommandType = _commonTypes.FirstOrDefault(t => t.FullName == "StatePipes.StateMachine.BaseTriggerCommand`1");
+                triggerTypes = [.. _types.Where(t =>
+                {
+                    if (t.IsAbstract || t.IsInterface) return false;
+                    var baseType = t.BaseType;
+                    if (baseType == null || !baseType.IsGenericType) return false;
+                    if (baseType.GetGenericTypeDefinition() != baseTriggerCommandType) return false;
+                    var genArgs = baseType.GetGenericArguments();
+                    return genArgs.Length > 0 && genArgs[0].Name == stateMachineName;
+                })];
+            }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
+            return triggerTypes;
+        }
+
+        public bool IsTriggerInternal(string triggerName)
+        {
+            var triggerType = _types.FirstOrDefault(t => t.Name == triggerName);
+            return triggerType != null && triggerType.IsNotPublic;
+        }
+
+        public static string? GetStateMachineNameFromSourceFile(string stateFilePath)
+        {
+            if (!File.Exists(stateFilePath))
+            {
+                Console.WriteLine($"State file not found at path: {stateFilePath}");
+                return null;
+            }
+            string fileContents = File.ReadAllText(stateFilePath);
+#pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
+            var match = Regex.Match(fileContents, @": (?:Parented)?BaseStateMachineState<(\w+)");
+#pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
+            if (!match.Success)
+            {
+                Console.WriteLine("Could not determine state machine name from the state file.");
+                return null;
+            }
+            return match.Groups[1].Value;
+        }
     }
 }

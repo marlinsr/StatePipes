@@ -2,15 +2,12 @@
 
 namespace StatePipes.StateMachine.Internal
 {
-    internal class DotGraphEnhancer
+    internal class DotGraphEnhancer(EventRegistrationManager eventRegistrationManager)
     {
         private const string LabelValue = "label";
         private List<string> _stateLabels = [];
-        private readonly EventRegistrationManager _eventRegistrationManager;
-        public DotGraphEnhancer(EventRegistrationManager eventRegistrationManager)
-        {
-            _eventRegistrationManager = eventRegistrationManager;
-        }
+        private readonly EventRegistrationManager _eventRegistrationManager = eventRegistrationManager;
+
         private string AppendPublishedEvents(string label, string value, string stateName)
         {
             if (LabelValue != label) return value;

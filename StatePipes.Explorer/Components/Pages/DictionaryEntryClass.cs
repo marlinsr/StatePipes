@@ -1,14 +1,8 @@
 ﻿namespace StatePipes.Explorer.Components.Pages
 {
-    public class DictionaryEntryClass
+    public class DictionaryEntryClass(object key, object val)
     {
-        public object Key { get; }
-        public object Val { get; }
-
-        public DictionaryEntryClass(object key, object val)
-        {
-            Key = key;
-            Val = val;
-        }
+        public object Key { get; } = key;
+        public object Val { get; } = val;
     }
 }

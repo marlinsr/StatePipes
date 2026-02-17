@@ -1,9 +1,8 @@
 ﻿using System.Net;
 namespace StatePipes.ServiceCreatorTool
 {
-    internal class SolutionGeneratorTool : BaseToolGenerator
+    internal class SolutionGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public SolutionGeneratorTool(string solutionDir, string solutionFileName) : base(solutionDir, solutionFileName) {}
         public void GenerateSolution()
         {
             var projectName = GetSolutionNameNoPackages(SolutionNameNoExtension);
