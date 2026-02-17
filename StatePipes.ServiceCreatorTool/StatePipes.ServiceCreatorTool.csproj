@@ -15,6 +15,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Resources\PermitIfGuard_cs.sample" />
+    <None Remove="Resources\IgnoreIfGuard_cs.sample" />
+    <None Remove="Resources\PermitReentryIfGuard_cs.sample" />
     <None Remove="Resources\ReadMe_md.sample" />
     <None Remove="Resources\TopLevelState_cs.sample" />
   </ItemGroup>
@@ -76,5 +78,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\PermitIfGuard_cs.sample" />
+    <EmbeddedResource Include="Resources\IgnoreIfGuard_cs.sample" />
+    <EmbeddedResource Include="Resources\PermitReentryIfGuard_cs.sample" />
   </ItemGroup>
 </Project>
