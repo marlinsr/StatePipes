@@ -1,0 +1,15 @@
+using StatePipes.StateMachine;
+using StatePipes.Interfaces;
+using StatePipes.Comms;
+using @#$ClassLibraryName@#$.Events;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
+{
+    internal class @#$StateName@#$ : ParentedBaseStateMachineState<@#$StateMachineName@#$, @#$ParentStateName@#$>, IFirstSubstate
+    {
+        public override void OnEntry(){}
+        public override void OnExit(){}
+        public override void OnActivate(){}
+        public override void OnDeActivate(){}
+    }
+}

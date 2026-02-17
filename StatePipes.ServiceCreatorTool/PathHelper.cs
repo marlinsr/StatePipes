@@ -21,9 +21,14 @@
         }
         public PathHelper(string solutionDir, string projectDir, string projectName, string targetDirectory) : this(solutionDir)
         {
+            AddPaths(projectDir, projectName, targetDirectory);
+        }
+
+        public void AddPaths(string projectDir, string projectName, string targetDirectory)
+        {
             _paths.Add(PathName.Project, projectDir);
-            var configuration = RemovePrefixDirectory(RemovePrefixDirectory(targetDirectory, projectDir),"obj");
-            var binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service","bin", configuration);
+            var configuration = RemovePrefixDirectory(RemovePrefixDirectory(targetDirectory, projectDir), "obj");
+            var binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service", "bin", configuration);
             _paths.Add(PathName.Bin, binDir);
             var proxiesDir = Path.Combine(_paths[PathName.Project], "Proxies");
             _paths.Add(PathName.Proxies, proxiesDir);

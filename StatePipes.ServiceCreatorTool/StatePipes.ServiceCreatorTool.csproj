@@ -69,5 +69,8 @@
     <EmbeddedResource Include="Resources\InternalTrigger_cs.sample" />
     <EmbeddedResource Include="Resources\Trigger_cs.sample" />
     <EmbeddedResource Include="Resources\Tests_runsettings.sample" />
+    <EmbeddedResource Include="Resources\UnparentedState_cs.sample" />
+    <EmbeddedResource Include="Resources\ParentedState_cs.sample" />
+    <EmbeddedResource Include="Resources\FirstParentedState_cs.sample" />
   </ItemGroup>
 </Project>

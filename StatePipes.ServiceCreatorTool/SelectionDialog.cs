@@ -2,6 +2,30 @@ namespace StatePipes.ServiceCreatorTool
 {
     internal static class SelectionDialog
     {
+        public static string? ShowDllSelection(string serviceBinDirectory)
+        {
+            OpenFileDialog dialog = new()
+            {
+                Title = "Select Class Library To Create Proxy To",
+                Filter = "dll files (*.dll)|*.dll|All files (*.*)|*.*",
+                Multiselect = false
+            };
+            if (Directory.Exists(serviceBinDirectory))
+            {
+                dialog.InitialDirectory = serviceBinDirectory;
+                dialog.RestoreDirectory = true;
+            }
+            if (DialogResult.OK == dialog.ShowDialog())
+            {
+                Console.WriteLine($"dll file: {dialog.FileName}");
+                return dialog.FileName;
+            }
+            else
+            {
+                Console.WriteLine("Action canceled.");
+                return null;
+            }
+        }
         public static string? ShowListSelection(List<string> options, string title)
         {
             Size size = new(700, 200);
@@ -41,6 +65,7 @@ namespace StatePipes.ServiceCreatorTool
             {
                 return listBox.SelectedItem.ToString();
             }
+            Console.WriteLine("Action canceled.");
             return null;
         }
         public static DialogResult ShowInputDialog(ref string input, string question)

@@ -1,5 +1,4 @@
-﻿using System.Runtime.Loader;
-using System.Text;
+﻿using System.Text;
 
 namespace StatePipes.ServiceCreatorTool
 {
@@ -25,7 +24,7 @@ namespace StatePipes.ServiceCreatorTool
             ProxyMoniker = proxyMoniker;
             Assemblies = new ReferencedAssemblies(fullPathFileName);
             if (Assemblies.CommandType is null || Assemblies.EventType is null) throw new Exception("Command or Event type not found in statepipes!");
-            var stateMachineType = StateMachineSelection.GetStateMachineName(codeGenerationBaseNamespace, PathProvider) ?? throw new Exception("stateMachineType is null");
+            var stateMachineType = (new StateMachineTypesHelper(codeGenerationBaseNamespace, PathProvider)).GetStateMachineType() ?? throw new Exception("stateMachineType is null");
             StateMachineFullName = stateMachineType.FullName!;
             StateMachineNamespace = stateMachineType.Namespace!;
             var targetAssembly = Assemblies.GetTargetAssembly() ?? throw new Exception("Target assembly not found");
