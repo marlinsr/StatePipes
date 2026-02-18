@@ -2,8 +2,11 @@
 {
     internal class ProxyGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public void GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string moniker)
+        private const string proxyFileNamePostFix = "Proxy.cs";
+        public void GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
         {
+            var moniker = GetProxyMoniker(updateMonikerFilePath);
+            if(string.IsNullOrEmpty(moniker)) return;
             var projectName = GetProjectNameNoExtension(projectFileName);
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);
             var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName);
@@ -13,7 +16,7 @@
             if (string.IsNullOrEmpty(dllFileName)) return;
             ProxyGenerator proxyCreator = new(dllFileName, projectName, moniker, _pathProvider);
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
-            string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}Proxy.cs");
+            string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{proxyFileNamePostFix}");
             bool outputFileAlreadExists = File.Exists(outputFile);
             proxyCreator.SaveToFile(outputFile);
             if (outputFileAlreadExists) return;
@@ -33,25 +36,33 @@
             helper.MoveTo("ValueObjects");
             helper.Inject("ProxyMonikers_Moniker.sample", $"ProxyMonikers.cs", proxyInjection1Moniker);
         }
-        public static void CreateNewProxy(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
+        public static void CreateNewProxy(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
         {
             if (!IsServiceProject(projectFileName)) return;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            AddNewProxy(solutionDir, solutionFileName, projDir, projectName, targetDirectory);
+            (new ProxyGeneratorTool(solutionDir, solutionFileName)).GenerateProxy(projDir, projectName, targetDirectory, updateMonikerFilePath);
         }
-        private static void AddNewProxy(string solutionDir, string solutionFileName, string projectDir, string projectName, string targetDirectory)
+        private static string GetProxyMoniker(string? updateMonikerFilePath)
         {
-            string answer = "";
-            if (SelectionDialog.ShowInputDialog(ref answer, $"Enter the moniker for the proxy") == DialogResult.OK)
+            if (!string.IsNullOrEmpty(updateMonikerFilePath))
             {
-                if (string.IsNullOrEmpty(answer))
-                {
-                    Console.WriteLine($"Bad Moniker>: {answer}");
-                    return;
-                }
-                (new ProxyGeneratorTool(solutionDir, solutionFileName)).GenerateProxy(projectDir, projectName, targetDirectory, answer);
+                var fileName = Path.GetFileName(updateMonikerFilePath)!;
+                var postFixIndex = fileName.IndexOf(proxyFileNamePostFix);
+                if(postFixIndex > 0) return Path.GetFileName(updateMonikerFilePath)[..postFixIndex];
+                System.Console.WriteLine($"The selected file {fileName} does not have the expected format of [Moniker]{proxyFileNamePostFix}");
+                return string.Empty;
             }
+            string proxyMoniker = "";
+            if (SelectionDialog.ShowInputDialog(ref proxyMoniker, $"Enter the moniker for the proxy") == DialogResult.OK)
+            {
+                if (string.IsNullOrEmpty(proxyMoniker))
+                {
+                    Console.WriteLine($"Bad Moniker>: {proxyMoniker}");
+                    return string.Empty;
+                }
+            }
+            return proxyMoniker;
         }
     }
 }
