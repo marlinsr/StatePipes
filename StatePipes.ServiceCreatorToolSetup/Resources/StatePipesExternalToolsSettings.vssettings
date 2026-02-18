@@ -53,7 +53,7 @@
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
         <UserCreatedTool>
-          <Arguments>-c $(BinDir)</Arguments>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -c $(BinDir)</Arguments>
           <CloseOnExit>true</CloseOnExit>
           <Command>%ProgramFiles(x86)%\StatePipes\Diagrammer\StatePipes.Diagrammer.exe</Command>
           <Index>303</Index>
