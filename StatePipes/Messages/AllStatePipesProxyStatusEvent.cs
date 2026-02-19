@@ -2,12 +2,8 @@
 
 namespace StatePipes.Messages
 {
-    public class AllStatePipesProxyStatusEvent : IEvent
+    public class AllStatePipesProxyStatusEvent(List<StatePipesProxyStatus> statePipesProxyStatusList) : IEvent
     {
-        public List<StatePipesProxyStatus> StatePipesProxyStatusList { get; }
-        public AllStatePipesProxyStatusEvent(List<StatePipesProxyStatus> statePipesProxyStatusList)
-        {
-            StatePipesProxyStatusList = statePipesProxyStatusList;
-        }
+        public List<StatePipesProxyStatus> StatePipesProxyStatusList { get; } = statePipesProxyStatusList;
     }
 }

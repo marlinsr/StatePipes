@@ -16,7 +16,7 @@ namespace StatePipes.StateMachine.Internal
         private dynamic? _initTriggerCommand;
         private string _currentState;
         private CurrentTrigger? _currentTrigger;
-        private string _moveToStateName = typeof(MoveToState).Name;
+        private readonly string _moveToStateName = typeof(MoveToState).Name;
         public readonly EventRegistrationManager EventRegistrationManager = new();
         public string StateMachineName { get; private set; } = "UNKNOWN";
         public string AssemblyQualifiedStateMachineName { get; private set; } = "UNKNOWN";
@@ -51,10 +51,11 @@ namespace StatePipes.StateMachine.Internal
             _stateMachine.Configure(_initialState.GetType().Name).Permit(typeof(InitTrigger).Name, nextStateAfterInitType.Name);
         }
         public CurrentTrigger? CurrentTrigger => _currentTrigger;
-        public TTrigger? GetCurrentTrigger<TTrigger>() where TTrigger : ITrigger
+        public TTrigger? GetCurrentTrigger<TTrigger>() where TTrigger : ITrigger => (TTrigger?)GetCurrentTrigger(typeof(TTrigger));
+        public ITrigger? GetCurrentTrigger(Type triggerType)
         {
-            if (_currentTrigger == null || _currentTrigger.Trigger is not TTrigger) return default;
-            return (TTrigger)_currentTrigger.Trigger;
+            if (_currentTrigger == null || _currentTrigger.Trigger.GetType() != triggerType) return default;
+            return _currentTrigger.Trigger;
         }
         public BusConfig? GetCurrentResponseInfo()
         {
@@ -77,24 +78,12 @@ namespace StatePipes.StateMachine.Internal
         }
         public void SendCommand<TCommand>(TCommand trigger, BusConfig? responseInfo = null) where TCommand : class, ICommand => 
             _bus.SendCommand(trigger, responseInfo);
-        private void DoubleCheckEventRegistration<TEvent>(string? stateName) where TEvent : class, IEvent
+        public void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent
         {
-            if(string.IsNullOrEmpty(stateName)) return;
-            if (typeof(TEvent).Namespace == typeof(StateMachineDiagramsEvent).Namespace) return;
-            if (!EventRegistrationManager.IsEventRegisteredForState<TEvent>(stateName))
-            {
-                Log?.LogWarning($"Event {typeof(TEvent).Name} not registered for current state {stateName} on state machine {StateMachineName}");
-                EventRegistrationManager.RegisterEvent<TEvent>(stateName);
-            }
-        }
-        public void PublishEvent<TEvent>(TEvent ev, string? stateName = null) where TEvent : class, IEvent
-        {
-            DoubleCheckEventRegistration<TEvent>(stateName);
             _bus.PublishEvent(ev);
         }
-        public void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo, string? stateName = null) where TEvent : class, IEvent
+        public void SendResponse<TEvent>(TEvent ev, BusConfig responseInfo) where TEvent : class, IEvent
         {
-            DoubleCheckEventRegistration<TEvent>(stateName);
             _bus.SendResponse(ev, responseInfo);
         }
         public IDelayedMessageSender<TMessage> CreateDelayedMessageSender<TMessage>() where TMessage : class, IMessage

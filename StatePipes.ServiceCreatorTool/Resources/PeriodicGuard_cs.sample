@@ -1,0 +1,6 @@
+        [PermitReentryIf]
+        private bool @#$PeriodicGuard@#$(@#$TriggerName@#$ trigger, BusConfig? responseInfo)
+        {
+            //Must return false
+            return false;
+        }

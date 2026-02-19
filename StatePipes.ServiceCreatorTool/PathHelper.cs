@@ -19,14 +19,32 @@
             _paths.Add(PathName.Solution, solutionDir);
 
         }
-        public PathHelper(string solutionDir, string projectDir, string projectName) : this(solutionDir)
+        public PathHelper(string solutionDir, string projectDir, string projectName, string targetDirectory) : this(solutionDir)
+        {
+            AddPaths(projectDir, projectName, targetDirectory);
+        }
+
+        public void AddPaths(string projectDir, string projectName, string targetDirectory)
         {
             _paths.Add(PathName.Project, projectDir);
-            string binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service", "bin", "Debug", "net10.0");
+            var configuration = RemovePrefixDirectory(RemovePrefixDirectory(targetDirectory, projectDir), "obj");
+            var binDir = Path.Combine(_paths[PathName.Solution], $"{projectName}.Service", "bin", configuration);
             _paths.Add(PathName.Bin, binDir);
-            string proxiesDir = Path.Combine(_paths[PathName.Project], "Proxies");
+            var proxiesDir = Path.Combine(_paths[PathName.Project], "Proxies");
             _paths.Add(PathName.Proxies, proxiesDir);
         }
         public string GetPath(PathName pathName) => _paths[pathName];
+        private static string RemovePrefixDirectory(string fullPath, string prefixPath)
+        {
+            var normalizedFullPath = Path.GetFullPath(fullPath);
+            var normalizedPrefixPath = Path.GetFullPath(prefixPath);
+            if (normalizedFullPath.StartsWith(normalizedPrefixPath, StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = normalizedFullPath[normalizedPrefixPath.Length..];
+                //Trim any leading directory separators from the result
+                return relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            return fullPath;
+        }
     }
 }

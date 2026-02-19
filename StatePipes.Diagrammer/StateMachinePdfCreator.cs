@@ -10,8 +10,7 @@ namespace StatePipes.Diagrammer
         private static Assembly LoadDll(string dllFullPath, string outputPath)
         {
             var dllFileName = Path.GetFileName(dllFullPath);
-            var dllPath = Path.GetDirectoryName(dllFullPath);
-            if (dllPath == null) throw new Exception($"dllPath is null for full path {dllFullPath}!");
+            var dllPath = Path.GetDirectoryName(dllFullPath) ?? throw new Exception($"dllPath is null for full path {dllFullPath}!");
             var modDllFileName = $"mod_{dllFileName}";
             var dllFullPathFileName = @$"{outputPath}\{modDllFileName}";
             File.Delete(dllFullPathFileName);

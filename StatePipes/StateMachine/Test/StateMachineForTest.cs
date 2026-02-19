@@ -11,7 +11,7 @@ namespace StatePipes.StateMachine.Test
         public ContainerBuilder? Builder;
         public IContainer? Container;
         private TestStatePipesService? _testBus = new();
-        private TestDependencyRegistration _testDependencyRegistration = new();
+        private readonly TestDependencyRegistration _testDependencyRegistration = new();
         private BaseStateMachine? _stateMachine;
         public void ConfigureStateMachine<StateMachineType, NextStateAfterInitType>(IDummyDependencyRegistration dummyRegisterator, bool disableAutomaticMoveToState = true) where StateMachineType : IStateMachine where NextStateAfterInitType : IStateMachineState
         {            
@@ -25,7 +25,7 @@ namespace StatePipes.StateMachine.Test
             reflectedStateMachineContainerSetup.Register(Builder);
             if(_testBus != null) Builder.RegisterInstance(_testBus).As<IStatePipesService>().SingleInstance();
             Container = Builder.Build();
-            if (_testBus != null) _testBus.SetContainer(Container);
+            _testBus?.SetContainer(Container);
             dummyContainerSetup.Build(Container);
             reflectedStateMachineContainerSetup.Build(Container);
             _stateMachine = Container.Resolve<StateMachineManager>().GetStateMachineForType(stateMachineType);
@@ -42,7 +42,7 @@ namespace StatePipes.StateMachine.Test
             reflectedStateMachineContainerSetup.Register(Builder);
             if (_testBus != null) Builder.RegisterInstance(_testBus).As<IStatePipesService>().SingleInstance();
             Container = Builder.Build();
-            if (_testBus != null) _testBus.SetContainer(Container);
+            _testBus?.SetContainer(Container);
             dummyContainerSetup.Build(Container);
             reflectedStateMachineContainerSetup.Build(Container);
             _stateMachine = Container.Resolve<StateMachineManager>().GetStateMachineForType(stateMachineType);

@@ -1,0 +1,29 @@
+using StatePipes.StateMachine;
+using StatePipes.Interfaces;
+using StatePipes.Comms;
+using @#$ClassLibraryName@#$.Events;
+//@#$PublicTriggers@#$using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers;
+//@#$InternalTriggers@#$using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers.Internal;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
+{
+    internal class @#$StateName@#$ : ParentedBaseStateMachineState<@#$StateMachineName@#$, @#$ParentStateName@#$>
+    {
+// Injection Point 6, Do Not Delete or Modify
+        public @#$StateName@#$()
+        {
+// Injection Point 7, Do Not Delete or Modify
+        }
+        public override void OnEntry()
+        {
+// Injection Point 8, Do Not Delete or Modify
+        }
+        public override void OnExit()
+        {
+// Injection Point 9, Do Not Delete or Modify
+        }
+        public override void OnActivate(){}
+        public override void OnDeActivate(){}
+// Injection Point 5, Do Not Delete or Modify    
+    }
+}

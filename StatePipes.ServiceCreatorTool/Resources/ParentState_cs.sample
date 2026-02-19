@@ -1,36 +1,43 @@
 ﻿using StatePipes.StateMachine;
 using StatePipes.Interfaces;
+using StatePipes.Comms;
 using @#$ClassLibraryName@#$.Events;
 using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers;
+//@#$InternalTriggers@#$using @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.Triggers.Internal;
 
 namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
 {
     internal class ParentState : BaseStateMachineState<@#$StateMachineName@#$>, IFirstStateForStateMachine
     {
-        public override void Configure(StateConfigurationWrapper stateConfig)
+// Injection Point 6, Do Not Delete or Modify
+        public ParentState()
         {
-            stateConfig
-                .PermitReentryIf<DummyTrigger>(DummyTriggerGuard)
-                .PermitReentryIf<SendCurrentStatusCommand>(SendCurrentStatusCommandGuard)
-                .RegisterEvent<DummyEvent>()
-                .RegisterEvent<CurrentStatusEvent>();            
+// Injection Point 7, Do Not Delete or Modify
         }
-        private bool DummyTriggerGuard()
+        public override void OnEntry()
         {
-            var trigger = GetCurrentTrigger<DummyTrigger>();
-            if (trigger == null) return false;
+// Injection Point 8, Do Not Delete or Modify
+        }
+        public override void OnExit()
+        {
+// Injection Point 9, Do Not Delete or Modify
+        }
+        public override void OnActivate(){}
+        public override void OnDeActivate(){}
+        [PermitReentryIf()]
+        private bool DummyTriggerGuard(DummyTrigger trigger, BusConfig? responseInfo)
+        {
             PublishEvent(new DummyEvent(trigger.Good));
             return false;
         }
-        private bool SendCurrentStatusCommandGuard()
+        [PermitReentryIf()]
+        private bool SendCurrentStatusCommandGuard(SendCurrentStatusCommand trigger, BusConfig? responseInfo)
         {
-            var trigger = GetCurrentTrigger<SendCurrentStatusCommand>();
-            if (trigger == null) return false;
             var currentStatusEvent = new CurrentStatusEvent("Operational!!!");
-            var responseInfo = GetCurrentResponseInfo();
             if (responseInfo is not null) SendResponse(currentStatusEvent, responseInfo);
             else PublishEvent(currentStatusEvent);
             return false;
         }
+// Injection Point 5, Do Not Delete or Modify
     }
 }

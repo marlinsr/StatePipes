@@ -3,32 +3,23 @@ using StatePipes.Common;
 
 namespace StatePipes.Comms
 {
-    public class BusConfig : IEquatable<BusConfig>
+    [method: JsonConstructor]
+    public class BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string responseExchangeGuid, string exchangeNamePostfix, BusConfig? previousHop) : IEquatable<BusConfig>
     {
-        public string BrokerUri { get; }
-        public string ExchangeNamePrefix { get; }
-        public string ClientCertPath { get; }
-        public string ClientCertPasswordPath { get; }
+        public string BrokerUri { get; } = brokerUri;
+        public string ExchangeNamePrefix { get; } = exchangeNamePrefix;
+        public string ClientCertPath { get; } = clientCertPath;
+        public string ClientCertPasswordPath { get; } = clientCertPasswordPath;
         [JsonIgnore]
         public string CommandExchangeName => $"{ExchangeNamePrefix}{ExchangeNamePostfix}.commands";
         [JsonIgnore]
         public string EventExchangeName => $"{ExchangeNamePrefix}{ExchangeNamePostfix}.events";
         [JsonIgnore]
         public string ResponseExchangeName => $"{ExchangeNamePrefix}{ExchangeNamePostfix}.{ResponseExchangeGuid}.responses";
-        public string ResponseExchangeGuid { get; }
-        public string ExchangeNamePostfix { get; private set; }
-        public BusConfig? PreviousHop { get; }
-        [JsonConstructor]
-        public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string responseExchangeGuid, string exchangeNamePostfix, BusConfig? previousHop)
-        {
-            BrokerUri = brokerUri;
-            ExchangeNamePrefix = exchangeNamePrefix;
-            ClientCertPath = clientCertPath;
-            ClientCertPasswordPath = clientCertPasswordPath;
-            ResponseExchangeGuid = string.IsNullOrEmpty(responseExchangeGuid) ? Guid.NewGuid().ToString("N") : responseExchangeGuid;
-            ExchangeNamePostfix = exchangeNamePostfix;
-            PreviousHop = previousHop;
-        }
+        public string ResponseExchangeGuid { get; } = string.IsNullOrEmpty(responseExchangeGuid) ? Guid.NewGuid().ToString("N") : responseExchangeGuid;
+        public string ExchangeNamePostfix { get; private set; } = exchangeNamePostfix;
+        public BusConfig? PreviousHop { get; } = previousHop;
+
         public BusConfig(BusConfig config, BusConfig previousHop) : this(config.BrokerUri, config.ExchangeNamePrefix, config.ClientCertPath, config.ClientCertPasswordPath, config.ResponseExchangeGuid, config.ExchangeNamePostfix, previousHop){}
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string exchangeNamePostfix) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, exchangeNamePostfix, null) { }
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, string.Empty, null) { }

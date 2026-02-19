@@ -3,19 +3,14 @@ using Newtonsoft.Json.Converters;
 using StatePipes.ServiceCreatorTool;
 using System.Reflection;
 
-internal class TypeToTypeSerializationConverter
+internal class TypeToTypeSerializationConverter(TypeRepo typeRepo,
+    Type commandType,
+    Type eventType)
 {
-    private readonly TypeRepo _typeRepo;
-    private readonly Type _commandType;
-    private readonly Type _eventType;
-    public TypeToTypeSerializationConverter(TypeRepo typeRepo,
-        Type commandType,
-        Type eventType)
-    {
-        _typeRepo = typeRepo;
-        _commandType = commandType;
-        _eventType = eventType;
-    }
+    private readonly TypeRepo _typeRepo = typeRepo;
+    private readonly Type _commandType = commandType;
+    private readonly Type _eventType = eventType;
+
     public TypeSerialization Convert(Type t)
     {
         TypeSerialization typeSerialization = new();

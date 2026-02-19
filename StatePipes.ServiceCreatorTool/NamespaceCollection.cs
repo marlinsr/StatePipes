@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-namespace StatePipes.ServiceCreatorTool
+﻿namespace StatePipes.ServiceCreatorTool
 {
     internal class NamespaceCollection : List<string>
     {

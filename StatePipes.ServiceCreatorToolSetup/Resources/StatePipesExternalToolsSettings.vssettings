@@ -37,7 +37,7 @@
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
         <UserCreatedTool>
-          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName)</Arguments>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir)</Arguments>
           <CloseOnExit>true</CloseOnExit>
           <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
           <Index>302</Index>
@@ -53,7 +53,7 @@
           <UseTaskList>false</UseTaskList>
         </UserCreatedTool>
         <UserCreatedTool>
-          <Arguments>-c $(BinDir)</Arguments>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -c $(BinDir)</Arguments>
           <CloseOnExit>true</CloseOnExit>
           <Command>%ProgramFiles(x86)%\StatePipes\Diagrammer\StatePipes.Diagrammer.exe</Command>
           <Index>303</Index>
@@ -64,6 +64,134 @@
           <PromptForArguments>false</PromptForArguments>
           <SaveAllDocs>true</SaveAllDocs>
           <Title>StateMachine Diagrammer</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -m</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>304</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add StateMachine</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -t</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>305</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add Trigger</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -a</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>306</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add State</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -pi $(ItemPath)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>307</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add PermitIf</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -pri $(ItemPath)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>308</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add PermitReentryIf</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -ii $(ItemPath)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>309</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add IgnoreIf</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -u $(ItemPath)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>310</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Update StatePipes Proxy</Title>
+          <Unicode>false</Unicode>
+          <UseOutputWindow>true</UseOutputWindow>
+          <UseTaskList>false</UseTaskList>
+        </UserCreatedTool>
+        <UserCreatedTool>
+          <Arguments>-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -pti $(ItemPath)</Arguments>
+          <CloseOnExit>true</CloseOnExit>
+          <Command>%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe</Command>
+          <Index>311</Index>
+          <InitialDirectory></InitialDirectory>
+          <IsGUIapp>false</IsGUIapp>
+          <NameID>0</NameID>
+          <Package>{00000000-0000-0000-0000-000000000000}</Package>
+          <PromptForArguments>false</PromptForArguments>
+          <SaveAllDocs>true</SaveAllDocs>
+          <Title>Add Periodic</Title>
           <Unicode>false</Unicode>
           <UseOutputWindow>true</UseOutputWindow>
           <UseTaskList>false</UseTaskList>

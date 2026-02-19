@@ -2,7 +2,7 @@
   "profiles": {
     "StatePipes.Diagrammer": {
       "commandName": "Project",
-      "commandLineArgs": "-c C:\\Users\\shawn\\source\\repos\\Packages.AAA.DiagramTest\\AAA.DiagramTest.Service\\bin\\Debug\\net10.0"
+      "commandLineArgs": "-r \"C:\\Users\\shawn\\source\\repos\\Packages.AAA.NewApi\" -s Packages.AAA.NewApi.sln -p AAA.NewApi -c C:\\Users\\shawn\\source\\repos\\Packages.AAA.NewApi\\AAA.NewApi\\bin\\Debug\\net10.0"
     }
   }
 }

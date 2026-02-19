@@ -1,17 +1,10 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    public class ParameterDescription
+    public class ParameterDescription(string name, string fullName, bool isNullable, List<AttributeDescription> attributes)
     {
-        public ParameterDescription(string name, string fullName, bool isNullable, List<AttributeDescription> attributes)
-        {
-            Attributes = attributes;
-            FullName = fullName;
-            Name = name;
-            IsNullable = isNullable;
-        }
-        public List<AttributeDescription> Attributes { get; }
-        public string FullName { get; }
-        public string Name { get; }
-        public bool IsNullable { get; }
+        public List<AttributeDescription> Attributes { get; } = attributes;
+        public string FullName { get; } = fullName;
+        public string Name { get; } = name;
+        public bool IsNullable { get; } = isNullable;
     }
 }

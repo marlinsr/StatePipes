@@ -3,18 +3,9 @@ using StatePipes.Common;
 using StatePipes.ProcessLevelServices;
 namespace StatePipes.Comms
 {
-    public class ServiceConfiguration
+    [method: JsonConstructor]
+    public class ServiceConfiguration(BusConfig busConfig, string assemblyName, string containerSetupClassLibraryTypeFullName, IReadOnlyList<ProxyConfiguration> proxyConfigurations, IReadOnlyList<ProxySubstitution> proxySubstitutions, ServiceArgs args)
     {
-        [JsonConstructor]
-        public ServiceConfiguration(BusConfig busConfig, string assemblyName, string containerSetupClassLibraryTypeFullName, IReadOnlyList<ProxyConfiguration> proxyConfigurations, IReadOnlyList<ProxySubstitution> proxySubstitutions, ServiceArgs args)
-        {
-            BusConfig = busConfig;
-            AssemblyName = assemblyName;
-            ProxyConfigurations = proxyConfigurations;
-            Args = args;
-            ContainerSetupClassLibraryTypeFullName = containerSetupClassLibraryTypeFullName;
-            ProxySubstitutions = proxySubstitutions;
-        }
         internal void MergeCommandLineArgs(ServiceArgs args)
         {
             Args = Args.Merge(args);
@@ -39,11 +30,11 @@ namespace StatePipes.Comms
             clonedServiceConfiguration.AddPostfixWorker(postfix, recursiveAddToProxies);
             return clonedServiceConfiguration;
         }
-        public BusConfig BusConfig { get; }
-        public string AssemblyName { get; }
-        public string ContainerSetupClassLibraryTypeFullName { get; }
-        public IReadOnlyList<ProxyConfiguration> ProxyConfigurations { get; }
-        public IReadOnlyList<ProxySubstitution> ProxySubstitutions { get; }
-        public ServiceArgs Args { get; private set; }
+        public BusConfig BusConfig { get; } = busConfig;
+        public string AssemblyName { get; } = assemblyName;
+        public string ContainerSetupClassLibraryTypeFullName { get; } = containerSetupClassLibraryTypeFullName;
+        public IReadOnlyList<ProxyConfiguration> ProxyConfigurations { get; } = proxyConfigurations;
+        public IReadOnlyList<ProxySubstitution> ProxySubstitutions { get; } = proxySubstitutions;
+        public ServiceArgs Args { get; private set; } = args;
     }
 }

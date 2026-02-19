@@ -1,13 +1,8 @@
 ﻿namespace StatePipes.ServiceCreatorTool
 {
-    public class EnumValue
+    public class EnumValue(string name, int value)
     {
-        public EnumValue(string name, int value)
-        {
-            Name = name;
-            Value = value;
-        }
-        public string Name { get; }
-        public int Value { get; }
+        public string Name { get; } = name;
+        public int Value { get; } = value;
     }
 }

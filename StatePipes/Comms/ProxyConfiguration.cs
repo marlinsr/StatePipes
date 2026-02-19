@@ -1,17 +1,11 @@
 ﻿namespace StatePipes.Comms
 {
-    public class ProxyConfiguration
+    public class ProxyConfiguration(string name, ProxyConfiguration.ProxyTypeEnum proxyType, ServiceConfiguration serviceConfiguration)
     {
-        public ProxyConfiguration(string name, ProxyTypeEnum proxyType, ServiceConfiguration serviceConfiguration)
-        {
-            Name = name;
-            ProxyType = proxyType;
-            ServiceConfiguration = serviceConfiguration;
-        }
         public enum ProxyTypeEnum { RemoteService, LocalService, LocalServiceWithRemoteAccess };
-        public string Name { get; }
-        public ProxyTypeEnum ProxyType { get; }
-        public ServiceConfiguration ServiceConfiguration { get; }
+        public string Name { get; } = name;
+        public ProxyTypeEnum ProxyType { get; } = proxyType;
+        public ServiceConfiguration ServiceConfiguration { get; } = serviceConfiguration;
 
     }
 }

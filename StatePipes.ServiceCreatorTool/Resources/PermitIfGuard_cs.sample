@@ -1,0 +1,5 @@
+﻿        [PermitIf(typeof(@#$TransitionToStateName@#$))]
+        private bool @#$TriggerName@#$Guard(@#$TriggerName@#$ trigger, BusConfig? responseInfo)
+        {
+            return false;
+        }

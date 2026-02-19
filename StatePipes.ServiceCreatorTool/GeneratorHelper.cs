@@ -30,6 +30,14 @@ namespace StatePipes.ServiceCreatorTool
             contents = monikers.Replace(contents);
             File.WriteAllText(outputPath, contents);
         }
+        public void ReplaceInFile(string fileName, string oldValue, string newValue)
+        {
+            fileName = monikers.Replace(fileName);
+            string filePath = Path.Combine(dm.GetCurrentDirectory(), fileName);
+            string contents = File.ReadAllText(filePath);
+            contents = contents.Replace(oldValue, newValue);
+            File.WriteAllText(filePath, contents);
+        }
         public void SaveBinaryFile(string sampleFileName, string fileName)
         {
             fileName = monikers.Replace(fileName);
@@ -45,12 +53,10 @@ namespace StatePipes.ServiceCreatorTool
             {
                 injectionContents += $"\n{moniker}";
             }
-
             fileName = monikers.Replace(fileName);
             string filePath = Path.Combine(dm.GetCurrentDirectory(), fileName);
             string contents = File.ReadAllText(filePath);
             contents = contents.Replace(moniker, injectionContents);
-
             File.WriteAllText(filePath, contents);
         }
         public void MoveToRootDirectory() => dm.MoveToRootDirectory(); 

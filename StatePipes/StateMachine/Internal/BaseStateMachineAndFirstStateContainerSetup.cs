@@ -57,7 +57,6 @@ namespace StatePipes.StateMachine.Internal
         {
             ConfigureStateMachine(container);
         }
-
         private void RegisterStates(ContainerBuilder containerBuilder)
         {
             var types = _assembly.GetLoadableTypes().Where(t => _stateClassType.IsAssignableFrom(t));
@@ -69,7 +68,7 @@ namespace StatePipes.StateMachine.Internal
         private void RegisterInitCommand(ContainerBuilder containerBuilder)
         {
             var commandName = $"{_stateMachineType.Namespace}.Init{_stateMachineType.Name}Trigger";
-            var aName = new AssemblyName($"{Guid.NewGuid().ToString("N")}_Init");
+            var aName = new AssemblyName($"{Guid.NewGuid():N}_Init");
 
             AssemblyBuilder ab = AssemblyBuilder.DefineDynamicAssembly(aName, AssemblyBuilderAccess.Run);
             ModuleBuilder mb = ab.DefineDynamicModule(aName.Name!);
@@ -111,7 +110,7 @@ namespace StatePipes.StateMachine.Internal
                   .Where(r => _stateClassType.IsAssignableFrom(r.Activator.LimitType))
                   .Select(r => r.Activator.LimitType);
                 var stateList = types.Select(t => container.Resolve(t) as IStateMachineState);
-                if (stateList != null) stateList.ToList().ForEach(state =>
+                stateList?.ToList().ForEach(state =>
                     {
                         if (state != null)
                         {

@@ -14,7 +14,11 @@
     <Description>StatePipes.ServiceCreatorTool</Description>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Resources\PermitIfGuard_cs.sample" />
+    <None Remove="Resources\IgnoreIfGuard_cs.sample" />
+    <None Remove="Resources\PermitReentryIfGuard_cs.sample" />
     <None Remove="Resources\ReadMe_md.sample" />
+    <None Remove="Resources\TopLevelState_cs.sample" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />
@@ -22,6 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />
+    <EmbeddedResource Include="Resources\TopLevelState_cs.sample" />
     <EmbeddedResource Include="Resources\_dockerignore.sample" />
     <EmbeddedResource Include="Resources\_gitignore.sample" />
     <EmbeddedResource Include="Resources\appsettings_Development_json.sample" />
@@ -64,6 +69,21 @@
     <EmbeddedResource Include="Resources\Stop_ps1.sample" />
     <EmbeddedResource Include="Resources\Test_csproj.sample" />
     <EmbeddedResource Include="Resources\TestCategories_cs.sample" />
+    <EmbeddedResource Include="Resources\InternalTrigger_cs.sample" />
+    <EmbeddedResource Include="Resources\Trigger_cs.sample" />
     <EmbeddedResource Include="Resources\Tests_runsettings.sample" />
+    <EmbeddedResource Include="Resources\UnparentedState_cs.sample" />
+    <EmbeddedResource Include="Resources\ParentedState_cs.sample" />
+    <EmbeddedResource Include="Resources\FirstParentedState_cs.sample" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PermitIfGuard_cs.sample" />
+    <EmbeddedResource Include="Resources\IgnoreIfGuard_cs.sample" />
+    <EmbeddedResource Include="Resources\PermitReentryIfGuard_cs.sample" />
+    <EmbeddedResource Include="Resources\PeriodicField_cs.sample" />
+    <EmbeddedResource Include="Resources\PeriodicConstructor_cs.sample" />
+    <EmbeddedResource Include="Resources\PeriodicOnEntry_cs.sample" />
+    <EmbeddedResource Include="Resources\PeriodicOnExit_cs.sample" />
+    <EmbeddedResource Include="Resources\PeriodicGuard_cs.sample" />
   </ItemGroup>
 </Project>
