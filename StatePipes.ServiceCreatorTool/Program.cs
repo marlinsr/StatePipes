@@ -14,6 +14,7 @@ namespace StatePipes.ServiceCreatorTool
         static string _permitIfStateFilePath = string.Empty;
         static string _permitReentryIfStateFilePath = string.Empty;
         static string _ignoreIfStateFilePath = string.Empty;
+        static string _periodicTriggerStateFilePath = string.Empty;
         static string _updateProxyFilePath = string.Empty;
         private static void ParseArgs(string[] args)
         {
@@ -29,6 +30,7 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = args[++i];
                 if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = args[++i];
                 if (args[i].Equals("-ii", StringComparison.CurrentCultureIgnoreCase)) _ignoreIfStateFilePath = args[++i];
+                if (args[i].Equals("-pti", StringComparison.CurrentCultureIgnoreCase)) _periodicTriggerStateFilePath = args[++i];
                 if (args[i].Equals("-u", StringComparison.CurrentCultureIgnoreCase)) _updateProxyFilePath = args[++i];
             }
         }
@@ -113,6 +115,11 @@ namespace StatePipes.ServiceCreatorTool
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_ignoreIfStateFilePath))
             {
                 IgnoreIfGaurdGeneratorTool.CreateIgnoreIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _ignoreIfStateFilePath);
+                return true;
+            }
+            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_periodicTriggerStateFilePath))
+            {
+                PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _periodicTriggerStateFilePath);
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addState)
