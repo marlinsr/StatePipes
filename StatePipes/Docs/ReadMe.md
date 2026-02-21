@@ -40,5 +40,9 @@ Changes 3.0.4:
 Make ServiceConfiguration a part of generated proxy to remove reference needed to proxied service by @marlinsr in #37
 Changes 3.0.5:
 Adding new unit tests and minor cleanup by @marlinsr in #39
+Changes 4.0.0:
+New statemachine api and tools to simplify dev of statemachines by @marlinsr in #41
+Changes 4.0.1:
+Documentation for new statemachine API by @marlinsr in #43
 
 
