@@ -100,11 +100,11 @@ The concept that valid operations on a system depend on its current state has be
 
 ### 2.1 Theoretical Foundations: Statecharts and Hierarchical State Machines
 
-The theoretical foundation for hierarchical, concurrent state machines was established by Harel [1987], who extended classical finite automata with three key ideas: hierarchy (substates that inherit transitions from their parent), concurrency (orthogonal regions executing simultaneously), and communication (broadcast events crossing region boundaries). Harel's statecharts became the basis for UML behavioral state machines [OMG 2003], the W3C SCXML standard [W3C 2015], and virtually every modern state machine tool and library.
+The theoretical foundation for hierarchical, concurrent state machines was established by Harel [1987], who extended classical finite automata with three key ideas: hierarchy (substates that inherit transitions from their parent), concurrency (orthogonal regions executing simultaneously), and communication (broadcast events crossing region boundaries). Harel's statecharts became the basis for UML behavioral state machines [OMG 2005], the W3C SCXML standard [W3C 2015], and virtually every modern state machine tool and library.
 
 Harel's formalism establishes that each state in a machine defines the set of events to which it responds and the actions those events produce — a direct precursor to the idea that handlers are state-scoped. However, statecharts are a *visual formalism*: transitions and their associated actions are arcs in a diagram, not methods in a class. The question of how statechart semantics should be mapped to code organization, and specifically who owns the handler for a given event in a given state, is outside the scope of Harel's original contribution.
 
-UML 2.0 Protocol State Machines [OMG 2003] take one step toward the code organization question by specifying, at the modeling level, which operations on a classifier are valid in which state. A protocol state machine is a contract: calling `open()` on a `Connection` in the `Closed` state is valid; calling it in the `Open` state is not. This is a specification mechanism, not a dispatch mechanism — enforcement is intended for static analysis and documentation rather than runtime routing. Crucially, the handler implementation remains in the classifier, not in the state.
+UML 2.0 Protocol State Machines [OMG 2005] take one step toward the code organization question by specifying, at the modeling level, which operations on a classifier are valid in which state. A protocol state machine is a contract: calling `open()` on a `Connection` in the `Closed` state is valid; calling it in the `Open` state is not. This is a specification mechanism, not a dispatch mechanism — enforcement is intended for static analysis and documentation rather than runtime routing. Crucially, the handler implementation remains in the classifier, not in the state.
 
 ### 2.2 Object-Oriented Design Patterns
 
@@ -122,7 +122,7 @@ The distinction from state-scoped command handling is fundamental. Typestate add
 
 ### 2.4 Domain-Specific Languages for State-Driven Systems
 
-The P programming language [Desai et al. 2013], developed at Microsoft Research, is the prior work most closely related to the state-scoped command handler pattern. P is a domain-specific language for specifying and verifying asynchronous, event-driven state machines. A P state machine is defined as a collection of *state blocks*, each containing `on Event do { handler }` declarations. The P runtime routes incoming events to the current state's declared handler; an event arriving in a state with no matching `on` declaration is rejected or silently dropped. P has been applied to device driver verification at Microsoft and to distributed protocol specification at AWS.
+The P programming language [Desai et al. 2013], developed primarily at Microsoft with contributions from IST Austria, is the prior work most closely related to the state-scoped command handler pattern. P is a domain-specific language for specifying and verifying asynchronous, event-driven state machines. A P state machine is defined as a collection of *state blocks*, each containing `on Event do { handler }` declarations. The P runtime routes incoming events to the current state's declared handler; an event arriving in a state with no matching `on` declaration is rejected or silently dropped. P has been applied to device driver verification at Microsoft and to distributed protocol specification at AWS.
 
 The structural parallel is direct and strong: handler code is scoped to the state, the framework performs routing, and unhandled events are naturally excluded. The principal distinction is that P is a *standalone language* requiring its own toolchain, compiler, and runtime. The state-scoped command handler pattern, by contrast, is a *framework design pattern* expressed within a mainstream OOP language, making the benefits available without toolchain changes, with full access to existing libraries, IDE tooling, dependency injection, and host-language type systems.
 
@@ -142,7 +142,7 @@ ROOM (Real-Time Object-Oriented Modeling) [Selic et al. 1994] introduced actor-l
 
 ### 2.7 Modern State Machine Libraries
 
-XState [Khourshid 2016] is a widely adopted JavaScript/TypeScript library implementing full statechart semantics. Machines are defined as data-driven configuration objects: each state node has an `on` property mapping event names to transitions, making the handler-per-state relationship explicit. XState is data-driven rather than class-driven: the handler is a function in a configuration object, not a method declared inside a state class, and there is no automatic handler discovery via type inspection.
+XState [Khourshid 2017] is a widely adopted JavaScript/TypeScript library implementing full statechart semantics. Machines are defined as data-driven configuration objects: each state node has an `on` property mapping event names to transitions, making the handler-per-state relationship explicit. XState is data-driven rather than class-driven: the handler is a function in a configuration object, not a method declared inside a state class, and there is no automatic handler discovery via type inspection.
 
 ### 2.8 Summary of the Gap
 
@@ -488,7 +488,7 @@ The previous sections describe the pattern in terms of human developer practice.
 
 ### 5.1 The Specification-to-Implementation Translation Problem
 
-AI code generation systems work by translating intent expressed in natural language into executable code. The quality of generated output depends substantially on the *semantic distance* between the natural language description and the target code structure [Hindle et al. 2012]. For stateful systems, natural language specifications tend to follow a consistent structure: subject (current state), trigger (incoming command), condition (when applicable), outcome (next state or action). Consider:
+AI code generation systems work by translating intent expressed in natural language into executable code. The quality of generated output depends substantially on the degree of *structural alignment* between the natural language description and the target code representation [Yin and Neubig 2017]. For stateful systems, natural language specifications tend to follow a consistent structure: subject (current state), trigger (incoming command), condition (when applicable), outcome (next state or action). Consider:
 
 > "When the pump is *idle* and receives a *start* command, transition to *running*."
 
@@ -505,21 +505,21 @@ In a conventional global handler architecture, the AI must perform an *architect
 
 ### 5.2 The Scaffold Effect on Generation Reliability
 
-AI code generation quality degrades in the presence of architectural ambiguity [Chen et al. 2021; Austin et al. 2021]. The State-Scoped Command Handler pattern eliminates this ambiguity: there is exactly one way to express a state, one way to express a command handler in a state, one way to express a transition. The rigid structural scaffold reduces the likelihood of structural variation in AI output.
+AI code generation quality degrades in the presence of architectural ambiguity. The State-Scoped Command Handler pattern eliminates this ambiguity: there is exactly one way to express a state, one way to express a command handler in a state, one way to express a transition. The rigid structural scaffold reduces the likelihood of structural variation in AI output.
 
 Additionally, the host language's generic type system acts as a post-generation validation layer: the compiler rejects generated code in which a trigger does not belong to the correct machine, a destination state is not a valid state type, or a handler method has an incorrect signature. This provides immediate, actionable feedback for correction without requiring test execution — a property not shared by string-keyed dispatch frameworks such as XState or Akka FSM.
 
 ### 5.3 Incremental Generation as a First-Class Workflow
 
-Human developers using AI assistance most productively work in short, independently reviewable increments [Ziegler et al. 2022]. Because each state class is independent — it neither modifies nor depends on the internal logic of any other state — each class can be generated, reviewed, and validated in isolation. Generated state classes are additive: they introduce no modifications to previously reviewed code. This corresponds directly to the incremental correctness extension property of Section 4, and structurally prevents the regression that occurs when an AI regenerates or modifies a global handler to add new states.
+Human developers using AI assistance most productively work in short, independently reviewable increments. Because each state class is independent — it neither modifies nor depends on the internal logic of any other state — each class can be generated, reviewed, and validated in isolation. Generated state classes are additive: they introduce no modifications to previously reviewed code. This corresponds directly to the incremental correctness extension property of Section 4, and structurally prevents the regression that occurs when an AI regenerates or modifies a global handler to add new states.
 
 ### 5.4 Diagram Generation as a Closed-Loop Validation Signal
 
-The State-Scoped Command Handler pattern enables a closed-loop AI development workflow through automatic diagram generation [Nijkamp et al. 2022]: (1) describe the system in natural language; (2) AI generates state class declarations; (3) the framework generates a state diagram from the generated code; (4) the developer compares the diagram to the original specification; (5) discrepancies surface as diagram differences rather than code differences; (6) correct the prompt or code; the diagram updates immediately. This loop operates on a high-level visual artifact, making the semantic gap between specification and implementation immediately visible.
+The State-Scoped Command Handler pattern enables a closed-loop AI development workflow through automatic diagram generation: (1) describe the system in natural language; (2) AI generates state class declarations; (3) the framework generates a state diagram from the generated code; (4) the developer compares the diagram to the original specification; (5) discrepancies surface as diagram differences rather than code differences; (6) correct the prompt or code; the diagram updates immediately. This loop operates on a high-level visual artifact, making the semantic gap between specification and implementation immediately visible.
 
 ### 5.5 State-Scoped Handling as a Structural Architecture for AI Agents
 
-Beyond AI-assisted *development*, the pattern has a direct application to the *architecture of AI agent systems*. Contemporary AI agents cycle through distinct operational modes — planning, executing, awaiting response, recovering from errors [Yao et al. 2022]. Most current agent frameworks represent this state implicitly as flags, context strings, or accumulated history. Implicit state has a well-documented failure mode [Gamma et al. 1994]: the actual state space is determined by the combinatorial product of all flags, and reasoning about valid behaviors becomes intractable as the number of flags grows.
+Beyond AI-assisted *development*, the pattern has a direct application to the *architecture of AI agent systems*. Contemporary AI agents interleave reasoning and acting across distinct operational modes [Yao et al. 2022] — such as planning, executing, awaiting response, and recovering from errors. Most current agent frameworks represent this state implicitly as flags, context strings, or accumulated history. Implicit state has a well-documented failure mode [Gamma et al. 1994]: the actual state space is determined by the combinatorial product of all flags, and reasoning about valid behaviors becomes intractable as the number of flags grows.
 
 The pattern offers an alternative: model the agent's operational modes as explicit state classes. An agent's `PlanningState` would declare handlers only for user input commands; its `ExecutingState` only for tool result commands; its `AwaitingHumanConfirmationState` only for human-response commands. Commands arriving in the wrong state are structurally excluded. This is a structural form of agent guardrailing: constraints enforced by architecture rather than by runtime assertion or prompt instruction — auditable, verifiable against the transition graph, and accurate by construction.
 
@@ -533,7 +533,7 @@ The pattern offers four properties advantageous for AI-assisted development: (1)
 
 ### 6.1 Framework Overview
 
-StatePipes is an open-source .NET Core framework targeting SCADA, robotic, and IoT applications. It implements the State-Scoped Command Handler pattern in C# with routing infrastructure, automatic handler discovery, diagram generation, and a testing harness. The framework wraps the Stateless state machine library [Burrows 2009] with a strongly-typed, attribute-driven, dependency-injected API. Autofac provides the dependency injection container; Mono.Cecil provides IL-level type inspection for event detection and diagram annotation.
+StatePipes is an open-source .NET Core framework targeting SCADA, robotic, and IoT applications. It implements the State-Scoped Command Handler pattern in C# with routing infrastructure, automatic handler discovery, diagram generation, and a testing harness. The framework wraps the Stateless state machine library [Blumhardt 2009] with a strongly-typed, attribute-driven, dependency-injected API. Autofac provides the dependency injection container; Mono.Cecil provides IL-level type inspection for event detection and diagram annotation.
 
 The framework consists of five components: the core library (`StatePipes`), a diagram generator (`StatePipes.Diagrammer`), a runtime explorer (`StatePipes.Explorer`), a scaffolding tool (`StatePipes.ServiceCreatorTool`), and a broker proxy (`StatePipes.BrokerProxy`).
 
@@ -707,9 +707,7 @@ Two directions merit particular priority in follow-on work. The empirical case f
 - Adamczyk, P. (2003). *The Anthology of the Finite State Machine Design Patterns.* PLoP 2003.
 - Aldrich, J., Sunshine, J., Saini, D., and Sparks, Z. (2009). *Typestate-Oriented Programming.* OOPSLA 2009.
 - Alexander, C., Ishikawa, S., and Silverstein, M. (1977). *A Pattern Language.* Oxford University Press.
-- Austin, J., et al. (2021). *Program Synthesis with Large Language Models.* arXiv:2108.07732.
-- Burrows, N. (2009). *Stateless: A Hierarchical State Machine Library for .NET.* https://github.com/dotnet-state-machine/stateless.
-- Chen, M., et al. (2021). *Evaluating Large Language Models Trained on Code.* arXiv:2107.03374.
+- Blumhardt, N. (2009). *Stateless: A Hierarchical State Machine Library for .NET.* https://github.com/dotnet-state-machine/stateless.
 - Coplien, J. and Schmidt, D., eds. (1995). *Pattern Languages of Program Design.* Addison-Wesley.
 - Desai, A., Gupta, V., Jackson, E., Qadeer, S., Rajamani, S., and Zufferey, D. (2013). *P: Safe Asynchronous Event-Driven Programming.* PLDI 2013.
 - Dyson, N. and Anderson, A. (1997). *State Patterns.* In Pattern Languages of Program Design 3. Addison-Wesley.
@@ -718,20 +716,18 @@ Two directions merit particular priority in follow-on work. The empirical case f
 - Garcia, R., et al. (2014). *Foundations of Typestate-Oriented Programming.* ACM TOPLAS 36(4).
 - Harel, D. (1987). *Statecharts: A Visual Formalism for Complex Systems.* Science of Computer Programming 8(3), 231–274.
 - Hart, S. G. and Staveland, L. E. (1988). *Development of NASA-TLX (Task Load Index): Results of Empirical and Theoretical Research.* Advances in Psychology 52, 139–183.
-- Hindle, A., Barr, E. T., Su, Z., Gabel, M., and Devanbu, P. (2012). *On the Naturalness of Software.* ICSE 2012.
 - Holzmann, G. J. (1997). *The Model Checker SPIN.* IEEE Transactions on Software Engineering 23(5), 279–295.
 - Jackson, D. (2006). *Software Abstractions: Logic, Language, and Analysis.* MIT Press.
-- Khourshid, D. (2016). *XState: State Machines and Statecharts for the Modern Web.* https://github.com/statelyai/xstate.
+- Khourshid, D. (2017). *XState: State Machines and Statecharts for the Modern Web.* https://github.com/statelyai/xstate.
 - Lamport, L. (1994). *The Temporal Logic of Actions.* ACM TOPLAS 16(3), 872–923.
 - Lightbend. *Akka Classic FSM.* https://doc.akka.io/libraries/akka-core/current/fsm.html.
 - Marzinotto, A., Colledanchise, M., Smith, C., and Ögren, P. (2014). *Towards a Unified Behavior Trees Framework for Robot Control.* ICRA 2014.
 - Meyer, B. (1988). *Object-Oriented Software Construction.* Prentice Hall.
-- Mukherjee, S., Deligiannis, P., Lal, A., and Lichtenberg, A. (2019). *Reliable State Machines: A Framework for Programming Reliable Cloud Services.* ECOOP 2019.
-- Nijkamp, E., et al. (2022). *CodeGen: An Open Large Language Model for Code with Multi-Turn Program Synthesis.* arXiv:2203.13474.
-- OMG (2003). *Unified Modeling Language Specification, Version 2.0.* Object Management Group.
+- OMG (2005). *Unified Modeling Language Specification, Version 2.0.* Object Management Group.
 - Samek, M. (2008). *Practical UML Statecharts in C/C++: Event-Driven Programming for Embedded Systems.* 2nd ed. Newnes.
 - Selic, B., Gullekson, G., and Ward, P. T. (1994). *Real-Time Object-Oriented Modeling.* Wiley.
 - Strom, R. E. and Yemini, S. (1986). *Typestate: A Programming Language Concept for Enhancing Software Reliability.* IEEE Transactions on Software Engineering 12(1).
 - W3C (2015). *State Chart XML (SCXML): State Machine Notation for Control Abstraction.* W3C Recommendation.
 - Yao, S., et al. (2022). *ReAct: Synergizing Reasoning and Acting in Language Models.* arXiv:2210.03629.
-- Ziegler, A., et al. (2022). *Productivity Assessment of Neural Code Completion.* MAPS 2022.
+- Yin, P. and Neubig, G. (2017). *A Syntactic Neural Model for General-Purpose Code Generation.* ACL 2017.
+
