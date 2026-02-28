@@ -24,7 +24,7 @@ namespace StatePipes.StateMachine.Internal
         {
             _bus = bus;
             _currentState = typeof(InitialState).Name;
-            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Immediate);
+            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Queued);
             _stateMachine.OnUnhandledTrigger(OnUnhandledTrigger);
             _stateMachine.OnTransitioned(t =>
             {

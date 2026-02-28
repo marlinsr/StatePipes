@@ -44,5 +44,7 @@ Changes 4.0.0:
 New statemachine api and tools to simplify dev of statemachines by @marlinsr in #41
 Changes 4.0.1:
 Documentation for new statemachine API by @marlinsr in #43
+Changes 4.0.2:
+If statemachine in first substate and parent state has permitreentryif return true the statemachine is stuck in parent state by @marlinsr in #45
 
 
