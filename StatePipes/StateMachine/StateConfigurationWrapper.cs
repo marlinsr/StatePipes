@@ -117,5 +117,11 @@ namespace StatePipes.StateMachine
             _stateMachine.EventRegistrationManager.RegisterEvent(ev, _stateConfiguration.State);
             return this;
         }
+        public StateConfigurationWrapper RegisterCommand<TCommand>() where TCommand : ICommand => RegisterCommand(typeof(TCommand));
+        internal StateConfigurationWrapper RegisterCommand(Type command)
+        {
+            _stateMachine.CommandRegistrationManager.RegisterCommand(command, _stateConfiguration.State);
+            return this;
+        }
     }
 }

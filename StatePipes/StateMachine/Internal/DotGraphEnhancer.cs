@@ -2,13 +2,14 @@
 
 namespace StatePipes.StateMachine.Internal
 {
-    internal class DotGraphEnhancer(EventRegistrationManager eventRegistrationManager)
+    internal class DotGraphEnhancer(EventRegistrationManager eventRegistrationManager, CommandRegistrationManager commandRegistrationManager)
     {
         private const string LabelValue = "label";
-        private List<string> _stateLabels = [];
+        private readonly List<string> _stateLabels = [];
         private readonly EventRegistrationManager _eventRegistrationManager = eventRegistrationManager;
+        private readonly CommandRegistrationManager _commandRegistrationManager = commandRegistrationManager;
 
-        private string AppendPublishedEvents(string label, string value, string stateName)
+        private string AppendPublishedEventsAndExternalCommands(string label, string value, string stateName)
         {
             if (LabelValue != label) return value;
             var events = _eventRegistrationManager.GetRegisteredEvents(stateName);
@@ -17,21 +18,27 @@ namespace StatePipes.StateMachine.Internal
                 if (i == 0) value += $"\\nevents / {events[i]}";
                 else value += $",\\n          {events[i]}";
             }
+            var commands = _commandRegistrationManager.GetRegisteredCommands(stateName);
+            for (int i = 0; i < commands.Count; i++)
+            {
+                if (i == 0) value += $"\\next-cmds / {commands[i]}";
+                else value += $",\\n            {commands[i]}";
+            }
             return value;
         }
-        private AttributeListSyntax? AddPublishedEvents(AttributeListSyntax? attributes, string stateName)
+        private AttributeListSyntax? AddPublishedEventsAndExternalCommands(AttributeListSyntax? attributes, string stateName)
         {
             List<AttributeSyntax> newAttributes = [];
             if (attributes is null)
             {
-                newAttributes.Add(new AttributeSyntax(LabelValue, AppendPublishedEvents(LabelValue, string.Empty, stateName)));
+                newAttributes.Add(new AttributeSyntax(LabelValue, AppendPublishedEventsAndExternalCommands(LabelValue, string.Empty, stateName)));
             }
             else
             {
                 foreach (var attr in attributes.Attributes)
                 {
                     if (!string.IsNullOrEmpty(attr.NameToken.StringValue))
-                        newAttributes.Add(new AttributeSyntax(attr.NameToken.StringValue, AppendPublishedEvents(attr.NameToken.StringValue, attr.ValueToken.StringValue ?? string.Empty, stateName)));
+                        newAttributes.Add(new AttributeSyntax(attr.NameToken.StringValue, AppendPublishedEventsAndExternalCommands(attr.NameToken.StringValue, attr.ValueToken.StringValue ?? string.Empty, stateName)));
                     else
                         newAttributes.Add(attr);
                 }
@@ -41,7 +48,7 @@ namespace StatePipes.StateMachine.Internal
         private AttributeListSyntax? AddCurrentState(AttributeListSyntax? attributes, string currentState)
         {
             List<AttributeSyntax> newAttributes = [];
-            if (attributes is not null) AddPublishedEvents(attributes, currentState)?.Attributes.ToList().ForEach(a => newAttributes.Add(a));
+            if (attributes is not null) AddPublishedEventsAndExternalCommands(attributes, currentState)?.Attributes.ToList().ForEach(a => newAttributes.Add(a));
             newAttributes.Add(new AttributeSyntax("style", "filled"));
             newAttributes.Add(new AttributeSyntax("fillcolor", "yellow"));
             return new AttributeListSyntax(newAttributes);
@@ -57,13 +64,13 @@ namespace StatePipes.StateMachine.Internal
                 _stateLabels.Add(nodeStatement.Identifier.IdentifierToken.StringValue);
                 return new NodeStatementSyntax(nodeStatement.Identifier, currentState == nodeStatement.Identifier.IdentifierToken.StringValue ? 
                     AddCurrentState(nodeStatement.Attributes, currentState) : 
-                    AddPublishedEvents(nodeStatement.Attributes, nodeStatement.Identifier.IdentifierToken.StringValue));
+                    AddPublishedEventsAndExternalCommands(nodeStatement.Attributes, nodeStatement.Identifier.IdentifierToken.StringValue));
             }
             else if (node is SubgraphStatementSyntax subgraphStatement)
                 return HandleSubgraph(subgraphStatement, currentState);
             else if (node is NameValueStatementSyntax nameValueStatement && nameValueStatement.NameToken.StringValue == LabelValue)
                 return new NameValueStatementSyntax(nameValueStatement.NameToken.StringValue, 
-                    AppendPublishedEvents(nameValueStatement.NameToken.StringValue, 
+                    AppendPublishedEventsAndExternalCommands(nameValueStatement.NameToken.StringValue, 
                     nameValueStatement.ValueToken.StringValue ?? string.Empty, nameValueStatement.ValueToken.StringValue?.Split(@"\n")[0] ?? string.Empty));
             return node;
         }
