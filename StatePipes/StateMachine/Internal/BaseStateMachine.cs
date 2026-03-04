@@ -18,13 +18,14 @@ namespace StatePipes.StateMachine.Internal
         private CurrentTrigger? _currentTrigger;
         private readonly string _moveToStateName = typeof(MoveToState).Name;
         public readonly EventRegistrationManager EventRegistrationManager = new();
+        public readonly CommandRegistrationManager CommandRegistrationManager = new();
         public string StateMachineName { get; private set; } = "UNKNOWN";
         public string AssemblyQualifiedStateMachineName { get; private set; } = "UNKNOWN";
         public BaseStateMachine(IStatePipesService bus)
         {
             _bus = bus;
             _currentState = typeof(InitialState).Name;
-            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Immediate);
+            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Queued);
             _stateMachine.OnUnhandledTrigger(OnUnhandledTrigger);
             _stateMachine.OnTransitioned(t =>
             {
@@ -101,7 +102,7 @@ namespace StatePipes.StateMachine.Internal
         public string GetDotGraph()
         {
             var info = _stateMachine.GetInfo();
-            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager);
+            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager);
             return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), CurrentState);
         }
         private string SaveDotGraph(string dotFilename)

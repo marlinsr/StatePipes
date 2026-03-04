@@ -47,6 +47,7 @@ namespace StatePipes.StateMachine
             if (stateType == null) return;
             GetEventTypesForState(stateType, "PublishEvent").ToList().ForEach(eventType => stateConfig.RegisterEvent(eventType));
             GetEventTypesForState(stateType, "SendResponse").ToList().ForEach(eventType => stateConfig.RegisterEvent(eventType));
+            GetCommandTypesForState(stateType).ToList().ForEach(commandType => stateConfig.RegisterCommand(commandType));
             stateConfig.OnActivate(OnActivate).OnDeactivate(OnDeActivate).OnEntry(OnEntry).OnExit(OnExit);
             var firstSubstate = GetFirstSubstateType(stateType);
             if (firstSubstate != null) stateConfig.MoveToState(firstSubstate);
@@ -152,6 +153,39 @@ namespace StatePipes.StateMachine
                     }
                 }
             }
+        }
+        protected static IEnumerable<Type> GetCommandTypesForState(Type stateType)
+        {
+            return GetEventTypesForState(stateType, "SendCommand")
+                .Where(t => IsCommandForAnotherStateMachine(t, stateType));
+        }
+        private static bool IsCommandForAnotherStateMachine(Type commandType, Type stateType)
+        {
+            var currentStateMachineType = GetStateMachineTypeArgument(stateType);
+            var baseTriggerCommandOpenType = typeof(BaseTriggerCommand<>);
+            var baseType = commandType.BaseType;
+            while (baseType != null)
+            {
+                if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == baseTriggerCommandOpenType)
+                {
+                    var targetStateMachine = baseType.GetGenericArguments()[0];
+                    return currentStateMachineType == null || targetStateMachine != currentStateMachineType;
+                }
+                baseType = baseType.BaseType;
+            }
+            return true; // plain ICommand (not a BaseTriggerCommand) always goes to another entity
+        }
+        private static Type? GetStateMachineTypeArgument(Type stateType)
+        {
+            var baseStateMachineStateOpenType = typeof(BaseStateMachineState<>);
+            var t = stateType;
+            while (t != null)
+            {
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == baseStateMachineStateOpenType)
+                    return t.GetGenericArguments()[0];
+                t = t.BaseType;
+            }
+            return null;
         }
         public virtual void OnEntry() { }
         public virtual void OnExit() { }

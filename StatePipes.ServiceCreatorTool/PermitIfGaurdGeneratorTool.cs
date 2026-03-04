@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace StatePipes.ServiceCreatorTool
 {
     internal class PermitIfGaurdGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
