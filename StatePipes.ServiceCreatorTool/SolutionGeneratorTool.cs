@@ -16,18 +16,18 @@ namespace StatePipes.ServiceCreatorTool
             helper.MoveToRootDirectory();
             //Solution Level
             helper.SaveBinaryFile("SetupAndRunInstructions_pdf.sample", "SetupAndRunInstructions.pdf");
-            helper.SaveTextFile("SolutionInfo_proj.sample", "SolutionInfo.proj");
-            helper.SaveTextFile("_dockerignore.sample", ".dockerignore");
-            helper.SaveTextFile("_gitignore.sample", ".gitignore");
-            helper.SaveTextFile("Solution_sln.sample", $"{solutionNameMoniker}.sln");
+            _ = helper.SaveTextFile("SolutionInfo_proj.sample", "SolutionInfo.proj");
+            _ = helper.SaveTextFile("_dockerignore.sample", ".dockerignore");
+            _ = helper.SaveTextFile("_gitignore.sample", ".gitignore");
+            _ = helper.SaveTextFile("Solution_sln.sample", $"{solutionNameMoniker}.sln");
             helper.MoveTo("RunScript");
-            helper.SaveTextFile("DockerInfrastructureStart_ps1.sample", "DockerInfrastructureStart.ps1");
-            helper.SaveTextFile("DockerInfrastructureStop_ps1.sample", "DockerInfrastructureStop.ps1");
-            helper.SaveTextFile("Start_ps1.sample", "Start.ps1");
-            helper.SaveTextFile("Stop_ps1.sample", "Stop.ps1");
+            _ = helper.SaveTextFile("DockerInfrastructureStart_ps1.sample", "DockerInfrastructureStart.ps1");
+            _ = helper.SaveTextFile("DockerInfrastructureStop_ps1.sample", "DockerInfrastructureStop.ps1");
+            _ = helper.SaveTextFile("Start_ps1.sample", "Start.ps1");
+            _ = helper.SaveTextFile("Stop_ps1.sample", "Stop.ps1");
             helper.MoveUp();
             helper.MoveTo("BuildScript");
-            helper.SaveTextFile("NugetConfig_xml.sample", "NugetConfig.xml");
+            _ = helper.SaveTextFile("NugetConfig_xml.sample", "NugetConfig.xml");
         }
         public static void CreateNewSolution()
         {

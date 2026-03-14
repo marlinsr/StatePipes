@@ -48,5 +48,7 @@ Changes 4.0.2:
 If statemachine in first substate and parent state has permitreentryif return true the statemachine is stuck in parent state by @marlinsr in #45
 Changes 4.0.3:
 For External tools force saving files before build by marlinsr in #47
+Changes 4.0.4:
+Fix build and save for diagrammer tool by marlinsr in #49
 
 

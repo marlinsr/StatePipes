@@ -22,13 +22,14 @@ namespace StatePipes.ServiceCreatorTool
             stream.ReadExactly(buffer, 0, buffer.Length);
             return buffer;
         }
-        public void SaveTextFile(string sampleFileName, string fileName)
+        public string SaveTextFile(string sampleFileName, string fileName)
         {
             fileName = monikers.Replace(fileName);
             string outputPath = Path.Combine(dm.GetCurrentDirectory(), fileName);
             string contents = ReadEmbeddedTextFile(sampleFileName);
             contents = monikers.Replace(contents);
             File.WriteAllText(outputPath, contents);
+            return outputPath;
         }
         public void ReplaceInFile(string fileName, string oldValue, string newValue)
         {

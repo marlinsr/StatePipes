@@ -2,16 +2,16 @@
 {
     internal class TriggerGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public void GenerateTrigger(string projectDir, string projectName, string targetDirectory, string stateMachineName, string triggerName, bool isInternal)
+        public string GenerateTrigger(string projectDir, string projectName, string targetDirectory, string stateMachineName, string triggerName, bool isInternal)
         {
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);
             var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
             monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
             monikers.AddMoniker("@#$TriggerName@#$", triggerName);
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
-            GenerateTriggerFile(isInternal, helper);
+            return GenerateTriggerFile(isInternal, helper);
         }
-        public static void GenerateTriggerFile(bool isInternal, GeneratorHelper helper)
+        public static string GenerateTriggerFile(bool isInternal, GeneratorHelper helper)
         {
             helper.MoveToRootDirectory();
             helper.MoveTo("@#$ClassLibraryName@#$");
@@ -21,28 +21,28 @@
             if (isInternal)
             {
                 helper.MoveTo("Internal");
-                helper.SaveTextFile("InternalTrigger_cs.sample", "@#$TriggerName@#$.cs");
+                return helper.SaveTextFile("InternalTrigger_cs.sample", "@#$TriggerName@#$.cs");
             }
             else
             {
-                helper.SaveTextFile("Trigger_cs.sample", "@#$TriggerName@#$.cs");
+                return helper.SaveTextFile("Trigger_cs.sample", "@#$TriggerName@#$.cs");
             }
         }
-        public static void CreateNewTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
+        public static string CreateNewTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return string.Empty;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
             var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName();
-            if (string.IsNullOrEmpty(selectedStateMachine)) return;
+            if (string.IsNullOrEmpty(selectedStateMachine)) return string.Empty;
             var scopeOptions = new List<string> { "Public", "Internal" };
             var selectedScope = SelectionDialog.ShowListSelection(scopeOptions, "Select the trigger scope");
-            if (string.IsNullOrEmpty(selectedScope)) return;
+            if (string.IsNullOrEmpty(selectedScope)) return string.Empty;
             bool isInternal = selectedScope == "Internal";
             var answer = GetTriggerName(selectedStateMachine);
-            if (string.IsNullOrEmpty(answer)) return;
-            (new TriggerGeneratorTool(solutionDir, solutionFileName)).GenerateTrigger(projDir, projectName, targetDirectory, selectedStateMachine, answer, isInternal);
+            if (string.IsNullOrEmpty(answer)) return string.Empty;
+            return (new TriggerGeneratorTool(solutionDir, solutionFileName)).GenerateTrigger(projDir, projectName, targetDirectory, selectedStateMachine, answer, isInternal);
         }
         private static string? GetTriggerName(string selectedStateMachine)
         {

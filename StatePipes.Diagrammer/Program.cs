@@ -1,7 +1,9 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using StatePipes.Diagrammer;
-using System.Diagnostics;
+using EnvDTE80;
+using System.Management;
 using System.Reflection;
+using System.Runtime.InteropServices;
 string classLibraryPath = string.Empty;
 string solutionDir = string.Empty;
 string solutionFileName = string.Empty;
@@ -22,7 +24,7 @@ try
     System.Console.WriteLine($"Solution File Name = {solutionFileName}");   
     System.Console.WriteLine($"Project Name = {projectName}");
     if (!string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(solutionFileName)) 
-        if(!BuildSolution(solutionDir, solutionFileName)) return;
+        if(!BuildSolution()) return;
     if (!string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(projectName)) classLibraryPath = RepointToServiceDirectory(solutionDir, projectName, classLibraryPath) ?? classLibraryPath;
     Console.WriteLine($"Target = {classLibraryPath}");
     var programDataDirectory = $@"{Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)}\StatePipes\{Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly()!.Location)}";
@@ -54,33 +56,54 @@ static string RemovePrefixDirectory(string fullPath, string prefixPath)
     }
     return fullPath;
 }
-static bool BuildSolution(string solutionDir, string solutionFileName)
+static bool SendSaveAndBuild(DTE2 dte)
 {
-    var solutionPath = Path.Combine(solutionDir, solutionFileName);
-    Console.WriteLine($"Building solution: {solutionPath}");
-    var process = new Process
+    bool buildSucceeded = true;
+    CancellationTokenSource cts = new();
+    dte.Events.BuildEvents.OnBuildDone += (scope, action) =>
     {
-        StartInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"build \"{solutionPath}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        }
+        if (buildSucceeded) Console.WriteLine("Build succeeded.");
+        else Console.WriteLine("Build failed.");
+        cts.Cancel();
     };
-    process.Start();
-    string output = process.StandardOutput.ReadToEnd();
-    string error = process.StandardError.ReadToEnd();
-    process.WaitForExit();
-    if (process.ExitCode != 0)
+    dte.Events.BuildEvents.OnBuildProjConfigDone += (project, config, platform, solutionConfig, success) => { if (!success) buildSucceeded = false; };
+    dte.ExecuteCommand("File.SaveAll");
+    dte.ExecuteCommand("Build.BuildSolution");
+    Console.WriteLine("Build command sent successfully.");
+    // Wait for build to complete or timeout after 2 minutes
+    try { Task.Delay(120000, cts.Token).Wait(); } catch { }
+    return buildSucceeded;
+}
+static int GetParentPid()
+{
+    try
     {
-        Console.WriteLine("Build failed!");
-        Console.WriteLine(output);
-        Console.WriteLine(error);
+        int currentPid = Environment.ProcessId;
+        // Query WMI for the parent process ID associated with our current PID
+        string query = $"SELECT ParentProcessId FROM Win32_Process WHERE ProcessId = {currentPid}";
+        using ManagementObjectSearcher searcher = new(query);
+        using var results = searcher.Get();
+        foreach (var obj in results) return Convert.ToInt32(obj["ParentProcessId"]);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error retrieving parent PID: {ex.Message}");
+    }
+    return -1; // Return -1 if not found or error occurred
+}
+static bool BuildSolution()
+{
+    int devEnvPID = GetParentPid();
+    if (devEnvPID <= 0) return false;
+    var dte = ExternalDTE.GetDTE2(devEnvPID);
+    if (dte == null) return false;
+    try
+    {
+        return SendSaveAndBuild(dte);
+    }
+    catch (COMException ex)
+    {
+        Console.WriteLine("Could not find a running Visual Studio instance: " + ex.Message);
         return false;
     }
-    Console.WriteLine("Build succeeded.");
-    return true;
 }
