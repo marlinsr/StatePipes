@@ -11,7 +11,7 @@
     <Folder Include="ExternalTools\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Autofac" Version="9.0.0" />
+    <PackageReference Include="Autofac" Version="9.1.0" />
     <PackageReference Include="FakeItEasy" Version="9.0.1" />
     <PackageReference Include="Mono.Cecil" Version="0.11.6" />
   </ItemGroup>
