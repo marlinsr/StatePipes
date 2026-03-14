@@ -3,25 +3,26 @@
     internal class ProxyGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
         private const string proxyFileNamePostFix = "Proxy.cs";
-        public void GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
+        public string GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
         {
             var moniker = GetProxyMoniker(updateMonikerFilePath);
-            if(string.IsNullOrEmpty(moniker)) return;
+            if(string.IsNullOrEmpty(moniker)) return string.Empty;
             var projectName = GetProjectNameNoExtension(projectFileName);
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);
             var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName);
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             string serviceBinDirectory = _pathProvider.GetPath(PathName.Bin);
             var dllFileName = SelectionDialog.ShowDllSelection(serviceBinDirectory);
-            if (string.IsNullOrEmpty(dllFileName)) return;
+            if (string.IsNullOrEmpty(dllFileName)) return string.Empty;
             ProxyGenerator proxyCreator = new(dllFileName, projectName, moniker, _pathProvider);
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
             string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{proxyFileNamePostFix}");
             bool outputFileAlreadExists = File.Exists(outputFile);
             proxyCreator.SaveToFile(outputFile);
-            if (outputFileAlreadExists) return;
+            if (outputFileAlreadExists) return string.Empty;
             monikers.AddMoniker("@#$ProxyName@#$", moniker);
             GenerateProxyFiles(helper);
+            return outputFile;
         }
         public static void GenerateProxyFiles(GeneratorHelper helper)
         {
@@ -36,12 +37,12 @@
             helper.MoveTo("ValueObjects");
             helper.Inject("ProxyMonikers_Moniker.sample", $"ProxyMonikers.cs", proxyInjection1Moniker);
         }
-        public static void CreateNewProxy(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
+        public static string CreateNewProxy(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return string.Empty;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            (new ProxyGeneratorTool(solutionDir, solutionFileName)).GenerateProxy(projDir, projectName, targetDirectory, updateMonikerFilePath);
+            return (new ProxyGeneratorTool(solutionDir, solutionFileName)).GenerateProxy(projDir, projectName, targetDirectory, updateMonikerFilePath);
         }
         private static string GetProxyMoniker(string? updateMonikerFilePath)
         {

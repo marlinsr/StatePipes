@@ -1,5 +1,2 @@
         [PermitReentryIf]
-        private bool @#$TriggerName@#$Guard(@#$TriggerName@#$ trigger, BusConfig? responseInfo)
-        {
-            return false;
-        }
+        private bool @#$TriggerName@#$Guard(@#$TriggerName@#$ trigger, BusConfig? responseInfo) => true;

@@ -9,7 +9,7 @@ namespace StatePipes.ServiceCreatorTool
         public static DTE2? GetDTE2(int processId)
         {
             IMoniker[] moniker = new IMoniker[1];
-            GetRunningObjectTable(0, out IRunningObjectTable rot);
+            _=GetRunningObjectTable(0, out IRunningObjectTable rot);
             rot.EnumRunning(out IEnumMoniker enumMoniker);
             enumMoniker.Reset();
             while (enumMoniker.Next(1, moniker, out _) == 0)
@@ -25,8 +25,12 @@ namespace StatePipes.ServiceCreatorTool
             return null;
         }
         [DllImport("ole32.dll")]
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
         private static extern int GetRunningObjectTable(uint reserved, out IRunningObjectTable pprot);
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
         [DllImport("ole32.dll")]
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
         private static extern int CreateBindCtx(uint reserved, out IBindCtx ppbc);
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
     }
 }

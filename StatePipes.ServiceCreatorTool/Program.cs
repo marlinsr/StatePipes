@@ -78,30 +78,54 @@ namespace StatePipes.ServiceCreatorTool
             }
             return -1; // Return -1 if not found or error occurred
         }
+        private static DTE2? GetDTE2()
+        {
+            try
+            {
+                int devEnvPID = GetParentPid();
+                if (devEnvPID <= 0) return null;
+                return ExternalDTE.GetDTE2(devEnvPID);
+            }
+            catch (COMException ex)
+            {
+                Console.WriteLine("Could not find a running Visual Studio instance: " + ex.Message);
+                return null;
+            }
+        }
         private static bool SendSaveAndBuild(DTE2 dte)
         {
             bool buildSucceeded = true;
             CancellationTokenSource cts = new();
             dte.Events.BuildEvents.OnBuildDone += (scope, action) =>
             {
-                if (buildSucceeded) Console.WriteLine("Rebuild succeeded.");
-                else Console.WriteLine("Rebuild failed.");
+                if (buildSucceeded) Console.WriteLine("Build succeeded.");
+                else Console.WriteLine("Build failed.");
                 cts.Cancel();
             };
             dte.Events.BuildEvents.OnBuildProjConfigDone += (project, config, platform, solutionConfig, success) => { if (!success) buildSucceeded = false; };
             dte.ExecuteCommand("File.SaveAll");
-            dte.ExecuteCommand("Build.RebuildSolution");
-            Console.WriteLine("Rebuild command sent successfully.");
+            dte.ExecuteCommand("Build.BuildSolution");
+            Console.WriteLine("Build command sent successfully.");
             // Wait for build to complete or timeout after 2 minutes
             try { Task.Delay(120000, cts.Token).Wait(); } catch { }
             return buildSucceeded;
         }
-        private static bool BuildSolution()
+        private static void OpenCodeFileInVS(DTE2 dte, string filePath)
         {
-            int devEnvPID = GetParentPid();
-            if (devEnvPID <= 0) return false;
-            var dte = ExternalDTE.GetDTE2(devEnvPID);
-            if (dte == null) return false;
+            if(string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            Array activeProjects = (Array)dte.ActiveSolutionProjects;
+            if (activeProjects != null && activeProjects.Length > 0)
+            {
+                var myProject = (EnvDTE.Project?)activeProjects.GetValue(0);
+                if (myProject == null) return;
+                var myItem = myProject.ProjectItems.AddFromFile(filePath);
+                var window = myItem.Open(EnvDTE.Constants.vsViewKindCode);
+                window.Visible = true;
+                window.Activate();
+            }
+        }
+        private static bool BuildSolution(DTE2 dte)
+        {
             try
             {
                 return SendSaveAndBuild(dte);
@@ -119,7 +143,9 @@ namespace StatePipes.ServiceCreatorTool
                 SolutionGeneratorTool.CreateNewSolution();
                 return true;
             }
-            if (!BuildSolution()) return false;
+            var dte = GetDTE2();
+            if (dte == null) return false;
+            if (!BuildSolution(dte)) return false;
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
             {
                 ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName);
@@ -147,22 +173,26 @@ namespace StatePipes.ServiceCreatorTool
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addState)
             {
-                StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                var fileName = StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                OpenCodeFileInVS(dte, fileName);
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addTrigger)
             {
-                TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                var fileName = TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                OpenCodeFileInVS(dte, fileName);
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addStateMachine)
             {
-                StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                var fileName = StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                OpenCodeFileInVS(dte, fileName);
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
             {
-                ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath);
+                var fileName = ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath);
+                OpenCodeFileInVS(dte, fileName);
                 return true;
             }
             return false;
