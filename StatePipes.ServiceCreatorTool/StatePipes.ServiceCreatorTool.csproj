@@ -21,8 +21,11 @@
     <None Remove="Resources\TopLevelState_cs.sample" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="envdte" Version="17.14.40260" />
+    <PackageReference Include="Microsoft.VisualStudio.Interop" Version="17.14.40260" />
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Management" Version="10.0.5" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />

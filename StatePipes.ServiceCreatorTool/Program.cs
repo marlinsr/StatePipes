@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using EnvDTE80;
+using System.Management;
+using System.Runtime.InteropServices;
 
 namespace StatePipes.ServiceCreatorTool
 {
@@ -59,35 +61,56 @@ namespace StatePipes.ServiceCreatorTool
             }
             catch (Exception e) { Console.WriteLine($"Aborting Exception: {e.Message}"); }
         }
+        private static int GetParentPid()
+        {
+            try
+            {
+                int currentPid = Environment.ProcessId;
+                // Query WMI for the parent process ID associated with our current PID
+                string query = $"SELECT ParentProcessId FROM Win32_Process WHERE ProcessId = {currentPid}";
+                using ManagementObjectSearcher searcher = new(query);
+                using var results = searcher.Get();
+                foreach (var obj in results) return Convert.ToInt32(obj["ParentProcessId"]);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error retrieving parent PID: {ex.Message}");
+            }
+            return -1; // Return -1 if not found or error occurred
+        }
+        private static bool SendSaveAndBuild(DTE2 dte)
+        {
+            bool buildSucceeded = true;
+            CancellationTokenSource cts = new();
+            dte.Events.BuildEvents.OnBuildDone += (scope, action) =>
+            {
+                if (buildSucceeded) Console.WriteLine("Rebuild succeeded.");
+                else Console.WriteLine("Rebuild failed.");
+                cts.Cancel();
+            };
+            dte.Events.BuildEvents.OnBuildProjConfigDone += (project, config, platform, solutionConfig, success) => { if (!success) buildSucceeded = false; };
+            dte.ExecuteCommand("File.SaveAll");
+            dte.ExecuteCommand("Build.RebuildSolution");
+            Console.WriteLine("Rebuild command sent successfully.");
+            // Wait for build to complete or timeout after 2 minutes
+            try { Task.Delay(120000, cts.Token).Wait(); } catch { }
+            return buildSucceeded;
+        }
         private static bool BuildSolution()
         {
-            var solutionPath = Path.Combine(_solutionDir, _solutionFileName);
-            Console.WriteLine($"Building solution: {solutionPath}");
-            var process = new Process
+            int devEnvPID = GetParentPid();
+            if (devEnvPID <= 0) return false;
+            var dte = ExternalDTE.GetDTE2(devEnvPID);
+            if (dte == null) return false;
+            try
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "dotnet",
-                    Arguments = $"build \"{solutionPath}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            if (process.ExitCode != 0)
+                return SendSaveAndBuild(dte);
+            }
+            catch (COMException ex)
             {
-                Console.WriteLine("Build failed!");
-                Console.WriteLine(output);
-                Console.WriteLine(error);
+                Console.WriteLine("Could not find a running Visual Studio instance: " + ex.Message);
                 return false;
             }
-            Console.WriteLine("Build succeeded.");
-            return true;
         }
         private static bool DetermineCreation()
         {
@@ -96,7 +119,7 @@ namespace StatePipes.ServiceCreatorTool
                 SolutionGeneratorTool.CreateNewSolution();
                 return true;
             }
-            if (!string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_solutionFileName) && !BuildSolution()) return false;
+            if (!BuildSolution()) return false;
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
             {
                 ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName);

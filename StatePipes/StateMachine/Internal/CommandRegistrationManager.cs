@@ -1,5 +1,3 @@
-using System.Data;
-
 namespace StatePipes.StateMachine.Internal
 {
     internal class CommandRegistrationManager
