@@ -1,4 +1,5 @@
-﻿using EnvDTE80;
+﻿using EnvDTE;
+using EnvDTE80;
 using System.Management;
 using System.Runtime.InteropServices;
 
@@ -112,17 +113,19 @@ namespace StatePipes.ServiceCreatorTool
         }
         private static void OpenCodeFileInVS(DTE2 dte, string filePath)
         {
-            if(string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            Window solutionExplorer = dte.Windows.Item(Constants.vsWindowKindSolutionExplorer);
+            UIHierarchy hierarchy = (UIHierarchy)solutionExplorer.Object;
+            var projectPath = dte.Solution.Properties.Item("Name").Value + "\\" + BaseToolGenerator.GetProjectNameNoExtension(_projectFileName);
+            hierarchy.GetItem(projectPath).Select(vsUISelectionType.vsUISelectionTypeSelect);
             Array activeProjects = (Array)dte.ActiveSolutionProjects;
-            if (activeProjects != null && activeProjects.Length > 0)
-            {
-                var myProject = (EnvDTE.Project?)activeProjects.GetValue(0);
-                if (myProject == null) return;
-                var myItem = myProject.ProjectItems.AddFromFile(filePath);
-                var window = myItem.Open(EnvDTE.Constants.vsViewKindCode);
-                window.Visible = true;
-                window.Activate();
-            }
+            if (activeProjects == null || activeProjects.Length <= 0) return;
+            var myProject = (EnvDTE.Project?)activeProjects.GetValue(0);
+            if (myProject == null) return;
+            var myItem = myProject.ProjectItems.AddFromFile(filePath);
+            var window = myItem.Open(EnvDTE.Constants.vsViewKindCode);
+            window.Visible = true;
+            window.Activate();
         }
         private static bool BuildSolution(DTE2 dte)
         {

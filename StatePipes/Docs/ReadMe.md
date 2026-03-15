@@ -50,5 +50,7 @@ Changes 4.0.3:
 For External tools force saving files before build by marlinsr in #47
 Changes 4.0.4:
 Fix build and save for diagrammer tool by marlinsr in #49
+Changes 4.0.5:
+Fix wrong project adding file with External Tools by marlinsr in #51
 
 
