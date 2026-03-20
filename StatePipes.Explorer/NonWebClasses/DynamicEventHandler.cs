@@ -27,7 +27,7 @@ namespace StatePipes.Explorer.NonWebClasses
             if (methodInfo == null) return;
             var action = CreateDelegateByParameter(_eventInstanceMgr.ThisType, methodInfo);
             if (action == null) return;
-            var subscribeMethod = _proxy.GetType()?.GetMethod("Subscribe", BindingFlags.Public | BindingFlags.Instance);
+            var subscribeMethod = _proxy.GetType()?.GetMethod("Subscribe", BindingFlags.Public | BindingFlags.Instance, [typeof(Action<IEvent, BusConfig, bool>)]);
             if (subscribeMethod == null) return;
             var subscribeMethodOfEventType = subscribeMethod.MakeGenericMethod([_eventInstanceMgr.ThisType]);
             subscribeMethodOfEventType?.Invoke(_proxy, [action]);
@@ -39,7 +39,7 @@ namespace StatePipes.Explorer.NonWebClasses
             if (methodInfo == null) return;
             var action = CreateDelegateByParameter(_eventInstanceMgr.ThisType, methodInfo!);
             if(action == null) return;  
-            var unsubscribeMethod = _proxy.GetType().GetMethod("UnSubscribe", BindingFlags.Public | BindingFlags.Instance);
+            var unsubscribeMethod = _proxy.GetType().GetMethod("UnSubscribe", BindingFlags.Public | BindingFlags.Instance, [typeof(Action<IEvent, BusConfig, bool>)]);
             if(unsubscribeMethod == null) return;
             var unsubscribeMethodOfEventType = unsubscribeMethod.MakeGenericMethod([_eventInstanceMgr.ThisType]);
             unsubscribeMethodOfEventType?.Invoke(_proxy, [action]);

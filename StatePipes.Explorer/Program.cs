@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using StatePipes.Explorer.Components;
 using StatePipes.Explorer.NonWebClasses;
 using StatePipes.ProcessLevelServices;
@@ -18,6 +19,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<IStatePipesHandler, StatePipesHandler>();
+builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(DirHelper.GetProductDataCategoryDirectoryForProcess(DirHelper.FileCategory.Certs))).SetApplicationName("StatePipes.Explorer");
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
