@@ -19,7 +19,7 @@
 		<PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
 		<AllowUnsafeBlocks>False</AllowUnsafeBlocks>
 		<Nullable>enable</Nullable>
-    <PackageReadmeFile>ReadMe.md</PackageReadmeFile>
+    <PackageReadmeFile>@#$ClassLibraryName@#$.ReadMe.md</PackageReadmeFile>
 	</PropertyGroup>
 	<ItemGroup>
     <PackageReference Include="StatePipes" Version="@#$StatePipesVersion@#$" />
@@ -36,8 +36,8 @@
       <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-  <ItemGroup Condition="'$(OS)'=='Windows_NT'">
-    <None Include="Docs\ReadMe.md" Pack="true" PackagePath="\"/>
+  <ItemGroup>
+    <None Include="@#$ClassLibraryName@#$.ReadMe.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
   <Target Name="CopyPackageToLocalFeed" AfterTargets="Pack" Condition=" '$(StatePipesLocalNugets)' != '' ">
     <Copy SourceFiles="$(OutputPath)..\$(PackageId).$(PackageVersion).nupkg" DestinationFolder="$(StatePipesLocalNugets)" />

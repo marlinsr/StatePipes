@@ -52,7 +52,10 @@ Changes 4.0.4:
 Fix build and save for diagrammer tool by marlinsr in #49
 Changes 4.0.5:
 Fix wrong project adding file with External Tools by marlinsr in #51
-Chages 4.0.6:
+Changes 4.0.6:
 StatePipes Explorer not registering event handlers and antiforgery by marlinsr in #53
+Changes 4.0.7:
+Fix Docker Local Image Build and Docker Start scripts by marlinsr in #55
+
 
 
