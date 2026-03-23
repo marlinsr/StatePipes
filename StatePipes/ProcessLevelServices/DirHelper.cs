@@ -43,7 +43,7 @@ namespace StatePipes.ProcessLevelServices
         public static string GetProcessName()
         {
             var currentProcess = Assembly.GetEntryAssembly()?.GetName()?.Name;
-            if(currentProcess == null) currentProcess = Assembly.GetCallingAssembly().GetName().Name;
+            currentProcess ??= Assembly.GetCallingAssembly().GetName().Name;
             if (currentProcess == null) return string.Empty;
             return currentProcess;
         }

@@ -56,6 +56,8 @@ Changes 4.0.6:
 StatePipes Explorer not registering event handlers and antiforgery by marlinsr in #53
 Changes 4.0.7:
 Fix Docker Local Image Build and Docker Start scripts by marlinsr in #55
+Changes 4.0.8:
+Code Cleanup and upgrade coverlet nuget package by marlinsr in #57
 
 
 
