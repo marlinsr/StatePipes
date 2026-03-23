@@ -6,39 +6,35 @@ namespace StatePipes.Comms.Internal
 {
     internal class GetLogFileTailCommandHandler(IStatePipesService bus) : IMessageHandler<GetLogFileTailCommand>
     {
-        private string ReadTail(string logFileName)
+        private static string ReadTail(string logFileName)
         {
             const long maxCharactersToRead = 500000;
             const long negativeMaxCharactersToRead = -500000;
             char[] logFileLines;
-            using (var fs = new FileStream(logFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using var fs = new FileStream(logFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var sr = new StreamReader(fs);
+            long bytesToRead = sr.BaseStream.Length;
+            if (bytesToRead > maxCharactersToRead)
             {
-                using (var sr = new StreamReader(fs))
+                bytesToRead = maxCharactersToRead;
+                sr.BaseStream.Seek(negativeMaxCharactersToRead, SeekOrigin.End);
+            }
+            logFileLines = new char[bytesToRead];
+            int bytesRead = 0;
+            while (bytesRead < bytesToRead)
+            {
+                int readRet = sr.Read(logFileLines, bytesRead, (int)bytesToRead - bytesRead);
+                if (readRet <= 0)
                 {
-                    long bytesToRead = sr.BaseStream.Length;
-                    if (bytesToRead > maxCharactersToRead)
-                    {
-                        bytesToRead = maxCharactersToRead;
-                        sr.BaseStream.Seek(negativeMaxCharactersToRead, SeekOrigin.End);
-                    }
-                    logFileLines = new char[bytesToRead];
-                    int bytesRead = 0;
-                    while (bytesRead < bytesToRead)
-                    {
-                        int readRet = sr.Read(logFileLines, bytesRead, (int)bytesToRead - bytesRead);
-                        if (readRet <= 0)
-                        {
-                            var readErrorStr = $"Log file {logFileName} Read error {readRet}";
-                            Log?.LogError(readErrorStr);
-                            return readErrorStr;
-                        }
-                        bytesRead += readRet;
-                    }
+                    var readErrorStr = $"Log file {logFileName} Read error {readRet}";
+                    Log?.LogError(readErrorStr);
+                    return readErrorStr;
                 }
+                bytesRead += readRet;
             }
             return new string(logFileLines);
         }
-        private string GetNewestLogFile(out string errString)
+        private static string GetNewestLogFile(out string errString)
         {
             string logFileDirectory = DirHelper.GetProductDataCategoryDirectoryForProcess(DirHelper.FileCategory.Log);
             string compoundName = DirHelper.GetProcessName();
