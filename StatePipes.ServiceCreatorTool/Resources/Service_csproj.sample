@@ -26,6 +26,7 @@
 		<EnableSdkContainerDebugging>True</EnableSdkContainerDebugging>
 		<IsPublishable>True</IsPublishable>
 		<EnableSdkContainerSupport>True</EnableSdkContainerSupport>
+    <PackageReadmeFile>@#$ClassLibraryName@#$.Service.ReadMe.md</PackageReadmeFile>
 	</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
@@ -39,6 +40,11 @@
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.5" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="@#$ClassLibraryName@#$.Service.ReadMe.md" Pack="true" PackagePath="\">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
 	  <ProjectReference Include="..\@#$ClassLibraryName@#$\@#$ClassLibraryName@#$.csproj" />

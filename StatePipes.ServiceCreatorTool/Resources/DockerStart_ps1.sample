@@ -1,6 +1,7 @@
 ﻿cls
 $programData = $env:ProgramData
 $destDir = $programData+"\@#$CompanyName@#$\@#$ClassLibraryName@#$.Service\Certs\"
+$StatePipesCertDir = $programData+"\StatePipes\StatePipes.Explorer\Certs\"
 Remove-Item -Path $destDir -Recurse -Force
 New-Item -ItemType Directory -Path $destDir
 $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
@@ -8,6 +9,6 @@ Invoke-Expression $cp
 $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
 Invoke-Expression $cp
 
-$dockerRun = "docker run -dit --name @#$ClassLibraryName@#$.Service --hostname @#$ClassLibraryName@#$.Service -v "+$programData+"\@#$CompanyName@#$:/usr/share/@#$CompanyName@#$ --network @#$NetworkName@#$ @#$ContainerImageName@#$:latest"
+$dockerRun = "docker run -dit --name @#$ClassLibraryName@#$.Service --hostname @#$ClassLibraryName@#$.Service -v "+$programData+"\@#$CompanyName@#$:/usr/share/@#$CompanyName@#$ -v "+$StatePipesCertDir+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$StatePipesCertDir+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network @#$NetworkName@#$ @#$ContainerImageName@#$:latest"
 Invoke-Expression $dockerRun
-Start-Process chrome.exe '--new-window  https://statepipes.explorer:32772/Params/@#$BrokerUriForStartScript@#$/@#$ClassLibraryName@#$/@#$CertFileName@#$/CommonPassword.txt/@#$ClassLibraryName@#$'
+Start-Process chrome.exe '--new-window  https://statepipes.explorer:7219/Params/@#$BrokerUriForStartScript@#$/@#$ClassLibraryName@#$/@#$CertFileName@#$/CommonPassword.txt/@#$ClassLibraryName@#$'

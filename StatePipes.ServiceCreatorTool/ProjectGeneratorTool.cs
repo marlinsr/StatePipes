@@ -28,9 +28,7 @@
             helper.MoveToRootDirectory();
             helper.MoveTo("@#$ClassLibraryName@#$");
             _ = helper.SaveTextFile("ClassLibrary_csproj.sample", "@#$ClassLibraryName@#$.csproj");
-            helper.MoveTo("Docs");
-            _ = helper.SaveTextFile("ReadMe_md.sample", "ReadMe.md");
-            helper.MoveUp();
+            _ = helper.SaveTextFile("ReadMe_md.sample", "@#$ClassLibraryName@#$.ReadMe.md");
             helper.MoveTo("Builders");
             _ = helper.SaveTextFile("DefaultSetup_cs.sample", "DefaultSetup.cs");
             _ = helper.SaveTextFile("DefaultServiceConfiguration_cs.sample", "DefaultServiceConfiguration.cs");
@@ -61,6 +59,7 @@
             _ = helper.SaveTextFile("Dockerfile.sample", "Dockerfile");
             _ = helper.SaveTextFile("Service_csproj.sample", "@#$ClassLibraryName@#$.Service.csproj");
             _ = helper.SaveTextFile("Program_cs.sample", "Program.cs");
+            _ = helper.SaveTextFile("ReadMe_md.sample", "@#$ClassLibraryName@#$.Service.ReadMe.md");
             helper.MoveTo("Properties");
             _ = helper.SaveTextFile("launchSettings_json.sample", "launchSettings.json");
             // Test
