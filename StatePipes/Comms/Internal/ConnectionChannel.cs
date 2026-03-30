@@ -31,7 +31,7 @@ namespace StatePipes.Comms.Internal
             {
                 try
                 {
-                    Cleanup();
+                    CleanupUnsafe();
                     _connection = StatePipesConnectionFactory.CreateConnection(_busConfig, _hashedPassword, _cancelToken);
                     _connection.ConnectionShutdownAsync += ConnectionShutdown;
                     CreateChannel();
@@ -64,7 +64,7 @@ namespace StatePipes.Comms.Internal
                 InstantiateConnectionAndChannel(null);
                 return;
             }
-            _channel = _connection.CreateChannelAsync(null, _cancelToken).Result;
+            _channel = _connection.CreateChannelAsync(null, _cancelToken).GetAwaiter().GetResult();
             _channel.ChannelShutdownAsync += ChannelShutdown;
             _configureBuses?.Invoke(this);
         }
@@ -92,16 +92,16 @@ namespace StatePipes.Comms.Internal
                 Log?.LogError($"Failed to configure busses because _channel == null");
                 return;
             }
-            _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, autoDelete: autoDelete, durable: true, passive: false, noWait: false, cancellationToken: _cancelToken).Wait();
+            _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, autoDelete: autoDelete, durable: true, passive: false, noWait: false, cancellationToken: _cancelToken).GetAwaiter().GetResult();
             if (consumeMethod != null)
             {
                 var queueName = GetQueueName(id, commsType);
-                _channel.QueueDeclareAsync(queueName).Wait();
+                _channel.QueueDeclareAsync(queueName).GetAwaiter().GetResult();
 
-                routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).Wait());
+                routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).GetAwaiter().GetResult());
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += consumeMethod;
-                _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).Wait();
+                _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
             }
         }
         public void Subscribe(Guid id, string routingKey, BusConfig busConfig)
@@ -135,19 +135,31 @@ namespace StatePipes.Comms.Internal
                 catch (Exception e) { Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {sendCommandTypeFullName} Exception: {e.Message}"); }
             }
         }
+        /// <summary>
+        /// Thread-safe cleanup entry point. Acquires _lock before clearing resources.
+        /// Use this when calling from a context that does NOT already hold _lock.
+        /// </summary>
         protected void Cleanup()
         {
             lock (_lock)
             {
-                _timer?.Dispose();
-                _timer = null;
-                if (_channel != null) try { _channel.ChannelShutdownAsync -= ChannelShutdown; } catch { };
-                _channel?.Dispose();
-                _channel = null;
-                if (_connection != null) try { _connection.ConnectionShutdownAsync -= ConnectionShutdown; } catch { };
-                _connection?.Dispose();
-                _connection = null;
+                CleanupUnsafe();
             }
+        }
+        /// <summary>
+        /// Clears connection, channel, and timer resources.
+        /// CALLER MUST HOLD _lock. Use Cleanup() if calling from an unlocked context.
+        /// </summary>
+        private void CleanupUnsafe()
+        {
+            _timer?.Dispose();
+            _timer = null;
+            if (_channel != null) try { _channel.ChannelShutdownAsync -= ChannelShutdown; } catch { };
+            _channel?.Dispose();
+            _channel = null;
+            if (_connection != null) try { _connection.ConnectionShutdownAsync -= ConnectionShutdown; } catch { };
+            _connection?.Dispose();
+            _connection = null;
         }
         protected virtual void Dispose(bool disposing)
         {
@@ -155,12 +167,9 @@ namespace StatePipes.Comms.Internal
             {
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects)
                     Cleanup();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 _disposedValue = true;
             }
         }
