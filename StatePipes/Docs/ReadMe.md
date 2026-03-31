@@ -5,7 +5,7 @@ Changed to NSIS installer by @marlinsr in #2
 Changes 1.0.2:
 StatePipes nuget version mismatch between explorer and statepipes service inhibits communication by @marlinsr in #3
 Changes 2.0.0:
-Changed from using type assembly qualified names to type full names i… by @marlinsr in #5
+Changed from using type assembly qualified names to type full names iâ€¦ by @marlinsr in #5
 Changes 2.0.1:
 Add capability to set LogLevel via Explorer by @marlinsr in #7
 Changes 2.0.2:
@@ -58,6 +58,8 @@ Changes 4.0.7:
 Fix Docker Local Image Build and Docker Start scripts by marlinsr in #55
 Changes 4.0.8:
 Code Cleanup and upgrade coverlet nuget package by marlinsr in #57
+Changes 4.0.9:
+Fix reentrant lock fragility and sync-over-async in ConnectionChannel classes in #59
 
 
 
