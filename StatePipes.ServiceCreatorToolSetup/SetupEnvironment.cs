@@ -31,10 +31,14 @@ namespace StatePipes.ServiceCreatorToolSetup
                 if (count != 1 || setupInstances[0] == null || IsPreRelease(setupInstances[0])) continue;
                 string installationPath = setupInstances[0].GetInstallationPath();
                 string executablePath = Path.Combine(installationPath, @"Common7\IDE\devenv.exe");
-                vsProcess = System.Diagnostics.Process.Start(executablePath, $"{tempTextFileName} /nosplash");
-                System.Threading.Thread.Sleep(10000);
-                SetupVSSettings(vsProcess);
-                vsProcess?.Kill();
+                try
+                {
+                    vsProcess = System.Diagnostics.Process.Start(executablePath, $"{tempTextFileName} /nosplash");
+                    System.Threading.Thread.Sleep(10000);
+                    SetupVSSettings(vsProcess);
+                    vsProcess?.Kill();
+                }
+                catch { }
             }
         }
         private static void SetupTools()
