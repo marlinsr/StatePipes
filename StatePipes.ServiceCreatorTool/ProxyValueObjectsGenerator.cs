@@ -25,7 +25,7 @@
                 _valueObjectsCreationTracker.RegisterCreatedValueObject(typeFullName);
             }
         }
-        private TypeDescription? GetTypeDescription(string typeFullName) => proxyGeneratorCommon.Assemblies.GetTypeDescription(typeFullName);
+        private TypeDescription? GetTypeDescription(string typeFullName) => proxyGeneratorCommon.Source.GetTypeDescription(typeFullName);
         private void CreateSupportingValueObject(string typeFullName)
         {
             TypeDescription? typeDescription = GetTypeDescription(typeFullName);
@@ -45,8 +45,11 @@
         private void CreateValueObject(TypeDescription? typeDescription)
         {
             if (typeDescription == null) return;
-            if (typeDescription.IsCommand) { CreateValueObjectFromCommand(typeDescription); return; }
-            if (typeDescription.IsEvent) { CreateValueObjectFromEvent(typeDescription); return; }
+            if (typeDescription.IsCommand && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
+                || typeDescription.FullName.StartsWith("StatePipes.Messages.GetAllStateMachineStatusCommand"))) { CreateValueObjectFromCommand(typeDescription); return; }
+            if (typeDescription.IsEvent && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
+                || typeDescription.FullName.StartsWith("StatePipes.Messages.AllStateStatusEvent")
+                || typeDescription.FullName.StartsWith("StatePipes.Messages.StateStatusEvent"))) { CreateValueObjectFromEvent(typeDescription); return; }
         }
         private void CreateValueObjectFromClass(TypeDescription? typeDescription, string postFix = "")
         {

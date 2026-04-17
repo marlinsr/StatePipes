@@ -20,7 +20,6 @@ namespace StatePipes.ProcessLevelServices
         public static string Find(string filename, FileCategory fileCategory)
         {
             string fileNameOnly = Path.GetFileName(filename);
-
             if (fileNameOnly != null)
             {
                 // Start with the ProgramData directory
@@ -35,7 +34,7 @@ namespace StatePipes.ProcessLevelServices
                 fullPath = Path.Combine(GetApplicationBaseDirectory(), fileNameOnly);
                 if (File.Exists(fullPath)) return fullPath;
             }
-
+            if (File.Exists(filename)) return filename;
             return string.Empty;
         }
         private static string GetApplicationBaseDirectory() => AppDomain.CurrentDomain.SetupInformation.ApplicationBase ?? string.Empty;

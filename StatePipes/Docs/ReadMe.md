@@ -60,6 +60,8 @@ Changes 4.0.8:
 Code Cleanup and upgrade coverlet nuget package by marlinsr in #57
 Changes 4.0.9:
 Fix reentrant lock fragility and sync-over-async in ConnectionChannel classes in #59
+Changes 4.0.10:
+Add Proxy Generator tool that generates a proxy to a live running instance of a statepipes service by marlinsr in #61
 
 
 

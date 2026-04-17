@@ -27,17 +27,9 @@
         private static string CreateStateClass(string solutionDir, string solutionFileName, string projDir, string projectName, 
             string targetDirectory, string selectedStateMachine, bool isFirstChild = false, string? parentedStateName = null)
         {
-            string stateNane = "";
-            if (SelectionDialog.ShowInputDialog(ref stateNane, $"Enter the name for the new state on {selectedStateMachine}") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(stateNane))
-                {
-                    Console.WriteLine($"Bad state name");
-                    return string.Empty;
-                }
-                return (new StateGeneratorTool(solutionDir, solutionFileName)).GenerateState(projDir, projectName, targetDirectory, selectedStateMachine, stateNane, parentStateName: parentedStateName, isFirstChild: isFirstChild);
-            }
-            return string.Empty;
+            string stateName = "";
+            if (!SelectionDialog.GetUserInput(ref stateName, $"Enter the name for the new state on {selectedStateMachine}")) return string.Empty;
+            return (new StateGeneratorTool(solutionDir, solutionFileName)).GenerateState(projDir, projectName, targetDirectory, selectedStateMachine, stateName, parentStateName: parentedStateName, isFirstChild: isFirstChild);
         }
         private static string CreateParentedState(string solutionDir, string solutionFileName, string projDir, string projectName, 
             string targetDirectory, string selectedStateMachine, StateMachineTypesHelper stateMachineTypesHelper)

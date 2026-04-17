@@ -43,6 +43,8 @@ ShowUnInstDetails show
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR\ServiceCreatorTool"
   SetOverwrite try
+  File "..\StatePipes.ServiceCreatorTool\bin\Release\net10.0-windows\RabbitMQ.Client.dll"
+  File "..\StatePipes.ServiceCreatorTool\bin\Release\net10.0-windows\System.Threading.RateLimiting.dll"
   File "..\StatePipes.ServiceCreatorTool\bin\Release\net10.0-windows\Microsoft.VisualStudio.Imaging.Interop.14.0.DesignTime.dll"
   File "..\StatePipes.ServiceCreatorTool\bin\Release\net10.0-windows\Microsoft.VisualStudio.Interop.dll"
   File "..\StatePipes.ServiceCreatorTool\bin\Release\net10.0-windows\envdte.dll"
@@ -199,8 +201,10 @@ Section Uninstall
   Delete "$INSTDIR\ServiceCreatorTool\Microsoft.VisualStudio.Setup.Configuration.Interop.dll"
   Delete "$INSTDIR\ServiceCreatorTool\Microsoft.VisualStudio.Imaging.Interop.14.0.DesignTime.dll"
   Delete "$INSTDIR\ServiceCreatorTool\Microsoft.VisualStudio.Interop.dll"
-  Delete "$INSTDIR\ServiceCreatorTool\runtimes\win\lib\net10.0\System.Management.dll"
   Delete "$INSTDIR\ServiceCreatorTool\envdte.dll"
+  Delete "$INSTDIR\ServiceCreatorTool\RabbitMQ.Client.dll"
+  Delete "$INSTDIR\ServiceCreatorTool\System.Threading.RateLimiting.dll"
+  Delete "$INSTDIR\ServiceCreatorTool\runtimes\win\lib\net10.0\System.Management.dll"
   Delete "$INSTDIR\Diagrammer\Autofac.dll"
   Delete "$INSTDIR\Diagrammer\Castle.Core.dll"
   Delete "$INSTDIR\Diagrammer\FakeItEasy.dll"

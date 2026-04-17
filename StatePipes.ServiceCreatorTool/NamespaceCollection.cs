@@ -9,11 +9,11 @@
             if (Contains(element)) return;
             if (element.StartsWith("System") || element.StartsWith("StatePipes")) Add(element);
         }
-        public void AddNameSpaceFromTypeFullName(string typeFullName, ReferencedAssemblies assemblies)
+        public void AddNameSpaceFromTypeFullName(string typeFullName, IServiceTypeSource source)
         {
             if (_typeFullNameAddedList.Contains(typeFullName)) return;
             _typeFullNameAddedList.Add(typeFullName);
-            var td = assemblies.GetTypeDescription(typeFullName);
+            var td = source.GetTypeDescription(typeFullName);
             if (td == null) return;
             if (string.IsNullOrEmpty(td.Namespace))
             {

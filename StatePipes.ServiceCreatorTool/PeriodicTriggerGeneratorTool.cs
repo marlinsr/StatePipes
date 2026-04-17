@@ -44,41 +44,12 @@ namespace StatePipes.ServiceCreatorTool
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineName = StateMachineTypesHelper.GetStateMachineNameFromSourceFile(stateFilePath);
             if (string.IsNullOrEmpty(stateMachineName)) return;
-            var timerName = GetTimerName(stateMachineName);
-            if (string.IsNullOrEmpty(timerName)) return;
-            var timerPeriod = GetTimerPeriod(timerName);
+            string timerName = "";
+            if (!SelectionDialog.GetUserInput(ref timerName, $"Enter the timer name for {stateMachineName}")) return;
+            string timerPeriod = "";
+            if (!SelectionDialog.GetUserInput(ref timerPeriod, $"Enter the period in milliseconds for {timerName}")) return;
             if (string.IsNullOrEmpty(timerPeriod)) return;
             (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod);
-        }
-        private static string? GetTimerName(string stateMachineName)
-        {
-            string timerName = "";
-            if (SelectionDialog.ShowInputDialog(ref timerName, $"Enter the timer name for {stateMachineName}") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(timerName))
-                {
-                    Console.WriteLine("Bad timer name");
-                    return null;
-                }
-                return timerName;
-            }
-            Console.WriteLine("Action canceled");
-            return null;
-        }
-        private static string? GetTimerPeriod(string timerName)
-        {
-            string timerPeriod = "";
-            if (SelectionDialog.ShowInputDialog(ref timerPeriod, $"Enter the period in milliseconds for {timerName}") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(timerPeriod))
-                {
-                    Console.WriteLine("Bad timer period");
-                    return null;
-                }
-                return timerPeriod;
-            }
-            Console.WriteLine("Action canceled");
-            return null;
         }
     }
 }

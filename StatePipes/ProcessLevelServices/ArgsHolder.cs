@@ -5,7 +5,7 @@
         public static ServiceArgs? Args { get; private set; }
         public static void InitalizeArgs(ServiceArgs args)
         {
-            if (Args == null) Args = args;
+            Args ??= args;
         }
         public static string? GetArgValue(string argNamePrefix) => Args?.GetArgValue(argNamePrefix);
     }
