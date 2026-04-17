@@ -13,12 +13,16 @@ namespace StatePipes.ServiceCreatorTool
         static string _targetDirectory = string.Empty;
         static bool _addStateMachine = false;
         static bool _addTrigger = false;
+        static bool _addEvent = false;
         static bool _addState = false;
         static string _permitIfStateFilePath = string.Empty;
         static string _permitReentryIfStateFilePath = string.Empty;
         static string _ignoreIfStateFilePath = string.Empty;
         static string _periodicTriggerStateFilePath = string.Empty;
         static string _updateProxyFilePath = string.Empty;
+        // Live proxy generation args
+        static bool _liveMode = false;
+        static int _liveTimeoutSeconds = 30;
         private static void ParseArgs(string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -29,12 +33,16 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("-b", StringComparison.CurrentCultureIgnoreCase)) _targetDirectory = args[++i];
                 if (args[i].Equals("-m", StringComparison.CurrentCultureIgnoreCase)) _addStateMachine = true;
                 if (args[i].Equals("-t", StringComparison.CurrentCultureIgnoreCase)) _addTrigger = true;
+                if (args[i].Equals("-e", StringComparison.CurrentCultureIgnoreCase)) _addEvent = true;
                 if (args[i].Equals("-a", StringComparison.CurrentCultureIgnoreCase)) _addState = true;
                 if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = args[++i];
                 if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = args[++i];
                 if (args[i].Equals("-ii", StringComparison.CurrentCultureIgnoreCase)) _ignoreIfStateFilePath = args[++i];
                 if (args[i].Equals("-pti", StringComparison.CurrentCultureIgnoreCase)) _periodicTriggerStateFilePath = args[++i];
                 if (args[i].Equals("-u", StringComparison.CurrentCultureIgnoreCase)) _updateProxyFilePath = args[++i];
+                // Live proxy generation args
+                if (args[i].Equals("-live", StringComparison.CurrentCultureIgnoreCase)) _liveMode = true;
+                if (args[i].Equals("--timeout", StringComparison.CurrentCultureIgnoreCase) && int.TryParse(args[++i], out var t)) _liveTimeoutSeconds = t;
             }
         }
         private static void ParameterErrors()
@@ -186,10 +194,21 @@ namespace StatePipes.ServiceCreatorTool
                 OpenCodeFileInVS(dte, fileName);
                 return true;
             }
+            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addEvent)
+            {
+                var fileName = EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                OpenCodeFileInVS(dte, fileName);
+                return true;
+            }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addStateMachine)
             {
                 var fileName = StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
                 OpenCodeFileInVS(dte, fileName);
+                return true;
+            }
+            if (_liveMode && !string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
+            {
+                LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath);
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
@@ -198,6 +217,7 @@ namespace StatePipes.ServiceCreatorTool
                 OpenCodeFileInVS(dte, fileName);
                 return true;
             }
+
             return false;
         }
     }

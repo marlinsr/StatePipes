@@ -40,24 +40,9 @@
             var selectedScope = SelectionDialog.ShowListSelection(scopeOptions, "Select the trigger scope");
             if (string.IsNullOrEmpty(selectedScope)) return string.Empty;
             bool isInternal = selectedScope == "Internal";
-            var answer = GetTriggerName(selectedStateMachine);
-            if (string.IsNullOrEmpty(answer)) return string.Empty;
-            return (new TriggerGeneratorTool(solutionDir, solutionFileName)).GenerateTrigger(projDir, projectName, targetDirectory, selectedStateMachine, answer, isInternal);
-        }
-        private static string? GetTriggerName(string selectedStateMachine)
-        {
-            string triggerName = "";
-            if (SelectionDialog.ShowInputDialog(ref triggerName, $"Enter the name for the new trigger on {selectedStateMachine}") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(triggerName))
-                {
-                    Console.WriteLine($"Bad trigger name");
-                    return null;
-                }
-                return triggerName;
-            }
-            Console.WriteLine($"Action canceled");
-            return null;
+            var triggerName = "";
+            if (!SelectionDialog.GetUserInput(ref triggerName, $"Enter the name for the new trigger on {selectedStateMachine}")) return string.Empty;
+            return (new TriggerGeneratorTool(solutionDir, solutionFileName)).GenerateTrigger(projDir, projectName, targetDirectory, selectedStateMachine, triggerName, isInternal);
         }
     }
 }

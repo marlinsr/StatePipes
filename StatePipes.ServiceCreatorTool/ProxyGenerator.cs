@@ -1,4 +1,4 @@
-﻿namespace StatePipes.ServiceCreatorTool
+namespace StatePipes.ServiceCreatorTool
 {
     internal class ProxyGenerator
     {
@@ -6,6 +6,8 @@
         private readonly ProxyValueObjectsGenerator _proxyValueObjectsGenerator;
         private readonly ProxyTriggersGenerator _proxyTriggersGenerator;
         private readonly ProxyEventsGenerator _proxyEventsGenerator;
+
+        // DLL-based constructor (existing path)
         public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider)
         {
             _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider);
@@ -14,13 +16,29 @@
             _proxyEventsGenerator = new(_proxyGeneratorCommon);
             GenerateCode();
         }
+
+        // Live constructor — TypeSerializationList comes from a running service
+        public ProxyGenerator(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, string brokerUri, string exchangeName, string certPath, string certPasswordPath)
+        {
+            _proxyGeneratorCommon = new(typeSerializationList, codeGenerationBaseNamespace, proxyMoniker, pathProvider, brokerUri, exchangeName, certPath, certPasswordPath);
+            _proxyValueObjectsGenerator = new(_proxyGeneratorCommon);
+            _proxyTriggersGenerator = new(_proxyGeneratorCommon);
+            _proxyEventsGenerator = new(_proxyGeneratorCommon);
+            GenerateCode();
+        }
+
         private void GenerateCode()
         {
-            TypeSerializationConverter typeSerializationConverter = new();
-            _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.AllStateStatusEventType!);
-            _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.StateStatusEventType!);
-            _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.Assemblies.GetAllStateMachineStatusCommandType!);
-            _proxyGeneratorCommon.Types.ForEach(t => _proxyGeneratorCommon.TypeSerializations.TypeSerializations.Add(typeSerializationConverter.CreateFromType(t, _proxyGeneratorCommon.Assemblies.CommandType!, _proxyGeneratorCommon.Assemblies.EventType!)));
+            if (_proxyGeneratorCommon.DllAssemblies != null)
+            {
+                // DLL path: build TypeSerializations from loaded Types
+                TypeSerializationConverter typeSerializationConverter = new();
+                _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.DllAssemblies.AllStateStatusEventType!);
+                _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.DllAssemblies.StateStatusEventType!);
+                _proxyGeneratorCommon.Types.Add(_proxyGeneratorCommon.DllAssemblies.GetAllStateMachineStatusCommandType!);
+                _proxyGeneratorCommon.Types.ForEach(t => _proxyGeneratorCommon.TypeSerializations.TypeSerializations.Add(typeSerializationConverter.CreateFromType(t, _proxyGeneratorCommon.DllAssemblies.CommandType!, _proxyGeneratorCommon.DllAssemblies.EventType!)));
+            }
+            // Live path: TypeSerializations already populated from SelfDescriptionEvent
             _proxyGeneratorCommon.NamespaceList.AddNamespace("StatePipes.Comms");
             _proxyGeneratorCommon.NamespaceList.AddNamespace("StatePipes.Common");
             _proxyValueObjectsGenerator.CreateValueObjectsStart();
@@ -70,18 +88,18 @@
         private void CreateGetServiceConfigurationMethod()
         {
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public static ServiceConfiguration GetServiceConfiguration()");
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine("{");
             _proxyGeneratorCommon.CodeGenerationString.Indent();
             _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"return JsonUtility.GetObjectForJsonString<ServiceConfiguration>(@\"{_proxyGeneratorCommon.DefaultServiceConfigurationJson}\")!;");
             _proxyGeneratorCommon.CodeGenerationString.Outdent();
-            _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine("}");
         }
         private void CreateSubscriptions()
         {
             foreach (TypeSerialization typeSerialization in _proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
-                if (typeDescription.IsEvent)
+                if (typeDescription.IsEvent && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.AllStateStatusEvent")
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.StateStatusEvent")))
                 {
                     var eventTypeName = ProxyGeneratorCommon.RemoveJunk(typeDescription.FullName);
                     var triggerName = _proxyTriggersGenerator.CreateTriggerTypeName(typeDescription.FullName);
@@ -95,7 +113,8 @@
             foreach (TypeSerialization typeSerialization in _proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
-                if (typeDescription.IsCommand)
+                if (typeDescription.IsCommand && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.GetAllStateMachineStatusCommand")))
                 {
                     var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
                     _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($", IMessageHandler<{eventType}>");
@@ -107,7 +126,8 @@
             foreach (TypeSerialization typeSerialization in _proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
-                if (typeDescription.IsCommand)
+                if (typeDescription.IsCommand && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.GetAllStateMachineStatusCommand")))
                 {
                     var eventType = _proxyEventsGenerator.CreateEventTypeName(typeDescription.FullName);
                     _proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"public void HandleMessage({eventType} anEvent, BusConfig? busConfig, bool isResponse){{ Send(anEvent.ProxyName,\"{ProxyGeneratorCommon.RemoveJunk(typeDescription.FullName)}\", anEvent.Data); }}");

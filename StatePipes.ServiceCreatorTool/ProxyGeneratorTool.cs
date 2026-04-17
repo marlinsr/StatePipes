@@ -2,7 +2,7 @@
 {
     internal class ProxyGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        private const string proxyFileNamePostFix = "Proxy.cs";
+        private const string ProxyFileNamePostFix = "Proxy.cs";
         public string GenerateProxy(string projectDir, string projectFileName, string targetDirectory, string? updateMonikerFilePath)
         {
             var moniker = GetProxyMoniker(updateMonikerFilePath);
@@ -12,11 +12,10 @@
             var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName);
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             string serviceBinDirectory = _pathProvider.GetPath(PathName.Bin);
-            var dllFileName = SelectionDialog.ShowDllSelection(serviceBinDirectory);
-            if (string.IsNullOrEmpty(dllFileName)) return string.Empty;
+            if (!SelectionDialog.SelectFile(out string dllFileName, "Select Class Library To Create Proxy To", "dll files (*.dll)|*.dll|All files (*.*)|*.*", serviceBinDirectory)) return string.Empty;
             ProxyGenerator proxyCreator = new(dllFileName, projectName, moniker, _pathProvider);
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
-            string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{proxyFileNamePostFix}");
+            string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{ProxyFileNamePostFix}");
             bool outputFileAlreadExists = File.Exists(outputFile);
             proxyCreator.SaveToFile(outputFile);
             if (outputFileAlreadExists) return string.Empty;
@@ -49,20 +48,13 @@
             if (!string.IsNullOrEmpty(updateMonikerFilePath))
             {
                 var fileName = Path.GetFileName(updateMonikerFilePath)!;
-                var postFixIndex = fileName.IndexOf(proxyFileNamePostFix);
+                var postFixIndex = fileName.IndexOf(ProxyFileNamePostFix);
                 if(postFixIndex > 0) return Path.GetFileName(updateMonikerFilePath)[..postFixIndex];
-                System.Console.WriteLine($"The selected file {fileName} does not have the expected format of [Moniker]{proxyFileNamePostFix}");
+                System.Console.WriteLine($"The selected file {fileName} does not have the expected format of [Moniker]{ProxyFileNamePostFix}");
                 return string.Empty;
             }
             string proxyMoniker = "";
-            if (SelectionDialog.ShowInputDialog(ref proxyMoniker, $"Enter the moniker for the proxy") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(proxyMoniker))
-                {
-                    Console.WriteLine($"Bad Moniker>: {proxyMoniker}");
-                    return string.Empty;
-                }
-            }
+            if (!SelectionDialog.GetUserInput(ref proxyMoniker, $"Enter the moniker for the proxy")) return string.Empty;
             return proxyMoniker;
         }
     }

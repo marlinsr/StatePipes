@@ -26,21 +26,9 @@
             if (!IsServiceProject(projectFileName)) return string.Empty;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            return AddNewStateMachine(solutionDir, solutionFileName, projDir, projectName, targetDirectory);
-        }
-        private static string AddNewStateMachine(string solutionDir, string solutionFileName, string projectDir, string projectName, string configuration)
-        {
-            string answer = "";
-            if (SelectionDialog.ShowInputDialog(ref answer, "Enter the name for the new state machine") == DialogResult.OK)
-            {
-                if (string.IsNullOrEmpty(answer))
-                {
-                    Console.WriteLine($"Bad state machine name: {answer}");
-                    return string.Empty;
-                }
-                return (new StateMachineGeneratorTool(solutionDir, solutionFileName)).GenerateStateMachine(projectDir, projectName, configuration, answer, isStateMachine: true);
-            }
-            return string.Empty;
+            string stateMachineName = "";
+            if (!SelectionDialog.GetUserInput(ref stateMachineName, "Enter the name for the new state machine")) return string.Empty;
+            return (new StateMachineGeneratorTool(solutionDir, solutionFileName)).GenerateStateMachine(projDir, projectName, targetDirectory, stateMachineName, isStateMachine: true);
         }
     }
 }

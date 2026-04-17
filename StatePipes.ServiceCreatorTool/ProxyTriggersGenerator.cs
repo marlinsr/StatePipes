@@ -12,7 +12,6 @@
             proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using Newtonsoft.Json;");
             proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using System.Diagnostics;");
             proxyGeneratorCommon.CodeGenerationString.AppendTabbedLine($"using StatePipes.StateMachine;");
-
             CreateTriggers();
             proxyGeneratorCommon.CodeGenerationString.Outdent();
         }
@@ -21,7 +20,9 @@
             foreach (TypeSerialization typeSerialization in proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
-                if (typeDescription.IsEvent)
+                if (typeDescription.IsEvent && (!typeDescription.FullName.StartsWith("StatePipes.Messages") 
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.AllStateStatusEvent")
+                    || typeDescription.FullName.StartsWith("StatePipes.Messages.StateStatusEvent")))
                 {
                     proxyGeneratorCommon.NamespaceList.AddNamespace(typeDescription.Namespace);
                     CreateTrigger(typeDescription.FullName);
