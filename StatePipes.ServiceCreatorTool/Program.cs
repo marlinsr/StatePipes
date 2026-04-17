@@ -13,6 +13,7 @@ namespace StatePipes.ServiceCreatorTool
         static string _targetDirectory = string.Empty;
         static bool _addStateMachine = false;
         static bool _addTrigger = false;
+        static bool _addEvent = false;
         static bool _addState = false;
         static string _permitIfStateFilePath = string.Empty;
         static string _permitReentryIfStateFilePath = string.Empty;
@@ -32,6 +33,7 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("-b", StringComparison.CurrentCultureIgnoreCase)) _targetDirectory = args[++i];
                 if (args[i].Equals("-m", StringComparison.CurrentCultureIgnoreCase)) _addStateMachine = true;
                 if (args[i].Equals("-t", StringComparison.CurrentCultureIgnoreCase)) _addTrigger = true;
+                if (args[i].Equals("-e", StringComparison.CurrentCultureIgnoreCase)) _addEvent = true;
                 if (args[i].Equals("-a", StringComparison.CurrentCultureIgnoreCase)) _addState = true;
                 if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = args[++i];
                 if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = args[++i];
@@ -189,6 +191,12 @@ namespace StatePipes.ServiceCreatorTool
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addTrigger)
             {
                 var fileName = TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
+                OpenCodeFileInVS(dte, fileName);
+                return true;
+            }
+            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addEvent)
+            {
+                var fileName = EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
                 OpenCodeFileInVS(dte, fileName);
                 return true;
             }

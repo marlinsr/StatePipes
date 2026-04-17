@@ -1,0 +1,7 @@
+﻿using StatePipes.Interfaces;
+namespace @#$ClassLibraryName@#$.Events
+{
+    public class @#$EventName@#$ : IEvent
+    {
+    }
+}

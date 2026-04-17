@@ -14,6 +14,7 @@
     <Description>StatePipes.ServiceCreatorTool</Description>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Resources\Event_cs.sample" />
     <None Remove="Resources\PermitIfGuard_cs.sample" />
     <None Remove="Resources\IgnoreIfGuard_cs.sample" />
     <None Remove="Resources\PermitReentryIfGuard_cs.sample" />
@@ -29,6 +30,7 @@
     <PackageReference Include="System.Management" Version="10.0.6" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Resources\Event_cs.sample" />
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />
     <EmbeddedResource Include="Resources\TopLevelState_cs.sample" />
     <EmbeddedResource Include="Resources\_dockerignore.sample" />
