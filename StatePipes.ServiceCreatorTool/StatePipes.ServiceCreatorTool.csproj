@@ -27,7 +27,7 @@
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
-    <PackageReference Include="System.Management" Version="10.0.6" />
+    <PackageReference Include="System.Management" Version="10.0.7" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Event_cs.sample" />
