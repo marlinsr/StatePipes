@@ -64,6 +64,8 @@ Changes 4.0.10:
 Add Proxy Generator tool that generates a proxy to a live running instance of a statepipes service by marlinsr in #61
 Changes 4.0.11:
 Update nugets by marlinsr in #63
+Changes 4.0.12:
+Updating Nugets to 10.0.8 by marlinsr in #65
 
 
 
