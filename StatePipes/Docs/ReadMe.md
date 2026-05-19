@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v4.0.20 (2026-05-19)
+Merged PR: #76 Updated syntax to include correct tests
+
+Referenced issues:
+- #75 4th try release process to include the running of the unit tests
+
+
 ### v4.0.19 (2026-05-19)
 Merged PR: #74 Fix filter logic on unit tests for release process.
 
