@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v4.0.19 (2026-05-19)
+Merged PR: #74 Fix filter logic on unit tests for release process.
+
+Referenced issues:
+- #73 Fix Unit Tests not running for release process
+
+
 ### v4.0.18 (2026-05-19)
 Merged PR: #72 Fixed Node.js warning and testsettings not being found
 
