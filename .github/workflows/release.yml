@@ -115,8 +115,8 @@ jobs:
             const prTitle = process.env.PR_TITLE;
             const version = process.env.VERSION;
 
-            // Match GitHub's auto-close keywords.
-            const re = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            // Match all issue references in the PR body.
+            const re = /#(\d+)/g;
             const numbers = [...new Set([...body.matchAll(re)].map(m => parseInt(m[1], 10)))];
 
             const issues = [];
@@ -134,7 +134,7 @@ jobs:
             let block = `### v${version} (${today})\n`;
             if (prNum) block += `Merged PR: #${prNum} ${prTitle}\n\n`;
             block += issues.length
-              ? `Closing issues:\n${issues.join('\n')}\n`
+              ? `Referenced issues:\n${issues.join('\n')}\n`
               : `_No referenced issues._\n`;
 
             fs.writeFileSync('/tmp/notes.md', block);
@@ -144,7 +144,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          readme = Path("README.md")
+          readme = Path("StatePipes/Docs/ReadMe.md")
           notes  = Path("/tmp/notes.md").read_text()
           text   = readme.read_text()
           header = "## Release Notes"
@@ -163,7 +163,7 @@ jobs:
           set -euo pipefail
           git config user.name  "release-bot"
           git config user.email "actions@github.com"
-          git add SolutionInfo.proj README.md
+          git add SolutionInfo.proj StatePipes/Docs/ReadMe.md
           git commit -m "chore(release): v${{ steps.bump.outputs.version }} [release-bot] [skip ci]"
           git push origin HEAD:main
 
@@ -198,6 +198,9 @@ jobs:
 
       - name: dotnet build (Release)
         run: dotnet build StatePipes.sln -c Release --no-restore
+
+      - name: dotnet test (exclude TimingCritical)
+        run: dotnet test StatePipes.Test/StatePipes.Test.csproj -c Release --no-build --filter "TestCategory!=TimingCritical"
 
       - name: Verify expected artifacts exist
         shell: pwsh
