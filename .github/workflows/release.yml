@@ -1,0 +1,330 @@
+# Save this file as: .github/workflows/release.yml
+#
+# StatePipes — automated build & release.
+# Triggered on every merge to `main`. Mirrors the manual checklist:
+#   1. Bump VersionPrefix in SolutionInfo.proj
+#   2. Append release notes (with closing-issue info from the merged PR) to README.md
+#   3. Build the solution as Release  (Windows runner)
+#   4. Build the StatePipes.Explorer and StatePipes.BrokerProxy Docker images,
+#      tag as v<version> + latest, push to Docker Hub as bigfish88/*
+#   5. Push the StatePipes nupkg to nuget.org
+#   6. Create the GitHub Release v<version>, attaching the
+#      StatePipes.ServiceCreatorTool.Installer.exe binary
+#
+# Bump type comes from labels on the merged PR:
+#   release:major | release:minor | release:patch  (default = patch)
+#
+# Required repository secrets:
+#   DOCKERHUB_USERNAME   Docker Hub username (the account that owns bigfish88/*)
+#   DOCKERHUB_TOKEN      Docker Hub access token with write to bigfish88/*
+#   NUGET_API_KEY        API key for nuget.org for the StatePipes package
+
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------------------------
+  # 1. Bump version, update README release notes, commit back to main.
+  # ----------------------------------------------------------------------
+  bump-version:
+    name: Bump version & release notes
+    # Skip the commit this job itself just pushed (prevents infinite loop).
+    if: "!contains(github.event.head_commit.message, '[release-bot]')"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag:     ${{ steps.bump.outputs.tag }}
+      release_notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect merged PR for bump type & closing-issue info
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const pr = prs.find(p => p.merged_at) || prs[0];
+            let bumpType = 'patch';
+            let prNumber = '', prTitle = '', prBody = '';
+            if (pr) {
+              prNumber = String(pr.number);
+              prTitle  = pr.title || '';
+              prBody   = pr.body  || '';
+              const labels = (pr.labels || []).map(l => (l.name || '').toLowerCase());
+              if      (labels.includes('release:major')) bumpType = 'major';
+              else if (labels.includes('release:minor')) bumpType = 'minor';
+              else if (labels.includes('release:patch')) bumpType = 'patch';
+            }
+            core.setOutput('bump_type', bumpType);
+            core.setOutput('pr_number', prNumber);
+            core.setOutput('pr_title',  prTitle);
+            // Body is passed via file because it can be large / contain odd chars.
+            require('fs').writeFileSync('/tmp/pr_body.txt', prBody);
+
+      - name: Compute next version & update SolutionInfo.proj
+        id: bump
+        run: |
+          set -euo pipefail
+          current=$(grep -oP '(?<=<VersionPrefix>)[^<]+' SolutionInfo.proj | head -n1)
+          IFS=. read -r major minor patch <<< "$current"
+          case "${{ steps.pr.outputs.bump_type }}" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch|*) patch=$((patch+1)) ;;
+          esac
+          new="$major.$minor.$patch"
+          echo "Current: $current  ->  New: $new  (bump=${{ steps.pr.outputs.bump_type }})"
+          sed -i "0,/<VersionPrefix>${current}<\/VersionPrefix>/s||<VersionPrefix>${new}</VersionPrefix>|" SolutionInfo.proj
+          # Sanity check
+          grep -q "<VersionPrefix>${new}</VersionPrefix>" SolutionInfo.proj
+          echo "version=$new"  >> "$GITHUB_OUTPUT"
+          echo "tag=v$new"     >> "$GITHUB_OUTPUT"
+
+      - name: Build release-notes block (with closing-issue titles)
+        id: notes
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PR_TITLE:  ${{ steps.pr.outputs.pr_title }}
+          VERSION:   ${{ steps.bump.outputs.version }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body    = fs.readFileSync('/tmp/pr_body.txt', 'utf8');
+            const prNum   = process.env.PR_NUMBER;
+            const prTitle = process.env.PR_TITLE;
+            const version = process.env.VERSION;
+
+            // Match GitHub's auto-close keywords.
+            const re = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const numbers = [...new Set([...body.matchAll(re)].map(m => parseInt(m[1], 10)))];
+
+            const issues = [];
+            for (const n of numbers) {
+              try {
+                const { data } = await github.rest.issues.get({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: n,
+                });
+                issues.push(`- #${n} ${data.title}`);
+              } catch (_) {
+                issues.push(`- #${n}`);
+              }
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            let block = `### v${version} (${today})\n`;
+            if (prNum) block += `Merged PR: #${prNum} ${prTitle}\n\n`;
+            block += issues.length
+              ? `Closing issues:\n${issues.join('\n')}\n`
+              : `_No referenced issues._\n`;
+
+            fs.writeFileSync('/tmp/notes.md', block);
+            core.setOutput('notes', block);
+
+      - name: Insert release notes into README.md
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          readme = Path("README.md")
+          notes  = Path("/tmp/notes.md").read_text()
+          text   = readme.read_text()
+          header = "## Release Notes"
+          if header not in text:
+              text = text.rstrip() + "\n\n" + header + "\n\n" + notes + "\n"
+          else:
+              # Insert the new block immediately after the "## Release Notes" header.
+              idx = text.index(header) + len(header)
+              nl  = text.index("\n", idx)
+              text = text[:nl+1] + "\n" + notes + "\n" + text[nl+1:]
+          readme.write_text(text)
+          PY
+
+      - name: Commit version bump & release notes
+        run: |
+          set -euo pipefail
+          git config user.name  "release-bot"
+          git config user.email "actions@github.com"
+          git add SolutionInfo.proj README.md
+          git commit -m "chore(release): v${{ steps.bump.outputs.version }} [release-bot] [skip ci]"
+          git push origin HEAD:main
+
+  # ----------------------------------------------------------------------
+  # 2. Build the Windows side: solution Release + NuGet pack + NSIS .exe.
+  #    (NSIS is invoked by the .Installer.csproj post-build event,
+  #     and StatePipes.csproj does GeneratePackageOnBuild on Windows.)
+  # ----------------------------------------------------------------------
+  build-windows:
+    name: Build solution, NuGet & installer (Windows)
+    needs: bump-version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout (post-bump main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install NSIS (provides makensis.exe)
+        run: choco install nsis -y --no-progress
+
+      - name: dotnet restore
+        run: dotnet restore StatePipes.sln
+
+      - name: dotnet build (Release)
+        run: dotnet build StatePipes.sln -c Release --no-restore
+
+      - name: Verify expected artifacts exist
+        shell: pwsh
+        run: |
+          $nupkg = Get-ChildItem -Path StatePipes/bin/Release -Filter '*.nupkg' -ErrorAction SilentlyContinue |
+                   Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
+                   Select-Object -First 1
+          if (-not $nupkg) { throw "No .nupkg under StatePipes/bin/Release. Did StatePipes.csproj pack on Windows?" }
+          Write-Host "Found nupkg: $($nupkg.FullName)"
+
+          $exe = "StatePipes.ServiceCreatorTool.Installer/StatePipes.ServiceCreatorTool.Installer.exe"
+          if (-not (Test-Path $exe)) { throw "Installer .exe not produced at $exe. Did the NSIS post-build run?" }
+          Write-Host "Found installer: $exe"
+
+      - name: Upload nupkg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: StatePipes/bin/Release/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: StatePipes.ServiceCreatorTool.Installer/StatePipes.ServiceCreatorTool.Installer.exe
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------------
+  # 3. Build & push the two Docker images on Linux (matches Dockerfiles).
+  # ----------------------------------------------------------------------
+  docker:
+    name: Build & push Docker images
+    needs: bump-version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.bump-version.outputs.version }}
+    steps:
+      - name: Checkout (post-bump main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push bigfish88/statepipesexplorer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: StatePipes.Explorer/Dockerfile
+          push: true
+          tags: |
+            bigfish88/statepipesexplorer:v${{ env.VERSION }}
+            bigfish88/statepipesexplorer:latest
+
+      - name: Build & push bigfish88/statepipesbrokerproxy
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: StatePipes.BrokerProxy/Dockerfile
+          push: true
+          tags: |
+            bigfish88/statepipesbrokerproxy:v${{ env.VERSION }}
+            bigfish88/statepipesbrokerproxy:latest
+
+  # ----------------------------------------------------------------------
+  # 4. Publish NuGet, then cut the GitHub Release with the installer attached.
+  # ----------------------------------------------------------------------
+  publish:
+    name: Publish NuGet & GitHub Release
+    needs: [bump-version, build-windows, docker]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.bump-version.outputs.version }}
+      TAG:     ${{ needs.bump-version.outputs.tag }}
+    steps:
+      - name: Checkout (post-bump main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up .NET (for nuget push)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts/nupkg
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: ./artifacts/installer
+
+      - name: Push to nuget.org
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          pushed=0
+          for f in ./artifacts/nupkg/*.nupkg; do
+            echo "Pushing $f"
+            dotnet nuget push "$f" \
+              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+            pushed=1
+          done
+          if [ "$pushed" = "0" ]; then
+            echo "No .nupkg files found to push." >&2
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          target_commitish: main
+          generate_release_notes: true
+          body: ${{ needs.bump-version.outputs.release_notes }}
+          files: ./artifacts/installer/StatePipes.ServiceCreatorTool.Installer.exe
