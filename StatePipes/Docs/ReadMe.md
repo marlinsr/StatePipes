@@ -69,6 +69,11 @@ Updating Nugets to 10.0.8 by marlinsr in #65
 Changes 4.0.13:
 Erroneous bump while implenting new automated release process
 
+## Release Notes
 
+### v4.0.17 (2026-05-19)
+Merged PR: #70 Fixed release policy
 
+Referenced issues:
+- #69 Second test of new build and release policy
 
