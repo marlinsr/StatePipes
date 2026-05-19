@@ -189,7 +189,9 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Install NSIS (provides makensis.exe)
-        run: choco install nsis -y --no-progress
+        run: |
+          choco install nsis -y --no-progress
+          Add-Content $env:GITHUB_PATH "C:\Program Files (x86)\NSIS"
 
       - name: dotnet restore
         run: dotnet restore StatePipes.sln
