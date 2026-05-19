@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -21,7 +21,17 @@
     <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="makensis.exe /DPRODUCT_VERSION=$(PackageVersion) $(ProjectDir)\StatePipes.ServiceCreatorTool.Installer.nsi" />
+    <!-- Probe PATH first; fall back to the Chocolatey install location on GitHub runners -->
+    <Exec Command="where makensis.exe"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="_MakensisExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <MakensisExe Condition="'$(_MakensisExitCode)' == '0'">makensis.exe</MakensisExe>
+      <MakensisExe Condition="'$(_MakensisExitCode)' != '0'">C:\Program Files (x86)\NSIS\makensis.exe</MakensisExe>
+    </PropertyGroup>
+    <Exec Command="&quot;$(MakensisExe)&quot; /DPRODUCT_VERSION=$(PackageVersion) &quot;$(ProjectDir)StatePipes.ServiceCreatorTool.Installer.nsi&quot;" />
   </Target>
 
 </Project>
