@@ -77,3 +77,20 @@ Merged PR: #70 Fixed release policy
 Referenced issues:
 - #69 Second test of new build and release policy
 
+
+### v4.0.16 (2026-05-19)
+_No referenced issues._
+
+
+### v4.0.15 (2026-05-19)
+_No referenced issues._
+
+
+### v4.0.14 (2026-05-19)
+Merged PR: #68 New Automated Release Process
+
+_No referenced issues._
+
+
+### v4.0.13 (2026-05-19)
+_No referenced issues._
