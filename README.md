@@ -5,6 +5,10 @@ See http://www.youtube.com/@StatePipes for training videos.
 
 ## Release Notes
 
+### v4.0.15 (2026-05-19)
+_No referenced issues._
+
+
 ### v4.0.14 (2026-05-19)
 Merged PR: #68 New Automated Release Process
 
