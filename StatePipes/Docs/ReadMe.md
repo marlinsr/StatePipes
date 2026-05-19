@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v4.0.18 (2026-05-19)
+Merged PR: #72 Fixed Node.js warning and testsettings not being found
+
+Referenced issues:
+- #71 Third try for new release process
+
+
 ### v4.0.17 (2026-05-19)
 Merged PR: #70 Fixed release policy
 
