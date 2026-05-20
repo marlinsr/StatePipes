@@ -3,6 +3,7 @@ using StatePipes.ProcessLevelServices;
 namespace StatePipes.Test.ProcessLevelServices
 {
     [TestClass]
+    [TestCategory(TestCategories.Unit)]
     public class ServiceArgsTest
     {
         [TestMethod]
