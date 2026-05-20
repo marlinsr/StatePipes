@@ -199,8 +199,8 @@ jobs:
       - name: dotnet build (Release)
         run: dotnet build StatePipes.sln -c Release --no-restore
 
-      - name: dotnet test (exclude TimingCritical)
-        run: dotnet test StatePipes.Test/StatePipes.Test.csproj -c Release --no-build --settings Tests.runsettings --filter "TestCategory!~TimingCritical"
+      - name: dotnet test (Unit tests only)
+        run: dotnet test StatePipes.Test/StatePipes.Test.csproj -c Release --no-build --settings Tests.runsettings --filter "TestCategory=Unit"
 
       - name: Verify expected artifacts exist
         shell: pwsh

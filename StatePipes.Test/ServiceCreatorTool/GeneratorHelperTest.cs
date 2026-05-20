@@ -3,6 +3,7 @@ using StatePipes.ServiceCreatorTool;
 namespace StatePipes.Test.ServiceCreatorTool
 {
     [TestClass]
+    [TestCategory(TestCategories.Unit)]
     public class GeneratorHelperTest
     {
         private string _testRootDirectory = null!;

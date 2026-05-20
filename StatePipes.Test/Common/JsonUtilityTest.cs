@@ -3,6 +3,7 @@ using StatePipes.Common;
 namespace StatePipes.Test.Common
 {
     [TestClass]
+    [TestCategory(TestCategories.Unit)]
     public class JsonUtilityTest
     {
         private class TestObject
