@@ -71,6 +71,10 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v4.0.21 (2026-05-20)
+_No referenced issues._
+
+
 ### v4.0.20 (2026-05-19)
 Merged PR: #76 Updated syntax to include correct tests
 
