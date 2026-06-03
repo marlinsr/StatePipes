@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v4.0.22 (2026-06-03)
+Merged PR: #84 Upgraded to RabbitMQ 4
+
+Referenced issues:
+- #83 Upgrade to Rabbitmq:4
+
+
 ### v4.0.21 (2026-05-20)
 _No referenced issues._
 
