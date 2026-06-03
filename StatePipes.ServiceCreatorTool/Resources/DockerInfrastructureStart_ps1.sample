@@ -55,13 +55,13 @@ Start-Sleep -Seconds 30
 $dockerRun = "docker cp "+$CommonPasswordFilePath+" "+$SmallstepContainerName+":/home/step/CommonPassword.txt"
 Invoke-Expression $dockerRun
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf statepipes.explorer statepipes.explorer.server.crt statepipes.explorer.server.key --password-file /home/step/CommonPassword.txt --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
+$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf statepipes.explorer statepipes.explorer.server.crt statepipes.explorer.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
 Invoke-Expression $dockerRun
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqp09-broker amqp09-broker.server.crt amqp09-broker.server.key --password-file /home/step/CommonPassword.txt --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
+$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqp09-broker amqp09-broker.server.crt amqp09-broker.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
 Invoke-Expression $dockerRun
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqpuser amqpuser.amqp09-broker.client.crt amqpuser.amqp09-broker.client.key --password-file /home/step/CommonPassword.txt --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
+$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqpuser amqpuser.amqp09-broker.client.crt amqpuser.amqp09-broker.client.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
 Invoke-Expression $dockerRun
 
 $dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/certs/root_ca.crt "+$SmallstepProgramDataPrefix+""
@@ -97,7 +97,7 @@ Invoke-Expression $dockerRun
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.pem -outform PEM"
 Invoke-Expression $localRun
 
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.p12 -inkey "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.key -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -passin pass:"+$CommonPassword+" -passout pass:"+$CommonPassword
+$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.p12 -inkey "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.key -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -passout pass:"+$CommonPassword
 Invoke-Expression $localRun
 
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqp09-broker.server.crt -out "+$SmallstepProgramDataPrefix+"amqp09-broker.server.pem -outform PEM"
@@ -106,7 +106,7 @@ Invoke-Expression $localRun
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.pem -outform PEM"
 Invoke-Expression $localRun
 
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.key -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -passin pass:"+$CommonPassword+" -passout pass:"+$CommonPassword
+$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.key -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -passout pass:"+$CommonPassword
 Invoke-Expression $localRun
 
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"intermediate_ca.crt -out "+$SmallstepProgramDataPrefix+"intermediate_ca.pem -outform PEM"
@@ -122,7 +122,7 @@ Invoke-Expression $localRun
 
 $RabbitProgramDataPrefix = $RabbitProgramDataDir + $RabbitContainerName + "\"
 
-docker pull rabbitmq:3-management
+docker pull rabbitmq:4-management
 
 Remove-Item -Path $RabbitProgramDataPrefix -Recurse -Force
 
@@ -130,7 +130,7 @@ New-Item -ItemType Directory -Path $RabbitProgramDataPrefix"definitions"
 New-Item -ItemType Directory -Path $RabbitProgramDataPrefix"conf.d"
 
 #Defining Configuration
-$dockerRun = "docker run -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+"\definitions:/etc/rabbitmq/definitions --network "+$Net+" rabbitmq:3-management"
+$dockerRun = "docker run -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+"\definitions:/etc/rabbitmq/definitions --network "+$Net+" rabbitmq:4-management"
 Invoke-Expression $dockerRun
 Start-Sleep -Seconds 60 #Time for rabbit mq container to initialize before configuring
 $dockerRun = "docker exec -it "+$RabbitContainerName+" rabbitmqctl change_password guest "+$CommonPassword
@@ -167,23 +167,19 @@ Add-Content $RabbitDefaultsFile "ssl_options.verify = verify_peer"
 Add-Content $RabbitDefaultsFile "ssl_options.fail_if_no_peer_cert = true"
 Add-Content $RabbitDefaultsFile "ssl_cert_login_from = common_name"
 Add-Content $RabbitDefaultsFile "auth_mechanisms.1 = EXTERNAL"
-$passSetting = "Add-Content "+$RabbitDefaultsFile+" 'ssl_options.password = "+$CommonPassword+"'"
-Invoke-Expression $passSetting
 Add-Content $RabbitDefaultsFile "listeners.tcp = none"
 Add-Content $RabbitDefaultsFile "loopback_users.guest = false"
 Add-Content $RabbitDefaultsFile "management.ssl.port = 15671"
 Add-Content $RabbitDefaultsFile "management.ssl.cacertfile = /etc/rabbitmq/certs/amqp09-broker.cacert.pem"
 Add-Content $RabbitDefaultsFile "management.ssl.certfile = /etc/rabbitmq/certs/amqp09-broker.server.pem"
 Add-Content $RabbitDefaultsFile "management.ssl.keyfile = /etc/rabbitmq/certs/amqp09-broker.server.key"
-$passSetting = "Add-Content "+$RabbitDefaultsFile+" 'management.ssl.password = "+$CommonPassword+"'"
-Invoke-Expression $passSetting
 
 $PluginsFile = $RabbitProgramDataPrefix+"enabled_plugins"
 Add-Content $PluginsFile "[rabbitmq_auth_mechanism_ssl,rabbitmq_management,rabbitmq_prometheus]."
 Add-Content $PluginsFile ""
 
 #rabbitmq is debian
-$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs -v "+$SmallstepProgramDataPrefix+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$SmallstepProgramDataPrefix+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network "+$Net+" rabbitmq:3-management"
+$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs -v "+$SmallstepProgramDataPrefix+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$SmallstepProgramDataPrefix+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network "+$Net+" rabbitmq:4-management"
 Invoke-Expression $dockerRun
 Start-Sleep -Seconds 30 #Time for rabbit mq container to initialize before using
 
