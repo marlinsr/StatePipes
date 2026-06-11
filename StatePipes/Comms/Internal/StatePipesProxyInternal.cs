@@ -1,5 +1,4 @@
-﻿using RabbitMQ.Client.Events;
-using StatePipes.Common;
+﻿using StatePipes.Common;
 using StatePipes.Common.Internal;
 using StatePipes.Interfaces;
 using StatePipes.Messages;
@@ -16,11 +15,11 @@ namespace StatePipes.Comms.Internal
         private readonly EventSubscriptionManager _routingKeyManager = new();
         private readonly TypeDictionary _subscribedEventTypeDictionary = new();
         private readonly HeartbeatEventProcessor _heartbeatProcessor = new();
-        private ConnectionChannel? _connectionChannel;
+        private ITransport? _transport;
         private readonly string? _hashedPassword;
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
         public string Name { get; private set; } = string.Empty;
-        public bool IsConnectedToBroker => _connectionChannel?.IsOpen ?? false;
+        public bool IsConnectedToBroker => _transport?.IsOpen ?? false;
         public bool IsConnectedToService => _heartbeatProcessor.IsConnectedToService;
         public StatePipesProxyInternal(string name, BusConfig busConfig, string? hashedPassword = null)
         {
@@ -40,7 +39,7 @@ namespace StatePipes.Comms.Internal
             var eventType = typeof(TEvent);
             _subscribedEventTypeDictionary.Add(receivedEventTypeFullName, eventType);
             var eventTypeFullName = eventType.FullName;
-            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _connectionChannel?.Subscribe(_id, receivedEventTypeFullName, _busConfig);
+            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _transport?.Subscribe(_id, receivedEventTypeFullName, _busConfig);
             _eventSubscriptionManager.Subscribe(eventTypeFullName, handler);
             _routingKeyManager.Subscribe(receivedEventTypeFullName, handler);
         }
@@ -53,7 +52,7 @@ namespace StatePipes.Comms.Internal
             if (heartbeatHandler.Equals(handler) && eventTypeFullName == typeof(HeartbeatEvent).FullName) return;
             _eventSubscriptionManager.UnSubscribe(eventTypeFullName, handler);
             _routingKeyManager.UnSubscribe(receivedEventTypeFullName, handler);
-            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _connectionChannel?.UnSubscribe(_id, receivedEventTypeFullName, _busConfig);
+            if (!_routingKeyManager.AlreadyHasSubscriptionForType(receivedEventTypeFullName)) _transport?.UnSubscribe(_id, receivedEventTypeFullName, _busConfig);
         }
         public void SendCommand<TCommand>(TCommand command) where TCommand : class, ICommand => SendCommand(typeof(TCommand).FullName, command);
         public void SendCommand<TCommand>(string? sendCommandTypeFullName, TCommand command) where TCommand : class
@@ -61,9 +60,9 @@ namespace StatePipes.Comms.Internal
             if (string.IsNullOrEmpty(sendCommandTypeFullName)) return;
             try
             {
-                if (_connectionChannel != null && _connectionChannel.IsOpen)
+                if (_transport != null && _transport.IsOpen)
                 {
-                    _connectionChannel.Send(sendCommandTypeFullName, command, _busConfig, _busConfig.CommandExchangeName);
+                    _transport.Send(sendCommandTypeFullName, command, _busConfig, _busConfig.CommandExchangeName);
                 }
                 else
                 {
@@ -81,40 +80,40 @@ namespace StatePipes.Comms.Internal
         }
         public void Start()
         {
-            if (_connectionChannel != null) return;
+            if (_transport != null) return;
             _heartbeatProcessor.ResetHeartbeat();
-            _connectionChannel = new ConnectionChannel(_busConfig, _hashedPassword, ConfigureBuses);
+            _transport = new RabbitMqTransport(_busConfig, _hashedPassword, ConfigureBuses);
         }
         public void Stop()
         {
             try
             {
                 _heartbeatProcessor.ResetHeartbeat();
-                _connectionChannel?.Dispose();
-                _connectionChannel = null;
+                _transport?.Dispose();
+                _transport = null;
             }
             catch { }
         }
-        private void ConfigureBuses(ConnectionChannel connectionChannel)
+        private void ConfigureBuses(ITransport transport)
         {
             try
             {
                 var eventSubscription = _routingKeyManager.GetAllSubscriptionTypeFullNames();
-                if (eventSubscription.Count <= 0) eventSubscription = ConnectionChannel.DefaultRoutingKeys;
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName, ConsumeEvent, eventSubscription);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ConnectionChannel.DefaultRoutingKeys, true);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName);
+                if (eventSubscription.Count <= 0) eventSubscription = ITransport.DefaultRoutingKeys;
+                transport.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName, ConsumeEvent, eventSubscription);
+                transport.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ITransport.DefaultRoutingKeys, true);
+                transport.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName);
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
             }
         }
-        private Task ConsumeEvent(object model, BasicDeliverEventArgs ea)
+        private Task ConsumeEvent(ReceivedTransportMessage received)
         {
             try
             {
-                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
+                MessageHelper.Deserialize(received, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEvent), BindingFlags.NonPublic | BindingFlags.Instance);
                 var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod([eventMessage.GetType()]);
@@ -126,11 +125,11 @@ namespace StatePipes.Comms.Internal
             }
             return Task.CompletedTask;
         }
-        private Task ConsumeResponse(object model, BasicDeliverEventArgs ea)
+        private Task ConsumeResponse(ReceivedTransportMessage received)
         {
             try
             {
-                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
+                MessageHelper.Deserialize(received, out object? eventMessage, out BusConfig? busConfig, _subscribedEventTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 var handleEventMethod = _eventSubscriptionManager.GetType().GetMethod(nameof(EventSubscriptionManager.HandleEventResponse), BindingFlags.NonPublic | BindingFlags.Instance);
                 var handleEventMethodOfEventType = handleEventMethod?.MakeGenericMethod([eventMessage.GetType()]);

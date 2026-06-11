@@ -1,5 +1,4 @@
 ﻿using Autofac;
-using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
 using StatePipes.Interfaces;
@@ -15,14 +14,14 @@ namespace StatePipes.Comms.Internal
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
         private IContainer? _container;
-        private ConnectionChannel? _connectionChannel;
-        private List<string> PublicCommandsFullName = ConnectionChannel.DefaultRoutingKeys;
+        private ITransport? _transport;
+        private List<string> PublicCommandsFullName = ITransport.DefaultRoutingKeys;
 #pragma warning disable IDE1006 // Naming Styles
         private BusConfig _busConfig => serviceConfiguration.BusConfig;
 #pragma warning restore IDE1006 // Naming Styles
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
         public string Name { get; private set; } = name;
-        public bool IsConnectedToBroker => remoteAccess && (_connectionChannel?.IsOpen ?? false);
+        public bool IsConnectedToBroker => remoteAccess && (_transport?.IsOpen ?? false);
         public bool IsConnectedToService => true;
         public StatePipesService(ServiceConfiguration serviceConfiguration) : this(string.Empty, serviceConfiguration) { }
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => onConnected.Invoke(null, EventArgs.Empty);
@@ -43,8 +42,8 @@ namespace StatePipes.Comms.Internal
         {
             try
             {
-                if (_connectionChannel == null || !eventMessage.GetType().IsPublic) return;
-                if (_connectionChannel.IsOpen) _connectionChannel.Send(eventMessage, busConfig, exchangeName);
+                if (_transport == null || !eventMessage.GetType().IsPublic) return;
+                if (_transport.IsOpen) _transport.Send(eventMessage, busConfig, exchangeName);
                 else Log?.LogVerbose($"Failed to send {eventMessage.GetType().FullName}");
             }
             catch (Exception ex) { Log?.LogException(ex); }
@@ -105,8 +104,8 @@ namespace StatePipes.Comms.Internal
                 _heartbeatSender?.Stop();
                 _heartbeatSender = null;
                 Cancel();
-                _connectionChannel?.Dispose();
-                _connectionChannel = null;
+                _transport?.Dispose();
+                _transport = null;
                 _container?.Dispose();
                 _container = null;
             }
@@ -115,12 +114,12 @@ namespace StatePipes.Comms.Internal
                 Log?.LogException(ex);
             }
         }
-        private Task ConsumeCommand(object model, BasicDeliverEventArgs ea)
+        private Task ConsumeCommand(ReceivedTransportMessage received)
         {
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out object? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(received, out object? command, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (command == null || busConfig == null) return Task.CompletedTask;
                 Queue(new ReceivedCommandMessage((object)command, busConfig));
             }
@@ -130,12 +129,12 @@ namespace StatePipes.Comms.Internal
             }
             return Task.CompletedTask;
         }
-        private Task ConsumeResponse(object model, BasicDeliverEventArgs ea)
+        private Task ConsumeResponse(ReceivedTransportMessage received)
         {
             try
             {
                 if (_container == null) return Task.CompletedTask;
-                MessageHelper.Deserialize(ea, out object? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
+                MessageHelper.Deserialize(received, out object? eventMessage, out BusConfig? busConfig, _externalMessageTypeDictionary);
                 if (eventMessage == null || busConfig == null) return Task.CompletedTask;
                 ExecuteMessageHelper.ExecuteMessage(eventMessage, busConfig, true, _container);
             }
@@ -145,13 +144,13 @@ namespace StatePipes.Comms.Internal
             }
             return Task.CompletedTask;
         }
-        private void ConfigureBuses(ConnectionChannel connectionChannel)
+        private void ConfigureBuses(ITransport transport)
         {
             try
             {
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName, ConsumeCommand, PublicCommandsFullName);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ConnectionChannel.DefaultRoutingKeys, true);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName);
+                transport.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName, ConsumeCommand, PublicCommandsFullName);
+                transport.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ITransport.DefaultRoutingKeys, true);
+                transport.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName);
             }
             catch (Exception ex)
             {
@@ -163,7 +162,7 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_connectionChannel == null && remoteAccess) try { _connectionChannel = new ConnectionChannel(_busConfig, null, ConfigureBuses); } catch { };
+                if(_transport == null && remoteAccess) try { _transport = new RabbitMqTransport(_busConfig, null, ConfigureBuses); } catch { };
                 if (_container != null)
                 {
                     var cmd = WaitGetNext(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);

@@ -1,0 +1,185 @@
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using StatePipes.Interfaces;
+using static StatePipes.ProcessLevelServices.LoggerHolder;
+
+namespace StatePipes.Comms.Internal
+{
+    internal class RabbitMqTransport : ITransport
+    {
+        private IConnection? _connection;
+        private IChannel? _channel;
+        private readonly Action<ITransport>? _configureBuses;
+        private readonly CancellationToken _cancelToken;
+        private readonly BusConfig _busConfig;
+        private readonly System.Threading.Lock _lock = new();
+        private bool _disposedValue;
+        private Timer? _timer;
+        private readonly string? _hashedPassword;
+        public RabbitMqTransport(BusConfig busConfig, string? hashedPassword, Action<ITransport>? configureBuses = null, CancellationToken cancelToken = default)
+        {
+            _configureBuses = configureBuses;
+            _cancelToken = cancelToken;
+            _busConfig = busConfig;
+            _hashedPassword = hashedPassword;
+            InstantiateConnectionAndChannel(null);
+        }
+        private void InstantiateConnectionAndChannel(object? state)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    CleanupUnsafe();
+                    _connection = StatePipesConnectionFactory.CreateConnection(_busConfig, _hashedPassword, _cancelToken);
+                    _connection.ConnectionShutdownAsync += ConnectionShutdown;
+                    CreateChannel();
+                }
+                catch
+                {
+                    ConnectionShutdownWorker();
+                }
+            }
+        }
+        private Task ConnectionShutdown(object sender, ShutdownEventArgs @event)
+        {
+            ConnectionShutdownWorker();
+            return Task.CompletedTask;
+        }
+
+        private void ConnectionShutdownWorker()
+        {
+            _timer = new Timer(
+                InstantiateConnectionAndChannel,
+                null,
+                TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds),
+                TimeSpan.FromMilliseconds(Timeout.Infinite));
+        }
+        private void CreateChannel()
+        {
+            if (_connection == null)
+            {
+                Log?.LogError("Creating Channel when Connection is null, should never happen");
+                InstantiateConnectionAndChannel(null);
+                return;
+            }
+            _channel = _connection.CreateChannelAsync(null, _cancelToken).GetAwaiter().GetResult();
+            _channel.ChannelShutdownAsync += ChannelShutdown;
+            _configureBuses?.Invoke(this);
+        }
+        private Task ChannelShutdown(object sender, ShutdownEventArgs ev)
+        {
+            ConnectionShutdownWorker();
+            return Task.CompletedTask;
+        }
+        public bool IsOpen
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return (_connection?.IsOpen ?? false) && (_channel?.IsOpen ?? false);
+                }
+            }
+        }
+        private static string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
+        private static ReceivedTransportMessage ToReceivedTransportMessage(BasicDeliverEventArgs ea) =>
+            new(ea.BasicProperties.Type, ea.BasicProperties.Headers ?? new Dictionary<string, object?>(), ea.Body.ToArray());
+        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, Func<ReceivedTransportMessage, Task>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
+        {
+            //No Need to lock this because InstantiateConnectionAndChannel locks
+            if (_channel == null)
+            {
+                Log?.LogError($"Failed to configure busses because _channel == null");
+                return;
+            }
+            _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, autoDelete: autoDelete, durable: true, passive: false, noWait: false, cancellationToken: _cancelToken).GetAwaiter().GetResult();
+            if (consumeMethod != null)
+            {
+                var queueName = GetQueueName(id, commsType);
+                _channel.QueueDeclareAsync(queueName).GetAwaiter().GetResult();
+
+                routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).GetAwaiter().GetResult());
+                var consumer = new AsyncEventingBasicConsumer(_channel);
+                consumer.ReceivedAsync += (model, ea) => consumeMethod(ToReceivedTransportMessage(ea));
+                _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
+            }
+        }
+        public void Subscribe(Guid id, string routingKey, BusConfig busConfig)
+        {
+            lock (_lock)
+            {
+                _channel?.QueueBindAsync(queue: GetQueueName(id, CommunicationsType.Event), exchange: busConfig.EventExchangeName, routingKey: routingKey);
+            }
+        }
+        public void UnSubscribe(Guid id, string routingKey, BusConfig busConfig)
+        {
+            lock (_lock)
+            {
+                _channel?.QueueUnbindAsync(queue: GetQueueName(id, CommunicationsType.Event), exchange: busConfig.EventExchangeName, routingKey: routingKey);
+            }
+        }
+        public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage => Send<T>(message.GetType().FullName, message, busConfigFrom, exchangeName);
+        public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName)
+        {
+            if(message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            MessageHelper.Serialize(message, busConfigFrom, out byte[] body, out IDictionary<string, object?> headers);
+            var properties = new BasicProperties
+            {
+                Type = sendCommandTypeFullName,
+                Headers = headers
+            };
+            lock (_lock)
+            {
+                if (_channel == null) return;
+                try
+                {
+                    var result = _channel.BasicPublishAsync(exchange: exchangeName, routingKey: sendCommandTypeFullName, basicProperties: properties,
+                                         body: body, mandatory: false, cancellationToken: _cancelToken);
+                    if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message{message.GetType().FullName} to exchange {exchangeName}");
+                }
+                catch (Exception e) { Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {sendCommandTypeFullName} Exception: {e.Message}"); }
+            }
+        }
+        /// <summary>
+        /// Thread-safe cleanup entry point. Acquires _lock before clearing resources.
+        /// Use this when calling from a context that does NOT already hold _lock.
+        /// </summary>
+        protected void Cleanup()
+        {
+            lock (_lock)
+            {
+                CleanupUnsafe();
+            }
+        }
+        /// <summary>
+        /// Clears connection, channel, and timer resources.
+        /// CALLER MUST HOLD _lock. Use Cleanup() if calling from an unlocked context.
+        /// </summary>
+        private void CleanupUnsafe()
+        {
+            _timer?.Dispose();
+            _timer = null;
+            if (_channel != null) try { _channel.ChannelShutdownAsync -= ChannelShutdown; } catch { };
+            _channel?.Dispose();
+            _channel = null;
+            if (_connection != null) try { _connection.ConnectionShutdownAsync -= ConnectionShutdown; } catch { };
+            _connection?.Dispose();
+            _connection = null;
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing) Cleanup();
+                _disposedValue = true;
+            }
+        }
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+    }
+}
