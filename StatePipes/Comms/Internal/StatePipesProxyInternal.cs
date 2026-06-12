@@ -82,7 +82,7 @@ namespace StatePipes.Comms.Internal
         {
             if (_transport != null) return;
             _heartbeatProcessor.ResetHeartbeat();
-            _transport = new RabbitMqTransport(_busConfig, _hashedPassword, ConfigureBuses);
+            _transport = TransportFactory.Create(_busConfig, _hashedPassword, ConfigureBuses);
         }
         public void Stop()
         {

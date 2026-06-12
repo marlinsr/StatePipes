@@ -162,7 +162,7 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_transport == null && remoteAccess) try { _transport = new RabbitMqTransport(_busConfig, null, ConfigureBuses); } catch { };
+                if(_transport == null && remoteAccess) try { _transport = TransportFactory.Create(_busConfig, null, ConfigureBuses); } catch { };
                 if (_container != null)
                 {
                     var cmd = WaitGetNext(TransportConstants.HeartbeatIntervalMilliseconds);
