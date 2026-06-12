@@ -94,7 +94,7 @@ namespace StatePipes.Comms.Internal
             PublicCommandsFullName = statePipesServiceContainerSetup.PublicCommandsFullName;
             StartLongRunningAndWait();
             _heartbeatSender = new DelayedMessageSender<HeartbeatCommand>(this);
-            _heartbeatSender.StartPeriodic(TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds), new HeartbeatCommand());
+            _heartbeatSender.StartPeriodic(TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds), new HeartbeatCommand());
             SendCommand(new GetCurrentStatusCommand());
         }
         public void Stop()
@@ -165,11 +165,11 @@ namespace StatePipes.Comms.Internal
                 if(_transport == null && remoteAccess) try { _transport = new RabbitMqTransport(_busConfig, null, ConfigureBuses); } catch { };
                 if (_container != null)
                 {
-                    var cmd = WaitGetNext(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
+                    var cmd = WaitGetNext(TransportConstants.HeartbeatIntervalMilliseconds);
                     PerformCancellation();
                     if (cmd != null) ExecuteMessageHelper.ExecuteMessage(cmd.Command, cmd.ReplyTo, false, _container);
                 }
-                else Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
+                else Thread.Sleep(TransportConstants.HeartbeatIntervalMilliseconds);
             }
         }
         public override void Dispose()

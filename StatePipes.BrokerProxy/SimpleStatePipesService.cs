@@ -144,7 +144,7 @@ namespace StatePipes.BrokerProxy
                 {
                     try { _connectionChannel = new SimpleConnectionChannel(_busConfig, null, ConfigureBuses); } catch { }
                 }
-                Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
+                Thread.Sleep(TransportConstants.HeartbeatIntervalMilliseconds);
             }
         }
         public override void Dispose()

@@ -86,8 +86,8 @@ namespace StatePipes.Comms.Internal
                     {
                         _lastHearbeatTimestamp = DateTime.UtcNow;
                         _lastHearbeatCount = ev.Counter;
-                        IsConnectedToService = (DateTime.UtcNow - _lastHearbeatTimestamp).TotalMilliseconds < StatePipesConnectionFactory.HeartbeatIntervalMilliseconds * 3;
-                        _timer = new Timer(HeartBeatTimeout, null, TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds * 3), TimeSpan.FromMilliseconds(Timeout.Infinite));
+                        IsConnectedToService = (DateTime.UtcNow - _lastHearbeatTimestamp).TotalMilliseconds < TransportConstants.HeartbeatIntervalMilliseconds * 3;
+                        _timer = new Timer(HeartBeatTimeout, null, TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds * 3), TimeSpan.FromMilliseconds(Timeout.Infinite));
                     }
                     else
                     {

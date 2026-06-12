@@ -52,7 +52,7 @@ namespace StatePipes.Comms.Internal
             _timer = new Timer(
                 InstantiateConnectionAndChannel,
                 null,
-                TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds),
+                TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds),
                 TimeSpan.FromMilliseconds(Timeout.Infinite));
         }
         private void CreateChannel()

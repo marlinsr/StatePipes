@@ -7,8 +7,7 @@ using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms.Internal
 {
     internal static class StatePipesConnectionFactory
-    {        
-        public const int HeartbeatIntervalMilliseconds = 1000;
+    {
         public static IConnection CreateConnection(BusConfig busConfig, string? hashedPassword, CancellationToken cancelToken = default)
         {
             try
@@ -22,7 +21,7 @@ namespace StatePipes.Comms.Internal
                 {
                     Uri = uri,
                     Port = 5671,
-                    RequestedHeartbeat = TimeSpan.FromMilliseconds(HeartbeatIntervalMilliseconds),
+                    RequestedHeartbeat = TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds),
                     AuthMechanisms = new IAuthMechanismFactory[] { new ExternalMechanismFactory() },
                     Ssl = new SslOption
                     {
@@ -32,7 +31,7 @@ namespace StatePipes.Comms.Internal
                         Version = SslProtocols.Tls13
                     },
                     AutomaticRecoveryEnabled = false,
-                    NetworkRecoveryInterval = TimeSpan.FromMilliseconds(2 * HeartbeatIntervalMilliseconds),
+                    NetworkRecoveryInterval = TimeSpan.FromMilliseconds(2 * TransportConstants.HeartbeatIntervalMilliseconds),
                     TopologyRecoveryEnabled = false                 
                 };
                 return factory.CreateConnectionAsync(cancelToken).Result;
