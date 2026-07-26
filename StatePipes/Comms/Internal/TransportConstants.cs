@@ -8,5 +8,11 @@ namespace StatePipes.Comms.Internal
     internal static class TransportConstants
     {
         public const int HeartbeatIntervalMilliseconds = 1000;
+        /// <summary>
+        /// A <see cref="BusConfig.BrokerUri"/> beginning with this scheme (case-insensitive)
+        /// selects <see cref="TransportKind.Kafka"/>; anything else selects
+        /// <see cref="TransportKind.RabbitMq"/>.
+        /// </summary>
+        public const string KafkaBrokerUriPrefix = "ssl://";
     }
 }

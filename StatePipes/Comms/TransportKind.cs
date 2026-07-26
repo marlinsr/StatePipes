@@ -1,9 +1,9 @@
 namespace StatePipes.Comms
 {
     /// <summary>
-    /// Selects which message-broker transport a <see cref="BusConfig"/> uses.
-    /// Defaults to <see cref="RabbitMq"/> (value 0) so configs and serialized messages
-    /// that predate this field deserialize to RabbitMQ.
+    /// Identifies which message-broker transport a <see cref="BusConfig"/> uses. Never
+    /// configured directly: <see cref="BusConfig.TransportKind"/> derives it from the
+    /// broker URI scheme, so <see cref="RabbitMq"/> is what every non-Kafka URI yields.
     /// </summary>
     public enum TransportKind
     {
