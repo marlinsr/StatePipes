@@ -3,9 +3,15 @@
 $Net = "@#$NetworkName@#$"
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
+$KafkaContainerName = "kafka-broker"
+$KeycloakContainerName = "keycloak"
 $StatePipesContainerName = "statepipes.explorer"
 docker stop $StatePipesContainerName
 docker container rm $StatePipesContainerName
+docker stop $KeycloakContainerName
+docker container rm $KeycloakContainerName
+docker stop $KafkaContainerName
+docker container rm $KafkaContainerName
 docker stop $RabbitContainerName
 docker container rm $RabbitContainerName
 docker stop $SmallstepContainerName

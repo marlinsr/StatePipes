@@ -79,18 +79,24 @@ namespace StatePipes.ServiceCreatorTool
             var statePipesHostName = "statepipes.explorer";
             var stepCaHostName = "step-ca";
             var brokerHostName = "amqp09-broker";
+            var kafkaHostName = "kafka-broker";
+            var keycloakHostName = "keycloak";
             bool showReminder = false;
             try
             {
                 Dns.GetHostAddresses(statePipesHostName);
                 Dns.GetHostAddresses(stepCaHostName);
                 Dns.GetHostAddresses(brokerHostName);
+                Dns.GetHostAddresses(kafkaHostName);
+                Dns.GetHostAddresses(keycloakHostName);
             }
             catch { showReminder = true; }
             var hostsText = "Please add to your etc\\hosts file the following entires before proceeding:\n" +
                 $"\t127.0.0.1 {statePipesHostName}\n" +
                 $"\t127.0.0.1 {stepCaHostName}\n" +
-                $"\t127.0.0.1 {brokerHostName}\n";
+                $"\t127.0.0.1 {brokerHostName}\n" +
+                $"\t127.0.0.1 {kafkaHostName}\n" +
+                $"\t127.0.0.1 {keycloakHostName}\n";
             if (showReminder) MessageBox.Show(hostsText);
             return showReminder;
         }

@@ -11,7 +11,7 @@ namespace StatePipes.Comms.Internal
             => busConfig.TransportKind switch
             {
                 TransportKind.RabbitMq => new RabbitMqTransport(busConfig, hashedPassword, configureBuses, cancelToken),
-                TransportKind.Kafka => throw new NotSupportedException("Kafka transport is not yet implemented (Phase 3)."),
+                TransportKind.Kafka => new KafkaTransport(busConfig, hashedPassword, configureBuses, cancelToken),
                 _ => throw new ArgumentOutOfRangeException(nameof(busConfig), busConfig.TransportKind, "Unknown transport kind.")
             };
     }

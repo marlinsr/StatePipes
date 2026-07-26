@@ -7,17 +7,26 @@ $programData = $env:ProgramData
 $Net = "@#$NetworkName@#$"
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
+$KafkaContainerName = "kafka-broker"
+$KeycloakContainerName = "keycloak"
+
 $RabbitProgramDataDir = $programData + "\RabbitMQ\"
 $SmallstepProgramDataDir = $programData + "\SmallStep\"
+$KafkaProgramDataDir = $programData + "\Kafka\"
 
+docker stop $KafkaContainerName
+docker container rm $KafkaContainerName
 docker stop $RabbitContainerName
 docker container rm $RabbitContainerName
+docker stop $KeycloakContainerName
+docker container rm $KeycloakContainerName
 docker stop $SmallstepContainerName
 docker container rm $SmallstepContainerName
 Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=amqp09-broker'} | Remove-Item
 Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=statepipes.explorer'} | Remove-Item
 Get-ChildItem -Path Cert:\LocalMachine\CA | Where-Object {$_.Subject -eq 'CN=step-ca Intermediate CA, O=step-ca'} | Remove-Item
 Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object {$_.Subject -eq 'CN=step-ca Root CA, O=step-ca'} | Remove-Item
+Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=kafka-broker'} | Remove-Item
 
 $networkExists = (docker network ls | Select-String -Pattern $Net -Quiet)
 
@@ -64,6 +73,12 @@ Invoke-Expression $dockerRun
 $dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqpuser amqpuser.amqp09-broker.client.crt amqpuser.amqp09-broker.client.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
 Invoke-Expression $dockerRun
 
+$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf kafka-broker kafka-broker.server.crt kafka-broker.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
+Invoke-Expression $dockerRun
+
+$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf kafkauser kafkauser.kafka-broker.client.crt kafkauser.kafka-broker.client.key --san kafka-broker --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
+Invoke-Expression $dockerRun
+
 $dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/certs/root_ca.crt "+$SmallstepProgramDataPrefix+""
 Invoke-Expression $dockerRun
 
@@ -94,6 +109,18 @@ Invoke-Expression $dockerRun
 $dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/amqpuser.amqp09-broker.client.key "+$SmallstepProgramDataPrefix+""
 Invoke-Expression $dockerRun
 
+$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafka-broker.server.crt "+$SmallstepProgramDataPrefix+""
+Invoke-Expression $dockerRun
+
+$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafka-broker.server.key "+$SmallstepProgramDataPrefix+""
+Invoke-Expression $dockerRun
+
+$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafkauser.kafka-broker.client.crt "+$SmallstepProgramDataPrefix+""
+Invoke-Expression $dockerRun
+
+$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafkauser.kafka-broker.client.key "+$SmallstepProgramDataPrefix+""
+Invoke-Expression $dockerRun
+
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.pem -outform PEM"
 Invoke-Expression $localRun
 
@@ -103,10 +130,22 @@ Invoke-Expression $localRun
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqp09-broker.server.crt -out "+$SmallstepProgramDataPrefix+"amqp09-broker.server.pem -outform PEM"
 Invoke-Expression $localRun
 
+$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -out "+$SmallstepProgramDataPrefix+"kafka-broker.server.pem -outform PEM"
+Invoke-Expression $localRun
+
+$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"kafka-broker.server.p12 -inkey "+$SmallstepProgramDataPrefix+"kafka-broker.server.key -in "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -passout pass:"+$CommonPassword
+Invoke-Expression $localRun
+
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.pem -outform PEM"
 Invoke-Expression $localRun
 
 $localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.key -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -passout pass:"+$CommonPassword
+Invoke-Expression $localRun
+
+$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.crt -out "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.pem -outform PEM"
+Invoke-Expression $localRun
+
+$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.key -in "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.crt -passout pass:"+$CommonPassword
 Invoke-Expression $localRun
 
 $localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"intermediate_ca.crt -out "+$SmallstepProgramDataPrefix+"intermediate_ca.pem -outform PEM"
@@ -181,7 +220,78 @@ Add-Content $PluginsFile ""
 #rabbitmq is debian
 $dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs -v "+$SmallstepProgramDataPrefix+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$SmallstepProgramDataPrefix+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network "+$Net+" rabbitmq:4-management"
 Invoke-Expression $dockerRun
-Start-Sleep -Seconds 30 #Time for rabbit mq container to initialize before using
+
+#**********************************************************************************************************************
+# Kafka broker (KRaft, mTLS via step-ca) -- parallels the RabbitMQ broker above.
+# NOTE: This block follows the apache/kafka KRaft + SSL conventions but has NOT been validated end-to-end;
+#       verify against your broker the first time you run it. The developer must add "127.0.0.1 kafka-broker"
+#       to the hosts file (the ServiceCreatorTool reminds you), matching the amqp09-broker requirement.
+#**********************************************************************************************************************
+$KafkaProgramDataPrefix = $KafkaProgramDataDir + $KafkaContainerName + "\"
+
+Remove-Item -Path $KafkaProgramDataPrefix -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $KafkaProgramDataPrefix
+$KafkaCertsDirectory = $KafkaProgramDataPrefix+"Certs"
+New-Item -ItemType Directory -Path $KafkaCertsDirectory
+# Credential files referenced by the apache/kafka image (KAFKA_SSL_*_CREDENTIALS point at files in /etc/kafka/secrets).
+$cp = "Copy-Item -Path "+$SmallstepProgramDataPrefix+"* -Destination "+$KafkaCertsDirectory
+Invoke-Expression $cp
+
+$KafkaLogDirectory = $KafkaProgramDataPrefix+"Log"
+New-Item -ItemType Directory -Path $KafkaLogDirectory
+
+$KafkaConfigDirectory = $KafkaProgramDataPrefix+"Config"
+New-Item -ItemType Directory -Path $KafkaConfigDirectory
+
+$KafkaServerPropertiesFile = $KafkaConfigDirectory+"\server.properties2"
+Add-Content $KafkaServerPropertiesFile "process.roles=broker,controller"
+Add-Content $KafkaServerPropertiesFile "node.id=1"
+Add-Content $KafkaServerPropertiesFile "controller.quorum.voters=1@localhost:19093"
+Add-Content $KafkaServerPropertiesFile "controller.quorum.bootstrap.servers=localhost:19093"
+Add-Content $KafkaServerPropertiesFile "listeners=PLAINTEXT://:9092,SSL://:9093,CONTROLLER://:19093"
+Add-Content $KafkaServerPropertiesFile "inter.broker.listener.name=PLAINTEXT"
+Add-Content $KafkaServerPropertiesFile "advertised.listeners=PLAINTEXT://localhost:9092"
+Add-Content $KafkaServerPropertiesFile "controller.listener.names=CONTROLLER"
+Add-Content $KafkaServerPropertiesFile "listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL"
+Add-Content $KafkaServerPropertiesFile "num.network.threads=3"
+Add-Content $KafkaServerPropertiesFile "num.io.threads=8"
+Add-Content $KafkaServerPropertiesFile "socket.send.buffer.bytes=102400"
+Add-Content $KafkaServerPropertiesFile "socket.receive.buffer.bytes=102400"
+Add-Content $KafkaServerPropertiesFile "socket.request.max.bytes=104857600"
+Add-Content $KafkaServerPropertiesFile "log.dirs=/tmp/kraft-combined-logs"
+Add-Content $KafkaServerPropertiesFile "num.partitions=1"
+Add-Content $KafkaServerPropertiesFile "num.recovery.threads.per.data.dir=2"
+Add-Content $KafkaServerPropertiesFile "offsets.topic.replication.factor=1"
+Add-Content $KafkaServerPropertiesFile "share.coordinator.state.topic.replication.factor=1"
+Add-Content $KafkaServerPropertiesFile "share.coordinator.state.topic.min.isr=1"
+Add-Content $KafkaServerPropertiesFile "transaction.state.log.replication.factor=1"
+Add-Content $KafkaServerPropertiesFile "transaction.state.log.min.isr=1"
+Add-Content $KafkaServerPropertiesFile "log.retention.hours=168"
+Add-Content $KafkaServerPropertiesFile "log.segment.bytes=1073741824"
+Add-Content $KafkaServerPropertiesFile "log.retention.check.interval.ms=300000"
+Add-Content $KafkaServerPropertiesFile "ssl.keystore.location=/etc/kafka/secrets/kafkauser.kafka-broker.client.p12"
+$keyStorePassword = "ssl.keystore.password=" + $CommonPassword
+Add-Content $KafkaServerPropertiesFile $keyStorePassword
+Add-Content $KafkaServerPropertiesFile "ssl.truststore.location=/etc/kafka/secrets/kafka-broker.server.p12"
+$trustStorePassword = "ssl.truststore.password=" + $CommonPassword
+Add-Content $KafkaServerPropertiesFile $trustStorePassword
+
+$localRun = 'docker run --% -d -p 9093:9093 --user root --entrypoint /bin/sh --name ' + $KafkaContainerName + ' --hostname ' + $KafkaContainerName + ' --network ' + $Net + ' -v ' + $KafkaConfigDirectory + ':/etc/kafka/Config -v ' + $KafkaCertsDirectory + ':/etc/kafka/secrets apache/kafka:latest -c "/opt/java/openjdk/bin/keytool -importcert -alias system-custom-ca -file /etc/kafka/secrets/root_ca.crt -cacerts -storepass changeit -noprompt ; /opt/java/openjdk/bin/keytool -importcert -alias system-custom-intermediate-ca -file /etc/kafka/secrets/intermediate_ca.crt -cacerts -storepass changeit -noprompt ; [ ! -f /var/lib/kafka/data/meta.properties ] && /opt/kafka/bin/kafka-storage.sh format -t MjU3NjA2MTEtNDY3OS00MD -c /etc/kafka/Config/server.properties2 ; exec /opt/kafka/bin/kafka-server-start.sh /etc/kafka/Config/server.properties2"'
+Invoke-Expression $localRun
+
+Start-Sleep -Seconds 30 #Time for rabbit and kafka container to initialize before using
+
+#**********************************************************************************************************************
+# Keycloak (identity provider for Kafka authorization). Stood up here so it is available on the network;
+# the broker<->Keycloak auth wiring (realm, clients, ACL sync) is Phase 4 -- this only provisions the container.
+# Developer must add "127.0.0.1 keycloak" to the hosts file (the ServiceCreatorTool reminds you).
+#**********************************************************************************************************************
+
+docker pull quay.io/keycloak/keycloak:26.0
+$dockerRun = "docker run -d --restart always -p 8080:8080 --name "+$KeycloakContainerName+" --hostname "+$KeycloakContainerName+" --network "+$Net+" " +
+    "-e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="+$CommonPassword+" " +
+    "quay.io/keycloak/keycloak:26.0 start-dev"
+Invoke-Expression $dockerRun
 
 #----------------------------------statepipes.explorer------------------------------------------------------------------
 $StatePipesContainerName = "statepipes.explorer"
@@ -212,3 +322,6 @@ $localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"amqp09-
 Invoke-Expression $localRun
 $localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -CertStoreLocation Cert:\LocalMachine\TrustedPublisher"
 Invoke-Expression $localRun
+$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -CertStoreLocation Cert:\LocalMachine\TrustedPublisher"
+Invoke-Expression $localRun
+
