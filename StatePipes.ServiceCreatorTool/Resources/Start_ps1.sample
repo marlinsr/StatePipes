@@ -8,6 +8,8 @@ function StartServiceNoChromeTab([string]$ServiceName,[string] $postfix, [bool] 
     New-Item -ItemType Directory -Path $destDir
     $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
     Invoke-Expression $cp
+    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\kafkauser.kafka-broker.client.p12 -Destination "+$destDir
+    Invoke-Expression $cp
     $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
     Invoke-Expression $cp
 

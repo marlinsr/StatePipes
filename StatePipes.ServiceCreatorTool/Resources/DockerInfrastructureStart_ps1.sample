@@ -1,193 +1,236 @@
-﻿ cls
+﻿try { Clear-Host } catch { } # Clear-Host throws when there is no console (e.g. run from a task/CI host)
 #Make sure you run this script as Administrator
 #Make sure you have openssl installed, if not open a command prompt as Administrator and execute the command 'winget install openssl'
 #Then put 'C:\Program Files\OpenSSL-Win64\bin' in your path
+
+
 $CommonPassword = "StatePipes123$"
 $programData = $env:ProgramData
 $Net = "@#$NetworkName@#$"
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
 $KafkaContainerName = "kafka-broker"
-$KeycloakContainerName = "keycloak"
+$StatePipesContainerName = "statepipes.explorer"
 
-$RabbitProgramDataDir = $programData + "\RabbitMQ\"
-$SmallstepProgramDataDir = $programData + "\SmallStep\"
-$KafkaProgramDataDir = $programData + "\Kafka\"
+$KafkaImage = "apache/kafka:latest"
+$StepImage = "smallstep/step-ca:latest"
+$RabbitImage = "rabbitmq:4-management"
+$ExplorerImage = "bigfish88/statepipesexplorer:latest"
 
-docker stop $KafkaContainerName
-docker container rm $KafkaContainerName
-docker stop $RabbitContainerName
-docker container rm $RabbitContainerName
-docker stop $KeycloakContainerName
-docker container rm $KeycloakContainerName
-docker stop $SmallstepContainerName
-docker container rm $SmallstepContainerName
-Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=amqp09-broker'} | Remove-Item
-Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=statepipes.explorer'} | Remove-Item
-Get-ChildItem -Path Cert:\LocalMachine\CA | Where-Object {$_.Subject -eq 'CN=step-ca Intermediate CA, O=step-ca'} | Remove-Item
-Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object {$_.Subject -eq 'CN=step-ca Root CA, O=step-ca'} | Remove-Item
-Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object {$_.Subject -eq 'CN=kafka-broker'} | Remove-Item
+$SmallstepProgramDataPrefix = $programData + "\SmallStep\" + $SmallstepContainerName + "\"
+$RabbitProgramDataPrefix = $programData + "\RabbitMQ\" + $RabbitContainerName + "\"
+$KafkaProgramDataPrefix = $programData + "\Kafka\" + $KafkaContainerName + "\"
+$KafkaCertsDirectory = $KafkaProgramDataPrefix + "Certs"
+$StatePipesCertDir = $programData + "\StatePipes\StatePipes.Explorer\Certs\"
 
-$networkExists = (docker network ls | Select-String -Pattern $Net -Quiet)
-
-if ($networkExists) {
-    Write-Host "Docker network '$Net' exists."
-} else {
-    $dockerRun = "docker network create " + $Net
-    Invoke-Expression $dockerRun
+#======================================================================================================================
+# 0. Refuse to run unelevated.
+#
+# Anything a previous elevated run wrote under C:\ProgramData is owned by BUILTIN\Administrators, so a normal
+# shell can neither delete nor overwrite it. Without this check the script carries on and buries you in dozens of
+# "Access to the path ... is denied" errors while the containers quietly start against stale certificates.
+#======================================================================================================================
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "This script must be run as Administrator. Re-open PowerShell with 'Run as administrator'." -ForegroundColor Red
+    return
 }
 
-$SmallstepProgramDataPrefix = $SmallstepProgramDataDir + $SmallstepContainerName + "\"
+#======================================================================================================================
+# 1. Tear everything down
+#======================================================================================================================
+foreach ($container in @($StatePipesContainerName, $KeycloakContainerName, $KafkaContainerName, $RabbitContainerName, $SmallstepContainerName)) {
+    docker stop $container 2>$null
+    docker container rm $container 2>$null
+}
 
-Remove-Item -Path $SmallstepProgramDataPrefix -Recurse -Force
+try {
+    Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=amqp09-broker' } | Remove-Item -ErrorAction Stop
+    Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=statepipes.explorer' } | Remove-Item -ErrorAction Stop
+    Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=kafka-broker' } | Remove-Item -ErrorAction Stop
+    Get-ChildItem -Path Cert:\LocalMachine\CA | Where-Object { $_.Subject -eq 'CN=step-ca Intermediate CA, O=step-ca' } | Remove-Item -ErrorAction Stop
+    Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object { $_.Subject -eq 'CN=step-ca Root CA, O=step-ca' } | Remove-Item -ErrorAction Stop
+} catch {
+    Write-Host "Could not remove the previous certificates (run as Administrator to clean them up)." -ForegroundColor Yellow
+}
 
-New-Item -ItemType Directory -Path $SmallstepProgramDataPrefix
+foreach ($dir in @($SmallstepProgramDataPrefix, $RabbitProgramDataPrefix, $KafkaProgramDataPrefix, $StatePipesCertDir)) {
+    Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+}
+New-Item -ItemType Directory -Path $SmallstepProgramDataPrefix -Force | Out-Null
+New-Item -ItemType Directory -Path $KafkaCertsDirectory -Force | Out-Null
+New-Item -ItemType Directory -Path $StatePipesCertDir -Force | Out-Null
 
-$CommonPasswordFilePath = $SmallstepProgramDataPrefix+"CommonPassword.txt"
+#======================================================================================================================
+# 2. Network
+#======================================================================================================================
+if (docker network ls --format "{{.Name}}" | Select-String -Pattern "^$Net$" -Quiet) {
+    Write-Host "Docker network '$Net' exists."
+} else {
+    docker network create $Net
+}
+
+
+#======================================================================================================================
+# 3. step-ca -- the single certificate authority for every service below
+#======================================================================================================================
+docker pull $StepImage
+
+$stepArgs = @(
+    "run", "-d", "--restart", "always",
+    "--name", $SmallstepContainerName,
+    "--hostname", $SmallstepContainerName,
+    "--network", $Net,
+    "-p", "9000:9000", "-p", "443:443",
+    "-e", "DOCKER_STEPCA_INIT_NAME=$SmallstepContainerName",
+    "-e", "DOCKER_STEPCA_INIT_DNS_NAMES=$SmallstepContainerName",
+    "-e", "DOCKER_STEPCA_INIT_PASSWORD=$CommonPassword",
+    $StepImage
+)
+& docker @stepArgs
+
+Write-Host "Waiting for $SmallstepContainerName to initialise its CA..."
+$ready = $false
+foreach ($attempt in 1..60) {
+    docker exec $SmallstepContainerName test -f /home/step/secrets/intermediate_ca_key *> $null
+    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 2
+}
+if (-not $ready) {
+    Write-Host "step-ca did not initialise. Inspect the logs with: docker logs $SmallstepContainerName" -ForegroundColor Red
+    return
+}
+
+# Start.ps1 and the *.Service.DockerStart.ps1 scripts copy this file next to the client .p12 they hand to a
+# service, so it has to keep living in the step-ca folder under the name CommonPassword.txt.
+$CommonPasswordFilePath = $SmallstepProgramDataPrefix + "CommonPassword.txt"
 Add-Content $CommonPasswordFilePath $CommonPassword
+docker cp $CommonPasswordFilePath ($SmallstepContainerName + ":/home/step/CommonPassword.txt")
 
-docker pull smallstep/step-ca
-$dockerRun = "docker run -d --restart always --name "+$SmallstepContainerName+" --hostname "+$SmallstepContainerName+" -p 9000:9000 -p 443:443 -e DOCKER_STEPCA_INIT_NAME='"+$SmallstepContainerName+"' -e DOCKER_STEPCA_INIT_DNS_NAMES='"+$SmallstepContainerName+"' -e DOCKER_STEPCA_INIT_PASSWORD='"+$CommonPassword+"' --network "+$Net+" smallstep/step-ca"
-Invoke-Expression $dockerRun
-Start-Sleep -Seconds 30
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate fingerprint /home/step/certs/root_ca.crt"
-$fingerprint = Invoke-Expression $dockerRun
+#======================================================================================================================
+# 4. Issue every leaf certificate from that one CA
+#
+# Leaf private keys are written unencrypted (--no-password --insecure) and the .p12 bundles are encrypted with
+# $CommonPassword. That keeps one consistent rule across all four services and lets `step certificate p12` do the
+# bundling, which is why this script no longer needs OpenSSL on the host.
+#
+# The SANs are what let hostname verification stay switched on: each service is reached by its container name
+# from inside AAA-net and by the same name from the host via the hosts file entries listed at the top.
+#======================================================================================================================
+$signWithIntermediate = @(
+    "--ca", "/home/step/certs/intermediate_ca.crt",
+    "--ca-key", "/home/step/secrets/intermediate_ca_key",
+    "--ca-password-file", "/home/step/CommonPassword.txt",
+    "--no-password", "--insecure",
+    "--not-after", "8760h"
+)
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step ca provisioner update admin --x509-max-dur=8760h"
-Invoke-Expression $dockerRun
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    statepipes.explorer /home/step/statepipes.explorer.server.crt /home/step/statepipes.explorer.server.key `
+    --san statepipes.explorer --san localhost --san 127.0.0.1 @signWithIntermediate
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" kill -HUP 1"
-Invoke-Expression $dockerRun
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    $RabbitContainerName /home/step/amqp09-broker.server.crt /home/step/amqp09-broker.server.key `
+    --san $RabbitContainerName --san localhost --san 127.0.0.1 @signWithIntermediate
 
-Start-Sleep -Seconds 30
+# CN=amqpuser matters: RabbitMQ is configured with ssl_cert_login_from = common_name, so the CN becomes the username.
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    amqpuser /home/step/amqpuser.amqp09-broker.client.crt /home/step/amqpuser.amqp09-broker.client.key `
+    --san amqpuser @signWithIntermediate
 
-$dockerRun = "docker cp "+$CommonPasswordFilePath+" "+$SmallstepContainerName+":/home/step/CommonPassword.txt"
-Invoke-Expression $dockerRun
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    $KafkaContainerName /home/step/kafka-broker.server.crt /home/step/kafka-broker.server.key `
+    --san $KafkaContainerName --san localhost --san 127.0.0.1 @signWithIntermediate
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf statepipes.explorer statepipes.explorer.server.crt statepipes.explorer.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
-Invoke-Expression $dockerRun
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    kafkauser /home/step/kafkauser.kafka-broker.client.crt /home/step/kafkauser.kafka-broker.client.key `
+    --san kafkauser @signWithIntermediate
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqp09-broker amqp09-broker.server.crt amqp09-broker.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
-Invoke-Expression $dockerRun
+# .p12 bundles: private key + leaf + full CA chain, encrypted with $CommonPassword.
+$p12Bundles = @(
+    @("statepipes.explorer.server", "statepipes.explorer.server"),
+    @("amqpuser.amqp09-broker.client", "amqpuser.amqp09-broker.client"),
+    @("kafka-broker.keystore", "kafka-broker.server"),
+    @("kafkauser.kafka-broker.client", "kafkauser.kafka-broker.client")
+)
+foreach ($bundle in $p12Bundles) {
+    & docker exec $SmallstepContainerName step certificate p12 `
+        "/home/step/$($bundle[0]).p12" "/home/step/$($bundle[1]).crt" "/home/step/$($bundle[1]).key" `
+        --ca /home/step/certs/intermediate_ca.crt --ca /home/step/certs/root_ca.crt `
+        --password-file /home/step/CommonPassword.txt --force
+}
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf amqpuser amqpuser.amqp09-broker.client.crt amqpuser.amqp09-broker.client.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
-Invoke-Expression $dockerRun
+#======================================================================================================================
+# 5. Copy the certificate material out to C:\ProgramData\SmallStep\step-ca\
+#======================================================================================================================
+$toCopy = @(
+    "/home/step/certs/root_ca.crt",
+    "/home/step/certs/intermediate_ca.crt",
+    "/home/step/secrets/root_ca_key",
+    "/home/step/secrets/intermediate_ca_key",
+    "/home/step/statepipes.explorer.server.crt",
+    "/home/step/statepipes.explorer.server.p12",
+    "/home/step/amqp09-broker.server.crt",
+    # RabbitMQ is the one service that reads a bare private key off disk (ssl_options.keyfile), so this one stays.
+    "/home/step/amqp09-broker.server.key",
+    "/home/step/amqpuser.amqp09-broker.client.crt",
+    "/home/step/amqpuser.amqp09-broker.client.p12",
+    "/home/step/kafka-broker.server.crt",
+    "/home/step/kafka-broker.keystore.p12",
+    "/home/step/kafkauser.kafka-broker.client.crt",
+    "/home/step/kafkauser.kafka-broker.client.p12"
+)
+foreach ($file in $toCopy) {
+    docker cp ($SmallstepContainerName + ":" + $file) $SmallstepProgramDataPrefix
+}
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf kafka-broker kafka-broker.server.crt kafka-broker.server.key --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
-Invoke-Expression $dockerRun
+# step already writes PEM, so the old `openssl x509 -outform PEM` calls were no-ops -- these are plain copies.
+# Only three .pem files still have a consumer:
+#   root_ca.pem / intermediate_ca.pem -> mounted into the explorer and the *.Service containers
+#   amqp09-broker.server.pem          -> RabbitMQ ssl_options.certfile / management.ssl.certfile
+# Everything else now travels inside a .p12, so no other .pem or leaf .key is generated.
+foreach ($pem in @("root_ca", "intermediate_ca", "amqp09-broker.server")) {
+    Copy-Item -Path ($SmallstepProgramDataPrefix + $pem + ".crt") -Destination ($SmallstepProgramDataPrefix + $pem + ".pem") -Force
+}
 
-$dockerRun = "docker exec "+$SmallstepContainerName+" step certificate create --profile leaf kafkauser kafkauser.kafka-broker.client.crt kafkauser.kafka-broker.client.key --san kafka-broker --no-password --insecure --ca /home/step/certs/intermediate_ca.crt --ca-key /home/step/secrets/intermediate_ca_key --ca-password-file /home/step/CommonPassword.txt --not-after 8760h"
-Invoke-Expression $dockerRun
+# The shared CA bundle (root + intermediate), read by RabbitMQ as ssl_options.cacertfile.
+Get-Content ($SmallstepProgramDataPrefix + "root_ca.crt"), ($SmallstepProgramDataPrefix + "intermediate_ca.crt") |
+    Set-Content ($SmallstepProgramDataPrefix + "amqp09-broker.cacert.pem") -Encoding ascii
 
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/certs/root_ca.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
+Start-Sleep -Seconds 30 
 
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/certs/intermediate_ca.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/secrets/root_ca_key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/secrets/intermediate_ca_key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/amqpuser.amqp09-broker.client.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/statepipes.explorer.server.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/statepipes.explorer.server.key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/amqp09-broker.server.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/amqp09-broker.server.key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/amqpuser.amqp09-broker.client.key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafka-broker.server.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafka-broker.server.key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafkauser.kafka-broker.client.crt "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$dockerRun = "docker cp "+$SmallstepContainerName+":/home/step/kafkauser.kafka-broker.client.key "+$SmallstepProgramDataPrefix+""
-Invoke-Expression $dockerRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.p12 -inkey "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.key -in "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -passout pass:"+$CommonPassword
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqp09-broker.server.crt -out "+$SmallstepProgramDataPrefix+"amqp09-broker.server.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -out "+$SmallstepProgramDataPrefix+"kafka-broker.server.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"kafka-broker.server.p12 -inkey "+$SmallstepProgramDataPrefix+"kafka-broker.server.key -in "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -passout pass:"+$CommonPassword
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.key -in "+$SmallstepProgramDataPrefix+"amqpuser.amqp09-broker.client.crt -passout pass:"+$CommonPassword
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.crt -out "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl pkcs12 -export -out "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.p12 -inkey "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.key -in "+$SmallstepProgramDataPrefix+"kafkauser.kafka-broker.client.crt -passout pass:"+$CommonPassword
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"intermediate_ca.crt -out "+$SmallstepProgramDataPrefix+"intermediate_ca.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "openssl x509 -in "+$SmallstepProgramDataPrefix+"root_ca.crt -out "+$SmallstepProgramDataPrefix+"root_ca.pem -outform PEM"
-Invoke-Expression $localRun
-
-$localRun = "Get-Content "+$SmallstepProgramDataPrefix+"root_ca.crt, "+$SmallstepProgramDataPrefix+"intermediate_ca.crt | Set-Content "+$SmallstepProgramDataPrefix+"amqp09-broker.cacert.pem"
-Invoke-Expression $localRun
-
-#**********************************************************************************************************************
-
-$RabbitProgramDataPrefix = $RabbitProgramDataDir + $RabbitContainerName + "\"
-
-docker pull rabbitmq:4-management
+#======================================================================================================================
+# 6. RabbitMQ
+#======================================================================================================================
+docker pull $RabbitImage
 
 Remove-Item -Path $RabbitProgramDataPrefix -Recurse -Force
 
-New-Item -ItemType Directory -Path $RabbitProgramDataPrefix"definitions"
-New-Item -ItemType Directory -Path $RabbitProgramDataPrefix"conf.d"
+New-Item -ItemType Directory -Path ($RabbitProgramDataPrefix + "definitions") -Force | Out-Null
+New-Item -ItemType Directory -Path ($RabbitProgramDataPrefix + "conf.d") -Force | Out-Null
 
-#Defining Configuration
-$dockerRun = "docker run -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+"\definitions:/etc/rabbitmq/definitions --network "+$Net+" rabbitmq:4-management"
+# First pass: start plain, define users/vhosts/permissions, export them to definitions.json, then throw the
+# container away. The real container below imports that file on boot.
+$dockerRun = "docker run -dit --name " + $RabbitContainerName + " --hostname " + $RabbitContainerName + " -v " + $RabbitProgramDataPrefix + "\definitions:/etc/rabbitmq/definitions --network " + $Net + " " + $RabbitImage
 Invoke-Expression $dockerRun
+
 Start-Sleep -Seconds 60 #Time for rabbit mq container to initialize before configuring
-$dockerRun = "docker exec -it "+$RabbitContainerName+" rabbitmqctl change_password guest "+$CommonPassword
-Invoke-Expression $dockerRun
-docker exec -it $RabbitContainerName rabbitmqctl add_user amqpuser password_is_ignored
-docker exec -it $RabbitContainerName rabbitmqctl add_vhost Production
-docker exec -it $RabbitContainerName rabbitmqctl add_vhost VirtualHardware
-docker exec -it $RabbitContainerName rabbitmqctl set_permissions -p Production guest "." "." ".*"
-docker exec -it $RabbitContainerName rabbitmqctl set_permissions -p Production amqpuser "." "." ".*"
-docker exec -it $RabbitContainerName rabbitmqctl set_permissions -p VirtualHardware guest "." "." ".*"
-docker exec -it $RabbitContainerName rabbitmqctl set_permissions -p VirtualHardware amqpuser "." "." ".*"
-docker exec -it $RabbitContainerName rabbitmqctl clear_password amqpuser
-docker exec -it $RabbitContainerName rabbitmqctl export_definitions /etc/rabbitmq/definitions/definitions.json --format json 
+
+docker exec $RabbitContainerName rabbitmqctl change_password guest $CommonPassword
+docker exec $RabbitContainerName rabbitmqctl add_user amqpuser password_is_ignored
+docker exec $RabbitContainerName rabbitmqctl add_vhost Production
+docker exec $RabbitContainerName rabbitmqctl add_vhost VirtualHardware
+docker exec $RabbitContainerName rabbitmqctl set_permissions -p Production guest "." "." ".*"
+docker exec $RabbitContainerName rabbitmqctl set_permissions -p Production amqpuser "." "." ".*"
+docker exec $RabbitContainerName rabbitmqctl set_permissions -p VirtualHardware guest "." "." ".*"
+docker exec $RabbitContainerName rabbitmqctl set_permissions -p VirtualHardware amqpuser "." "." ".*"
+docker exec $RabbitContainerName rabbitmqctl clear_password amqpuser
+docker exec $RabbitContainerName rabbitmqctl export_definitions /etc/rabbitmq/definitions/definitions.json --format json
 docker stop $RabbitContainerName
 docker container rm $RabbitContainerName
-#End Defining Configuration
 
-$RabbitDefaultsFile = $RabbitProgramDataPrefix+"conf.d\10-defaults.conf"
+$RabbitDefaultsFile = $RabbitProgramDataPrefix + "conf.d\10-defaults.conf"
 Add-Content $RabbitDefaultsFile "log.console = true"
 Add-Content $RabbitDefaultsFile "tcp_listen_options.backlog = 128"
 Add-Content $RabbitDefaultsFile "tcp_listen_options.nodelay = true"
@@ -213,115 +256,162 @@ Add-Content $RabbitDefaultsFile "management.ssl.cacertfile = /etc/rabbitmq/certs
 Add-Content $RabbitDefaultsFile "management.ssl.certfile = /etc/rabbitmq/certs/amqp09-broker.server.pem"
 Add-Content $RabbitDefaultsFile "management.ssl.keyfile = /etc/rabbitmq/certs/amqp09-broker.server.key"
 
-$PluginsFile = $RabbitProgramDataPrefix+"enabled_plugins"
+$PluginsFile = $RabbitProgramDataPrefix + "enabled_plugins"
 Add-Content $PluginsFile "[rabbitmq_auth_mechanism_ssl,rabbitmq_management,rabbitmq_prometheus]."
 Add-Content $PluginsFile ""
 
 #rabbitmq is debian
-$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name "+$RabbitContainerName+" --hostname "+$RabbitContainerName+" -v "+$RabbitProgramDataPrefix+":/etc/rabbitmq -v "+$SmallstepProgramDataPrefix+":/etc/rabbitmq/certs -v "+$SmallstepProgramDataPrefix+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$SmallstepProgramDataPrefix+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network "+$Net+" rabbitmq:4-management"
+$dockerRun = "docker run --restart always -p 5671:5671 -p 15671:15671 -dit --name " + $RabbitContainerName + " --hostname " + $RabbitContainerName + " -v " + $RabbitProgramDataPrefix + ":/etc/rabbitmq -v " + $SmallstepProgramDataPrefix + ":/etc/rabbitmq/certs -v " + $SmallstepProgramDataPrefix + "root_ca.pem:/etc/ssl/certs/root_ca.pem -v " + $SmallstepProgramDataPrefix + "intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network " + $Net + " " + $RabbitImage
 Invoke-Expression $dockerRun
 
-#**********************************************************************************************************************
-# Kafka broker (KRaft, mTLS via step-ca) -- parallels the RabbitMQ broker above.
-# NOTE: This block follows the apache/kafka KRaft + SSL conventions but has NOT been validated end-to-end;
-#       verify against your broker the first time you run it. The developer must add "127.0.0.1 kafka-broker"
-#       to the hosts file (the ServiceCreatorTool reminds you), matching the amqp09-broker requirement.
-#**********************************************************************************************************************
-$KafkaProgramDataPrefix = $KafkaProgramDataDir + $KafkaContainerName + "\"
+Start-Sleep -Seconds 60 #Time for rabbit mq container to initialize before configuring
 
-Remove-Item -Path $KafkaProgramDataPrefix -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $KafkaProgramDataPrefix
-$KafkaCertsDirectory = $KafkaProgramDataPrefix+"Certs"
-New-Item -ItemType Directory -Path $KafkaCertsDirectory
-# Credential files referenced by the apache/kafka image (KAFKA_SSL_*_CREDENTIALS point at files in /etc/kafka/secrets).
-$cp = "Copy-Item -Path "+$SmallstepProgramDataPrefix+"* -Destination "+$KafkaCertsDirectory
-Invoke-Expression $cp
+#======================================================================================================================
+# 7. Kafka (KRaft, mutual TLS)
+#
+# The apache/kafka image turns KAFKA_* environment variables into server.properties and formats the KRaft storage
+# directory itself, so there is no custom entrypoint, no server.properties file and no kafka-storage.sh call here.
+#======================================================================================================================
+docker pull $KafkaImage
 
-$KafkaLogDirectory = $KafkaProgramDataPrefix+"Log"
-New-Item -ItemType Directory -Path $KafkaLogDirectory
+# This folder is mounted at /etc/kafka/secrets, and is also where the .NET producer and consumer look
+# (KAFKA_CERTS_DIR). Only four files are actually read:
+#   root_ca.crt / intermediate_ca.crt  -> keytool builds the broker truststore from them just below
+#   kafka-broker.keystore.p12          -> the broker's own TLS identity
+#   kafkauser.kafka-broker.client.p12  -> the clients' identity, and the CA chain they lift out of it in memory
+foreach ($file in @("root_ca.crt", "intermediate_ca.crt",
+                    "kafka-broker.keystore.p12", "kafkauser.kafka-broker.client.p12")) {
+    Copy-Item -Path ($SmallstepProgramDataPrefix + $file) -Destination $KafkaCertsDirectory -Force
+}
 
-$KafkaConfigDirectory = $KafkaProgramDataPrefix+"Config"
-New-Item -ItemType Directory -Path $KafkaConfigDirectory
+# Truststore, built with keytool so it holds real Java trustedCertEntry entries for the root and intermediate.
+foreach ($ca in @(@("step-root", "root_ca.crt"), @("step-intermediate", "intermediate_ca.crt"))) {
+    $keytoolArgs = @(
+        "run", "--rm", "--user", "root",
+        "-v", "$($KafkaCertsDirectory):/certs",
+        "--entrypoint", "/opt/java/openjdk/bin/keytool",
+        $KafkaImage,
+        "-importcert", "-noprompt",
+        "-alias", $ca[0],
+        "-file", "/certs/$($ca[1])",
+        "-keystore", "/certs/kafka-broker.truststore.p12",
+        "-storetype", "PKCS12",
+        "-storepass", $CommonPassword
+    )
+    & docker @keytoolArgs
+}
 
-$KafkaServerPropertiesFile = $KafkaConfigDirectory+"\server.properties2"
-Add-Content $KafkaServerPropertiesFile "process.roles=broker,controller"
-Add-Content $KafkaServerPropertiesFile "node.id=1"
-Add-Content $KafkaServerPropertiesFile "controller.quorum.voters=1@localhost:19093"
-Add-Content $KafkaServerPropertiesFile "controller.quorum.bootstrap.servers=localhost:19093"
-Add-Content $KafkaServerPropertiesFile "listeners=PLAINTEXT://:9092,SSL://:9093,CONTROLLER://:19093"
-Add-Content $KafkaServerPropertiesFile "inter.broker.listener.name=PLAINTEXT"
-Add-Content $KafkaServerPropertiesFile "advertised.listeners=PLAINTEXT://localhost:9092"
-Add-Content $KafkaServerPropertiesFile "controller.listener.names=CONTROLLER"
-Add-Content $KafkaServerPropertiesFile "listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL"
-Add-Content $KafkaServerPropertiesFile "num.network.threads=3"
-Add-Content $KafkaServerPropertiesFile "num.io.threads=8"
-Add-Content $KafkaServerPropertiesFile "socket.send.buffer.bytes=102400"
-Add-Content $KafkaServerPropertiesFile "socket.receive.buffer.bytes=102400"
-Add-Content $KafkaServerPropertiesFile "socket.request.max.bytes=104857600"
-Add-Content $KafkaServerPropertiesFile "log.dirs=/tmp/kraft-combined-logs"
-Add-Content $KafkaServerPropertiesFile "num.partitions=1"
-Add-Content $KafkaServerPropertiesFile "num.recovery.threads.per.data.dir=2"
-Add-Content $KafkaServerPropertiesFile "offsets.topic.replication.factor=1"
-Add-Content $KafkaServerPropertiesFile "share.coordinator.state.topic.replication.factor=1"
-Add-Content $KafkaServerPropertiesFile "share.coordinator.state.topic.min.isr=1"
-Add-Content $KafkaServerPropertiesFile "transaction.state.log.replication.factor=1"
-Add-Content $KafkaServerPropertiesFile "transaction.state.log.min.isr=1"
-Add-Content $KafkaServerPropertiesFile "log.retention.hours=168"
-Add-Content $KafkaServerPropertiesFile "log.segment.bytes=1073741824"
-Add-Content $KafkaServerPropertiesFile "log.retention.check.interval.ms=300000"
-Add-Content $KafkaServerPropertiesFile "ssl.keystore.location=/etc/kafka/secrets/kafkauser.kafka-broker.client.p12"
-$keyStorePassword = "ssl.keystore.password=" + $CommonPassword
-Add-Content $KafkaServerPropertiesFile $keyStorePassword
-Add-Content $KafkaServerPropertiesFile "ssl.truststore.location=/etc/kafka/secrets/kafka-broker.server.p12"
-$trustStorePassword = "ssl.truststore.password=" + $CommonPassword
-Add-Content $KafkaServerPropertiesFile $trustStorePassword
+if (-not (Test-Path ($KafkaCertsDirectory + "\kafka-broker.truststore.p12"))) {
+    Write-Host "Failed to build the Kafka truststore." -ForegroundColor Red
+    return
+}
 
-$localRun = 'docker run --% -d -p 9093:9093 --user root --entrypoint /bin/sh --name ' + $KafkaContainerName + ' --hostname ' + $KafkaContainerName + ' --network ' + $Net + ' -v ' + $KafkaConfigDirectory + ':/etc/kafka/Config -v ' + $KafkaCertsDirectory + ':/etc/kafka/secrets apache/kafka:latest -c "/opt/java/openjdk/bin/keytool -importcert -alias system-custom-ca -file /etc/kafka/secrets/root_ca.crt -cacerts -storepass changeit -noprompt ; /opt/java/openjdk/bin/keytool -importcert -alias system-custom-intermediate-ca -file /etc/kafka/secrets/intermediate_ca.crt -cacerts -storepass changeit -noprompt ; [ ! -f /var/lib/kafka/data/meta.properties ] && /opt/kafka/bin/kafka-storage.sh format -t MjU3NjA2MTEtNDY3OS00MD -c /etc/kafka/Config/server.properties2 ; exec /opt/kafka/bin/kafka-server-start.sh /etc/kafka/Config/server.properties2"'
-Invoke-Expression $localRun
+# Credential files. The apache/kafka image does NOT honour KAFKA_SSL_KEYSTORE_LOCATION/PASSWORD directly: once
+# KAFKA_ADVERTISED_LISTENERS contains an SSL:// endpoint, /etc/kafka/docker/configure insists on the
+# *_FILENAME + *_CREDENTIALS convention and derives the paths itself from /etc/kafka/secrets. Leaving these out
+# is what made the old script's broker die in a restart loop with "configure: line 18: !1: unbound variable".
+# -NoNewline matters: the image reads them with $(cat ...), so a CRLF would append a stray \r to the password.
+Set-Content -Path ($KafkaCertsDirectory + "\keystore_creds") -Value $CommonPassword -NoNewline -Encoding ascii
+Set-Content -Path ($KafkaCertsDirectory + "\key_creds") -Value $CommonPassword -NoNewline -Encoding ascii
+Set-Content -Path ($KafkaCertsDirectory + "\truststore_creds") -Value $CommonPassword -NoNewline -Encoding ascii
+
+# Used by the kafka-topics.sh calls below, which now have to speak TLS themselves.
+Set-Content -Path ($KafkaCertsDirectory + "\client.properties") -Encoding ascii -Value @(
+    "security.protocol=SSL",
+    "ssl.truststore.location=/etc/kafka/secrets/kafka-broker.truststore.p12",
+    "ssl.truststore.password=$CommonPassword",
+    "ssl.truststore.type=PKCS12",
+    "ssl.keystore.location=/etc/kafka/secrets/kafka-broker.keystore.p12",
+    "ssl.keystore.password=$CommonPassword",
+    "ssl.keystore.type=PKCS12",
+    "ssl.key.password=$CommonPassword",
+    "ssl.endpoint.identification.algorithm=HTTPS"
+)
+
+$dockerArgs = @(
+    "run", "-d", "--restart", "always",
+    "--name", $KafkaContainerName,
+    "--hostname", $KafkaContainerName,
+    "--network", $Net,
+    "-p", "9093:9093",
+    "-v", "$($KafkaCertsDirectory):/etc/kafka/secrets",
+    "-e", "KAFKA_NODE_ID=1",
+    "-e", "KAFKA_PROCESS_ROLES=broker,controller",
+    "-e", "KAFKA_LISTENERS=SSL://:9093,CONTROLLER://:19093",
+    # Advertised as kafka-broker so the same address works from an AAA-net container (docker DNS) and from
+    # the host (hosts file entry). This is why the hosts file line at the top of the script is required.
+    "-e", "KAFKA_ADVERTISED_LISTENERS=SSL://$($KafkaContainerName):9093",
+    "-e", "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SSL,SSL:SSL",
+    "-e", "KAFKA_INTER_BROKER_LISTENER_NAME=SSL",
+    "-e", "KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER",
+    "-e", "KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:19093",
+    # --- TLS identity and trust -------------------------------------------------------------------------------
+    "-e", "KAFKA_SSL_KEYSTORE_FILENAME=kafka-broker.keystore.p12",
+    "-e", "KAFKA_SSL_KEYSTORE_CREDENTIALS=keystore_creds",
+    "-e", "KAFKA_SSL_KEY_CREDENTIALS=key_creds",
+    "-e", "KAFKA_SSL_KEYSTORE_TYPE=PKCS12",
+    "-e", "KAFKA_SSL_TRUSTSTORE_FILENAME=kafka-broker.truststore.p12",
+    "-e", "KAFKA_SSL_TRUSTSTORE_CREDENTIALS=truststore_creds",
+    "-e", "KAFKA_SSL_TRUSTSTORE_TYPE=PKCS12",
+    "-e", "KAFKA_SSL_CLIENT_AUTH=required",
+    "-e", "KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM=HTTPS",
+    # --- single node sizing -----------------------------------------------------------------------------------
+    "-e", "KAFKA_LOG_DIRS=/tmp/kraft-combined-logs",
+    "-e", "KAFKA_NUM_PARTITIONS=1",
+    "-e", "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1",
+    "-e", "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1",
+    "-e", "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1",
+    "-e", "KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR=1",
+    "-e", "KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR=1",
+    "-e", "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0",
+    $KafkaImage
+)
+& docker @dockerArgs
+
+Write-Host "Waiting for $KafkaContainerName to become ready..."
+$ready = $false
+foreach ($attempt in 1..45) {
+    docker exec $KafkaContainerName /opt/kafka/bin/kafka-topics.sh `
+        --bootstrap-server "$($KafkaContainerName):9093" --command-config /etc/kafka/secrets/client.properties --list *> $null
+    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 2
+}
+if (-not $ready) {
+    Write-Host "Kafka did not become ready. Inspect the logs with: docker logs $KafkaContainerName" -ForegroundColor Red
+}
 
 Start-Sleep -Seconds 30 #Time for rabbit and kafka container to initialize before using
 
-#**********************************************************************************************************************
-# Keycloak (identity provider for Kafka authorization). Stood up here so it is available on the network;
-# the broker<->Keycloak auth wiring (realm, clients, ACL sync) is Phase 4 -- this only provisions the container.
-# Developer must add "127.0.0.1 keycloak" to the hosts file (the ServiceCreatorTool reminds you).
-#**********************************************************************************************************************
+#======================================================================================================================
+# 8. statepipes.explorer
+#======================================================================================================================
+docker pull $ExplorerImage
 
-docker pull quay.io/keycloak/keycloak:26.0
-$dockerRun = "docker run -d --restart always -p 8080:8080 --name "+$KeycloakContainerName+" --hostname "+$KeycloakContainerName+" --network "+$Net+" " +
-    "-e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="+$CommonPassword+" " +
-    "quay.io/keycloak/keycloak:26.0 start-dev"
-Invoke-Expression $dockerRun
-
-#----------------------------------statepipes.explorer------------------------------------------------------------------
-$StatePipesContainerName = "statepipes.explorer"
-
-docker stop $StatePipesContainerName
-docker container rm $StatePipesContainerName
-
-docker pull bigfish88/statepipesexplorer
-
-$StatePipesCertDir = $programData+"\StatePipes\StatePipes.Explorer\Certs\"
-
-Remove-Item -Path $StatePipesCertDir -Recurse -Force
-
-New-Item -ItemType Directory -Path $StatePipesCertDir
-
-$cp = "Copy-Item -Path "+$SmallstepProgramDataPrefix+"* -Destination "+$StatePipesCertDir
+$cp = "Copy-Item -Path " + $SmallstepProgramDataPrefix + "* -Destination " + $StatePipesCertDir
 Invoke-Expression $cp
 
-$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name "+$StatePipesContainerName+" --hostname "+$StatePipesContainerName+" -v "+$programData+"\StatePipes:/usr/share/StatePipes -v "+$StatePipesCertDir+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$StatePipesCertDir+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password="+$CommonPassword+" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network "+$Net+" bigfish88/statepipesexplorer:latest"
+$dockerRun = "docker run --restart always -dit -p 7219:8081 --user=root --name " + $StatePipesContainerName + " --hostname " + $StatePipesContainerName + " -v " + $programData + "\StatePipes:/usr/share/StatePipes -v " + $StatePipesCertDir + "root_ca.pem:/etc/ssl/certs/root_ca.pem -v " + $StatePipesCertDir + "intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem -e 'ASPNETCORE_HTTPS_PORTS=8081' -e 'ASPNETCORE_HTTP_PORTS=;' -e ASPNETCORE_Kestrel__Certificates__Default__Password=" + $CommonPassword + " -e ASPNETCORE_Kestrel__Certificates__Default__Path=/usr/share/StatePipes/StatePipes.Explorer/Certs/statepipes.explorer.server.p12 --network " + $Net + " " + $ExplorerImage
 Invoke-Expression $dockerRun
 
-#-----------------------------Install these certificates when you want to use the management interfaces and statepipes.explorer------------------------------------
-$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"root_ca.crt -CertStoreLocation Cert:\LocalMachine\Root"
-Invoke-Expression $localRun
-$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"intermediate_ca.crt -CertStoreLocation Cert:\LocalMachine\CA"
-Invoke-Expression $localRun
-$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"amqp09-broker.server.crt -CertStoreLocation Cert:\LocalMachine\TrustedPublisher"
-Invoke-Expression $localRun
-$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"statepipes.explorer.server.crt -CertStoreLocation Cert:\LocalMachine\TrustedPublisher"
-Invoke-Expression $localRun
-$localRun = "Import-Certificate -FilePath "+$SmallstepProgramDataPrefix+"kafka-broker.server.crt -CertStoreLocation Cert:\LocalMachine\TrustedPublisher"
-Invoke-Expression $localRun
+#======================================================================================================================
+# 9. Install these certificates when you want to use the management interfaces and statepipes.explorer
+#======================================================================================================================
+try {
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "root_ca.crt") -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction Stop | Out-Null
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "intermediate_ca.crt") -CertStoreLocation Cert:\LocalMachine\CA -ErrorAction Stop | Out-Null
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "amqp09-broker.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "statepipes.explorer.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "kafka-broker.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
+    Write-Host "Imported the step-ca certificates into the machine certificate store."
+} catch {
+    Write-Host "Skipped the machine certificate store import (run as Administrator to enable it)." -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "Infrastructure is up, all issued by the single $SmallstepContainerName instance:" -ForegroundColor Green
+Write-Host "  RabbitMQ  amqps://amqp09-broker:5671   (management https://amqp09-broker:15671)"
+Write-Host "  Kafka     ssl://kafka-broker:9093      (mutual TLS)"
+Write-Host "  Explorer  https://statepipes.explorer:7219"
+Write-Host "  Certs     $SmallstepProgramDataPrefix"
+
 

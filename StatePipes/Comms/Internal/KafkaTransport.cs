@@ -33,10 +33,8 @@ namespace StatePipes.Comms.Internal
     {
         private const int DefaultPort = 9093;
         private const string StatePipesTypeHeader = "StatePipesType";
-
         private readonly BusConfig _busConfig;
-        private readonly string _certPath;
-        private readonly string _certPassword;
+        private readonly string? _hashedPassword;
         private readonly CancellationTokenSource _cts = new();
         private readonly Lock _lock = new();
         private readonly Dictionary<string, KafkaConsumerContext> _consumers = [];
@@ -46,12 +44,9 @@ namespace StatePipes.Comms.Internal
         public KafkaTransport(BusConfig busConfig, string? hashedPassword, Action<ITransport>? configureBuses = null, CancellationToken cancelToken = default)
         {
             _busConfig = busConfig;
+            _hashedPassword = hashedPassword;
             cancelToken.Register(() => _cts.Cancel());
-            _certPassword = File.ReadAllText(DirHelper.Find(busConfig.ClientCertPasswordPath, DirHelper.FileCategory.Certs)).Trim();
-            if (hashedPassword != null && (string.IsNullOrEmpty(hashedPassword) || !PasswordHasher.VerifyPassword(hashedPassword, _certPassword)))
-                throw new Exception("Invalid Hashed Password");
-            _certPath = DirHelper.Find(busConfig.ClientCertPath, DirHelper.FileCategory.Certs);
-            var producerConfig = ApplySsl(new ProducerConfig { EnableIdempotence = true, Acks = Acks.All });
+            var producerConfig = ApplySsl(new ProducerConfig { /*EnableIdempotence = true,*/ Acks = Acks.All });
             _producer = new ProducerBuilder<string, byte[]>(producerConfig)
                 .SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka producer error: {e.Reason}"))
                 .Build();
@@ -60,11 +55,17 @@ namespace StatePipes.Comms.Internal
 
         private TConfig ApplySsl<TConfig>(TConfig config) where TConfig : ClientConfig
         {
+            var certPassword = File.ReadAllText(DirHelper.Find(_busConfig.ClientCertPasswordPath, DirHelper.FileCategory.Certs)).Trim();
+            if (_hashedPassword != null && (string.IsNullOrEmpty(_hashedPassword) || !PasswordHasher.VerifyPassword(_hashedPassword, certPassword)))
+                throw new Exception("Invalid Hashed Password");
+            var certPath = DirHelper.Find(_busConfig.ClientCertPath, DirHelper.FileCategory.Certs);
             config.BootstrapServers = GetBootstrapServers(_busConfig.BrokerUri);
             config.SecurityProtocol = SecurityProtocol.Ssl;
-            config.SslKeystoreLocation = _certPath;      // PKCS#12 client keystore (cert + private key)
-            config.SslKeystorePassword = _certPassword;
-            config.SslCaLocation = @"C:\ProgramData\Kafka\kafka-broker\Certs\amqp09-broker.cacert.pem";
+            config.SslKeystoreLocation = certPath;      // PKCS#12 client keystore (cert + private key)
+            config.SslKeystorePassword = certPassword;
+            config.SslCaPem = KafkaCertificates.ExtractCaChainPem(certPath, certPassword);
+            config.EnableSslCertificateVerification = true;
+            config.SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.Https;
             return config;
         }
 
@@ -93,7 +94,7 @@ namespace StatePipes.Comms.Internal
                 {
                     GroupId = $"{topic}.{Guid.NewGuid():N}", // unique per instance => broadcast + ephemeral
                     AutoOffsetReset = AutoOffsetReset.Latest, // new messages only (no backlog replay)
-                    EnableAutoCommit = false,
+                    EnableAutoCommit = true,
                     AllowAutoCreateTopics = true
                 });
                 ctx.Consumer = new ConsumerBuilder<string, byte[]>(consumerConfig)
@@ -110,10 +111,12 @@ namespace StatePipes.Comms.Internal
         {
             try
             {
-                using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig())).Build();
+                using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig()))
+    .SetLogHandler((_, log) => Console.WriteLine($"[LOG] {log.Message}"))
+    .SetErrorHandler((_, err) => Console.WriteLine($"[ERROR] {err.Reason}")).Build();
                 admin.CreateTopicsAsync([new TopicSpecification { Name = topic, NumPartitions = 1, ReplicationFactor = 1 }]).GetAwaiter().GetResult();
             }
-            catch (CreateTopicsException) { /* topic already exists or broker auto-creates: best effort, mirrors idempotent ExchangeDeclare */ }
+            catch (CreateTopicsException e) { Log?.LogVerbose($"CreateTopicsException - Kafka topic {topic}: {e.Message}"); }
             catch (Exception ex) { Log?.LogVerbose($"Could not ensure Kafka topic {topic}: {ex.Message}"); }
         }
 

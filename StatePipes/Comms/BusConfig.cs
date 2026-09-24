@@ -42,7 +42,7 @@ namespace StatePipes.Comms
         }
         public bool Equals(BusConfig? other)
         {
-            if (ReferenceEquals(other, null)) return false;
+            if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             return BrokerUri == other.BrokerUri && ExchangeNamePrefix == other.ExchangeNamePrefix && ClientCertPath == other.ClientCertPath && ClientCertPasswordPath == other.ClientCertPasswordPath && ResponseExchangeGuid == other.ResponseExchangeGuid && ExchangeNamePostfix == other.ExchangeNamePostfix;
         }
