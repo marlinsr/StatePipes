@@ -44,6 +44,6 @@
     <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(OS)'=='Windows_NT' and '$(Configuration)' == 'Debug'">
-    <Exec Command="rmdir /S /Q $(OutDir)\certs&#xD;&#xA;mkdir $(OutDir)\certs&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 $(OutDir)\certs\amqpuser.amqp09-broker.client.p12&#xD;&#xA;copy C:\ProgramData\SmallStep\step-ca\CommonPassword.txt $(OutDir)\certs\CommonPassword.txt" />
+    <Exec Command="rmdir /S /Q $(OutDir)\certs&#xD;&#xA;mkdir $(OutDir)\certs&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 $(OutDir)\certs\amqpuser.amqp09-broker.client.p12&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\kafkauser.kafka-broker.client.p12 $(OutDir)\certs\kafkauser.kafka-broker.client.p12&#xD;&#xA;copy C:\ProgramData\SmallStep\step-ca\CommonPassword.txt $(OutDir)\certs\CommonPassword.txt" />
   </Target>
 </Project>

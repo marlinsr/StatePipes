@@ -47,7 +47,7 @@ namespace StatePipes.ServiceCreatorTool
             solutionName.StartsWith(packagePrefix, StringComparison.InvariantCultureIgnoreCase) ? solutionName[(solutionName.IndexOf(packagePrefix, StringComparison.InvariantCultureIgnoreCase) + packagePrefix.Length)..] : solutionName;
         protected static string GetComponentName(string classLibraryName) => classLibraryName.Contains('.') ? classLibraryName[(classLibraryName.LastIndexOf('.') + 1)..] : classLibraryName;
         protected static string GetDefaultStateMachineName(string classLibraryName) => $"{GetComponentName(classLibraryName)}StateMachine";
-        protected static MonikerSubstitution CreateMonikers(string solutionName, string projectName)
+        protected static MonikerSubstitution CreateMonikers(string solutionName, string projectName, bool usingRabbit = true)
         {
             //Define Monikers
             var monikers = new MonikerSubstitution();
@@ -75,9 +75,10 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$ProductName@#$", GetProductName(solutionName));
             monikers.AddMoniker("@#$EventExchange@#$", $"{projectName}.Service.V1.Event");
             monikers.AddMoniker("@#$InboundExchange@#$", $"{projectName}.Service.V1.Inbound");
-            monikers.AddMoniker("@#$BrokerUriForStartScript@#$", "amqps:%2F%2Famqp09-broker%2FProduction");
-            monikers.AddMoniker("@#$BrokerUri@#$", "amqps://amqp09-broker/Production");
-            monikers.AddMoniker("@#$CertFileName@#$", "amqpuser.amqp09-broker.client.p12");
+            string brokerUri = usingRabbit ? "amqps://amqp09-broker/Production" : "ssl://kafka-broker:9093";
+            monikers.AddMoniker("@#$BrokerUriForStartScript@#$", brokerUri.Replace("/", "%2F")); 
+            monikers.AddMoniker("@#$BrokerUri@#$", brokerUri);
+            monikers.AddMoniker("@#$CertFileName@#$", usingRabbit ? "amqpuser.amqp09-broker.client.p12" : "kafkauser.kafka-broker.client.p12");
             monikers.AddMoniker("@#$StatePipesVersion@#$", Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+').First() ?? string.Empty);
             return monikers;
         }

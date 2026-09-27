@@ -4,8 +4,10 @@
     {
         public void GenerateProject(string projectName)
         {
-            var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
-            var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
+            var slnDir = _pathProvider.GetPath(PathName.Solution);
+            var toolConfig = ToolConfigurationUtility.ReadConfiguration(slnDir);
+            var monikers = CreateMonikers(SolutionNameNoExtension, projectName, toolConfig?.UseRabbitMQ ?? true);
+            var helper = new GeneratorHelper(new DirectoryHelper(slnDir), monikers);
             GenerateProjectFiles(helper);
         }
         public static void GenerateProjectFiles(GeneratorHelper helper)

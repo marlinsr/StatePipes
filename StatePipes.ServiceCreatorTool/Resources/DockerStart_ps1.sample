@@ -4,7 +4,7 @@ $destDir = $programData+"\@#$CompanyName@#$\@#$ClassLibraryName@#$.Service\Certs
 $StatePipesCertDir = $programData+"\StatePipes\StatePipes.Explorer\Certs\"
 Remove-Item -Path $destDir -Recurse -Force
 New-Item -ItemType Directory -Path $destDir
-$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
+$cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\@#$CertFileName@#$ -Destination "+$destDir
 Invoke-Expression $cp
 $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
 Invoke-Expression $cp

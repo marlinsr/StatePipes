@@ -6,9 +6,7 @@ function StartServiceNoChromeTab([string]$ServiceName,[string] $postfix, [bool] 
     $destDir = $programData+"\AAA\"+$newServiceName+".Service\Certs\"
     Remove-Item -Path $destDir -Recurse -Force
     New-Item -ItemType Directory -Path $destDir
-    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 -Destination "+$destDir
-    Invoke-Expression $cp
-    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\kafkauser.kafka-broker.client.p12 -Destination "+$destDir
+    $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\@#$CertFileName@#$ -Destination "+$destDir
     Invoke-Expression $cp
     $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
     Invoke-Expression $cp
@@ -30,7 +28,7 @@ function StartServiceNoChromeTab([string]$ServiceName,[string] $postfix, [bool] 
 function StartChromeTab([string]$ServiceName,[string] $postfix)
 {
     $newServiceName = $ServiceName + $postfix
-    $url = 'https://statepipes.explorer:7219/Params/amqps:%2F%2Famqp09-broker%2FProduction/'+$newServiceName+'/amqpuser.amqp09-broker.client.p12/CommonPassword.txt/'+$newServiceName
+    $url = 'https://statepipes.explorer:7219/Params/@#$BrokerUriForStartScript@#$/'+$newServiceName+'/@#$CertFileName@#$/CommonPassword.txt/'+$newServiceName
     Start-Process chrome.exe $url
 }
 

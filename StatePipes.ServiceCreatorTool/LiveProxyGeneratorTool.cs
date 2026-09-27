@@ -7,9 +7,9 @@ namespace StatePipes.ServiceCreatorTool
         private string _exchangeName = string.Empty;
         private string _certPath = string.Empty;
         private string _certPasswordPath = string.Empty;
-        private bool GetCommsParamsFromUser()
+        private bool GetCommsParamsFromUser(bool useRabbitMQ)
         {
-            _brokerUri = "amqps://amqp09-broker/Production";
+            _brokerUri = useRabbitMQ ? "amqps://amqp09-broker/Production" : "ssl://kafka-broker:9093";
             _exchangeName = string.Empty;
             if (!SelectionDialog.GetUserInput(ref _brokerUri, $"Enter Broker URI")) return false;
             if (!SelectionDialog.GetUserInput(ref _exchangeName, $"Enter Exchange Name")) return false;
@@ -17,9 +17,9 @@ namespace StatePipes.ServiceCreatorTool
             if (!SelectionDialog.SelectFile(out _certPasswordPath, "Select Password File", "txt files (*.txt)|*.txt|All files (*.*)|*.*")) return false;
             return true;
         }
-        private bool GetTypeList(out TypeSerializationList? typeList, int timeoutSeconds)
+        private bool GetTypeList(out TypeSerializationList? typeList, int timeoutSeconds, bool useRabbitMQ)
         {
-            if (!GetCommsParamsFromUser())
+            if (!GetCommsParamsFromUser(useRabbitMQ))
             {
                 typeList = null;
                 return false;
@@ -37,7 +37,8 @@ namespace StatePipes.ServiceCreatorTool
             if (string.IsNullOrEmpty(moniker)) return string.Empty;
             var projectName = GetProjectNameNoExtension(projectFileName);
             _pathProvider.AddPaths(projDir, projectName, targetDirectory);
-            if(!GetTypeList(out TypeSerializationList? typeList, timeoutSeconds)) return string.Empty;          
+            var toolConfig = ToolConfigurationUtility.ReadConfiguration(_pathProvider.GetPath(PathName.Solution));
+            if (!GetTypeList(out TypeSerializationList? typeList, timeoutSeconds, toolConfig?.UseRabbitMQ ?? true)) return string.Empty;          
             var proxyCreator = new ProxyGenerator(typeList!, projectName, moniker, _pathProvider, _brokerUri, _exchangeName, _certPath, _certPasswordPath);
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
             string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{ProxyFileNamePostFix}");
@@ -45,7 +46,7 @@ namespace StatePipes.ServiceCreatorTool
             proxyCreator.SaveToFile(outputFile);
             Console.WriteLine($"Proxy written to: {outputFile}");
             if (outputFileAlreadyExists) return string.Empty;
-            var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName);
+            var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName, toolConfig?.UseRabbitMQ ?? true);
             monikers.AddMoniker("@#$ProxyName@#$", moniker);
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             ProxyGeneratorTool.GenerateProxyFiles(helper);
