@@ -22,6 +22,7 @@
     <None Remove="Resources\TopLevelState_cs.sample" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.15.0" />
     <PackageReference Include="envdte" Version="17.14.40260" />
     <PackageReference Include="Microsoft.VisualStudio.Interop" Version="17.14.40260" />
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.14.2075" />

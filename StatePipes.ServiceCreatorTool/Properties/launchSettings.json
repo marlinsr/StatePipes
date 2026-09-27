@@ -2,7 +2,7 @@
   "profiles": {
     "StatePipes.ServiceCreatorTool": {
       "commandName": "Project",
-      "commandLineArgs": "-r \"C:\\Users\\shawn\\source\\repos\\Packages.AAA.NewApi\" -s Packages.AAA.NewApi -p AAA.NewApi -b \"C:\\Users\\shawn\\source\\repos\\Packages.AAA.NewApi\\AAA.NewApi\\obj\\Debug\\net10.0\" -a"
+      "commandLineArgs": "-live -r C:\\Users\\shawn\\source\\repos\\Packages.AAA.TestKafka3 -s Packages.AAA.TestKafka3.sln -p AAA.TestKafka3.csproj -b C:\\Users\\shawn\\source\\repos\\Packages.AAA.TestKafka3\\AAA.TestKafka3"
     }
   }
 }
