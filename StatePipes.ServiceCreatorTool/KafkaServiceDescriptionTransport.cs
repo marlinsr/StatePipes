@@ -65,11 +65,9 @@ namespace StatePipes.ServiceCreatorTool
             _consumeLoop = new Thread(() => ConsumeLoop(onMessageBody)) { IsBackground = true, Name = $"kafka-selfdescription-{topic}" };
             _consumeLoop.Start();
         }
-
-        public bool SendGetSelfDescriptionCommand(string commandExchangeName, string commandTypeName, byte[] replyToBytes)
+        private Message<string, byte[]> CreateMessage(string commandTypeName, byte[] replyToBytes)
         {
-            var topic = ToTopic(commandExchangeName);
-            var message = new Message<string, byte[]>
+            return new Message<string, byte[]>
             {
                 Key = commandTypeName,
                 Value = Encoding.UTF8.GetBytes("{}"),
@@ -79,10 +77,13 @@ namespace StatePipes.ServiceCreatorTool
                     { ReplyToHeader, replyToBytes }
                 }
             };
+        }
+        public bool SendGetSelfDescriptionCommand(string commandExchangeName, string commandTypeName, byte[] replyToBytes)
+        {
+            var topic = ToTopic(commandExchangeName);
+            var message = CreateMessage(commandTypeName, replyToBytes);
             try
             {
-                // Awaited rather than fire-and-forget so a rejected publish is reported as false, the way the
-                // RabbitMQ implementation does, instead of silently turning into a timeout.
                 var result = _producer.ProduceAsync(topic, message).GetAwaiter().GetResult();
                 if (result.Status == PersistenceStatus.NotPersisted)
                 {

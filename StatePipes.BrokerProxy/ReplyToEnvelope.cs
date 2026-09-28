@@ -46,22 +46,22 @@ namespace StatePipes.BrokerProxy
                 throw new InvalidOperationException($"BusConfig did not serialize to a JSON object: {json}");
 
             var property = json.IndexOf(PreviousHopProperty, StringComparison.Ordinal);
-            if (property >= 0)
-            {
-                // "PreviousHop":null was emitted -- keep everything up to and including the colon, drop the null.
-                var colon = json.IndexOf(':', property + PreviousHopProperty.Length);
-                if (colon < 0) throw new InvalidOperationException($"Malformed {PreviousHopProperty} in {json}");
-                var valueStart = colon + 1;
-                var valueEnd = SkipJsonNull(json, valueStart);
-                _prefix = Encoding.UTF8.GetBytes(json[..valueStart]);
-                _suffix = Encoding.UTF8.GetBytes(json[valueEnd..]);
-            }
+            if (property >= 0)  HandlePreviousHopProperty(json, property, out _prefix, out _suffix);
             else
             {
                 // Nulls were omitted from the output -- append the property just before the closing brace.
                 _prefix = Encoding.UTF8.GetBytes(json[..^1] + ",\"" + nameof(BusConfig.PreviousHop) + "\":");
                 _suffix = Encoding.UTF8.GetBytes("}");
             }
+        }
+        private void HandlePreviousHopProperty(string json, int propertyIndex, out byte[] prefix, out byte[] suffix)
+        {
+            var colon = json.IndexOf(':', propertyIndex + PreviousHopProperty.Length);
+            if (colon < 0) throw new InvalidOperationException($"Malformed {PreviousHopProperty} in {json}");
+            var valueStart = colon + 1;
+            var valueEnd = SkipJsonNull(json, valueStart);
+            prefix = Encoding.UTF8.GetBytes(json[..valueStart]);
+            suffix = Encoding.UTF8.GetBytes(json[valueEnd..]);
         }
 
         /// <summary>

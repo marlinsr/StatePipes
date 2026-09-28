@@ -4,6 +4,7 @@ using StatePipes.Comms;
 using StatePipes.Comms.Internal;
 using System;
 using System.Collections.Generic;
+using static Confluent.Kafka.ConfigPropertyNames;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.BrokerProxy
 {
@@ -104,24 +105,28 @@ namespace StatePipes.BrokerProxy
             {
                 var queueName = GetQueueName(id, commsType);
                 _channel.QueueDeclareAsync(queueName).GetAwaiter().GetResult();
-
                 if (routingKeys != null) routingKeys.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).GetAwaiter().GetResult());
-                var consumer = new AsyncEventingBasicConsumer(_channel);
-                consumer.ReceivedAsync += (_, ea) =>
-                {
-                    try
-                    {
-                        if (SimpleMessageHelper.TryRead(ea, out byte[]? body, out string routingKey, out ReadOnlyMemory<byte> replyToRaw))
-                            consumeMethod(body!, routingKey, replyToRaw);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log?.LogException(ex);
-                    }
-                    return Task.CompletedTask;
-                };
-                _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
+                SetupReceiveAsync(consumeMethod, queueName);
             }
+        }
+        private void SetupReceiveAsync(SimpleMessageReceived consumeMethod, string queueName)
+        {
+            if (_channel == null) return;
+            var consumer = new AsyncEventingBasicConsumer(_channel);
+            consumer.ReceivedAsync += (_, ea) =>
+            {
+                try
+                {
+                    if (SimpleMessageHelper.TryRead(ea, out byte[]? body, out string routingKey, out ReadOnlyMemory<byte> replyToRaw))
+                        consumeMethod(body!, routingKey, replyToRaw);
+                }
+                catch (Exception ex)
+                {
+                    Log?.LogException(ex);
+                }
+                return Task.CompletedTask;
+            };
+            _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
         }
         public void Send(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw, string exchangeName)
         {
@@ -138,19 +143,24 @@ namespace StatePipes.BrokerProxy
                     return;
                 }
                 SimpleMessageHelper.Serialize(routingKey, replyToRaw, out BasicProperties properties);
-                try
-                {
-                    var result = _channel.BasicPublishAsync(exchange: exchangeName,
-                                         routingKey: routingKey,
-                                         basicProperties: properties,
-                                         body: body,
-                                         mandatory: false, cancellationToken: _cancelToken);
-                    if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message {routingKey} to exchange {exchangeName}");
-                }
-                catch (Exception e)
-                {
-                    Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {routingKey} Exception: {e.Message}");
-                }
+                BasicPublish(exchangeName, routingKey, properties, body);
+            }
+        }
+        private void BasicPublish(string exchangeName, string routingKey, BasicProperties properties, byte[] body)
+        {
+            if (_channel == null) return;
+            try
+            {
+                var result = _channel.BasicPublishAsync(exchange: exchangeName,
+                                     routingKey: routingKey,
+                                     basicProperties: properties,
+                                     body: body,
+                                     mandatory: false, cancellationToken: _cancelToken);
+                if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message {routingKey} to exchange {exchangeName}");
+            }
+            catch (Exception e)
+            {
+                Log?.LogError($"Exchange '{exchangeName}' does not exist or has mismatched properties: {routingKey} Exception: {e.Message}");
             }
         }
         /// <summary>

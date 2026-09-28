@@ -90,16 +90,8 @@ namespace StatePipes.Comms.Internal
             {
                 if (_disposedValue || _consumers.ContainsKey(topic)) return;
                 var ctx = new KafkaConsumerContext(topic, consumeMethod, routingKeys);
-                var consumerConfig = ApplySsl(new ConsumerConfig
-                {
-                    GroupId = $"{topic}.{Guid.NewGuid():N}", // unique per instance => broadcast + ephemeral
-                    AutoOffsetReset = AutoOffsetReset.Latest, // new messages only (no backlog replay)
-                    EnableAutoCommit = true,
-                    AllowAutoCreateTopics = true
-                });
-                ctx.Consumer = new ConsumerBuilder<string, byte[]>(consumerConfig)
-                    .SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka consumer error on {topic}: {e.Reason}"))
-                    .Build();
+                var consumerConfig = ApplySsl(new ConsumerConfig{ GroupId = $"{topic}.{Guid.NewGuid():N}", AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = true, AllowAutoCreateTopics = true});
+                ctx.Consumer = new ConsumerBuilder<string, byte[]>(consumerConfig).SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka consumer error on {topic}: {e.Reason}")).Build();
                 ctx.Consumer.Subscribe(topic);
                 ctx.Loop = new Thread(() => ConsumeLoop(ctx)) { IsBackground = true, Name = $"kafka-consume-{topic}" };
                 _consumers[topic] = ctx;

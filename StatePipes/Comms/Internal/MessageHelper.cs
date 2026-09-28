@@ -1,3 +1,5 @@
+using Confluent.Kafka;
+using Newtonsoft.Json.Linq;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
 using System.Text;
@@ -39,13 +41,18 @@ namespace StatePipes.Comms.Internal
                 Log?.LogError($"Unknown message type: {received.Type}");
                 return;
             }
+            DeserializeToTypes(cmdJson, t, Encoding.UTF8.GetString((byte[])value!), out message, out busConfig);
+        }
+        private static void DeserializeToTypes(string cmdJson, Type t, string busConfigJson, out object? message, out BusConfig? busConfig)
+        {
             message = JsonUtility.GetObjectFromJson(cmdJson, t);
             if (message == null)
             {
                 Log?.LogError("Failed to deserialize message.");
+                busConfig = null;
                 return;
             }
-            busConfig = JsonUtility.GetObjectForJsonString<BusConfig>(Encoding.UTF8.GetString((byte[])value!));
+            busConfig = JsonUtility.GetObjectForJsonString<BusConfig>(busConfigJson);
             if (busConfig == null)
             {
                 Log?.LogError($"Failed to deserialize BusConfig from {StatePipesReplyToHeader} property for message.");
