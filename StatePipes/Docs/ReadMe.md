@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v5.0.1 (2026-09-28)
+Merged PR: #86 Kafka phase0 addressing
+
+Referenced issues:
+- #85 Add Kafka support
+
+
 ### v4.0.22 (2026-06-03)
 Merged PR: #84 Upgraded to RabbitMQ 4
 
