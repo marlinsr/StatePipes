@@ -1,4 +1,4 @@
-﻿using BlazorBootstrap;
+﻿using BlazorExpress.ChartJS;
 using StatePipes.Common;
 using StatePipes.ExplorerTypes;
 using System.Text;
@@ -42,7 +42,6 @@ namespace StatePipes.Explorer.Components.Pages
         }
 
         private LineChartOptions _options = GetDefaultLineChartOption();
-        private bool _optionsChange = false;
 
         protected override void OnParametersSet()
         {
@@ -75,15 +74,9 @@ namespace StatePipes.Explorer.Components.Pages
 
         private void UpdateChart()
         {
-            if (_optionsChange)
-            {
-                (_lineChart.UpdateAsync(_data, _options)).Wait();
-            }
-            else
-            {
-                (_lineChart.UpdateValuesAsync(_data)).Wait();
-            }
-            _optionsChange = false;
+            // BlazorExpress.ChartJS dropped UpdateValuesAsync; UpdateAsync covers both
+            // data-only and options changes.
+            (_lineChart.UpdateAsync(_data, _options)).Wait();
         }
 
         private void UpdateChartDataAndOptions()
@@ -112,15 +105,9 @@ namespace StatePipes.Explorer.Components.Pages
                     }
                 );
 
-                if(_options.Plugins.Title!.Text != bvLineChart.ChartTitle ||
-                _options.Scales.X!.Title!.Text != bvLineChart.XAxisTitle ||
-                _options.Scales.Y!.Title!.Text != bvLineChart.YAxisTitle)
-                {
-                    _options.Plugins.Title!.Text = bvLineChart.ChartTitle;
-                    _options.Scales.X!.Title!.Text = bvLineChart.XAxisTitle;
-                    _options.Scales.Y!.Title!.Text = bvLineChart.YAxisTitle;
-                    _optionsChange = true;
-                }
+                _options.Plugins.Title!.Text = bvLineChart.ChartTitle;
+                _options.Scales.X!.Title!.Text = bvLineChart.XAxisTitle;
+                _options.Scales.Y!.Title!.Text = bvLineChart.YAxisTitle;
             }
         }
 

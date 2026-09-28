@@ -1,23 +1,22 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using StatePipes.Interfaces;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
 namespace StatePipes.Comms.Internal
 {
-    internal class ConnectionChannel: IDisposable
+    internal class RabbitMqTransport : ITransport
     {
         private IConnection? _connection;
         private IChannel? _channel;
-        private readonly Action<ConnectionChannel>? _configureBuses;
+        private readonly Action<ITransport>? _configureBuses;
         private readonly CancellationToken _cancelToken;
         private readonly BusConfig _busConfig;
         private readonly System.Threading.Lock _lock = new();
         private bool _disposedValue;
         private Timer? _timer;
         private readonly string? _hashedPassword;
-        public static List<string> DefaultRoutingKeys { get; } = ["#"];
-        public ConnectionChannel(BusConfig busConfig, string? hashedPassword, Action<ConnectionChannel>? configureBuses = null, CancellationToken cancelToken = default)
+        public RabbitMqTransport(BusConfig busConfig, string? hashedPassword, Action<ITransport>? configureBuses = null, CancellationToken cancelToken = default)
         {
             _configureBuses = configureBuses;
             _cancelToken = cancelToken;
@@ -53,7 +52,7 @@ namespace StatePipes.Comms.Internal
             _timer = new Timer(
                 InstantiateConnectionAndChannel,
                 null,
-                TimeSpan.FromMilliseconds(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds),
+                TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds),
                 TimeSpan.FromMilliseconds(Timeout.Infinite));
         }
         private void CreateChannel()
@@ -84,7 +83,9 @@ namespace StatePipes.Comms.Internal
             }
         }
         private static string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
-        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, AsyncEventHandler<BasicDeliverEventArgs>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
+        private static ReceivedTransportMessage ToReceivedTransportMessage(BasicDeliverEventArgs ea) =>
+            new(ea.BasicProperties.Type, ea.BasicProperties.Headers ?? new Dictionary<string, object?>(), ea.Body.ToArray());
+        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, Func<ReceivedTransportMessage, Task>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
         {
             //No Need to lock this because InstantiateConnectionAndChannel locks
             if (_channel == null)
@@ -100,7 +101,7 @@ namespace StatePipes.Comms.Internal
 
                 routingKeys?.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).GetAwaiter().GetResult());
                 var consumer = new AsyncEventingBasicConsumer(_channel);
-                consumer.ReceivedAsync += consumeMethod;
+                consumer.ReceivedAsync += (model, ea) => consumeMethod(ToReceivedTransportMessage(ea));
                 _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
             }
         }
@@ -119,10 +120,15 @@ namespace StatePipes.Comms.Internal
             }
         }
         public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage => Send<T>(message.GetType().FullName, message, busConfigFrom, exchangeName);
-        public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName) 
+        public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName)
         {
             if(message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
-            MessageHelper.Serialize(sendCommandTypeFullName, message, busConfigFrom, out byte[] body, out BasicProperties properties);
+            MessageHelper.Serialize(message, busConfigFrom, out byte[] body, out IDictionary<string, object?> headers);
+            var properties = new BasicProperties
+            {
+                Type = sendCommandTypeFullName,
+                Headers = headers
+            };
             lock (_lock)
             {
                 if (_channel == null) return;
@@ -165,11 +171,7 @@ namespace StatePipes.Comms.Internal
         {
             if (!_disposedValue)
             {
-                if (disposing)
-                {
-                    Cleanup();
-                }
-
+                if (disposing) Cleanup();
                 _disposedValue = true;
             }
         }

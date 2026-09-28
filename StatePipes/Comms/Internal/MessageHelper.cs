@@ -1,5 +1,5 @@
-﻿using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
+using Confluent.Kafka;
+using Newtonsoft.Json.Linq;
 using StatePipes.Common;
 using StatePipes.Common.Internal;
 using System.Text;
@@ -10,48 +10,49 @@ namespace StatePipes.Comms.Internal
     internal class MessageHelper
     {
         public const string StatePipesReplyToHeader = "StatePipesReplyTo";
-        internal static void Serialize(string sendCommandTypeFullName, object message, BusConfig busConfig, out byte[] body, out BasicProperties properties)
+        internal static void Serialize(object message, BusConfig busConfig, out byte[] body, out IDictionary<string, object?> headers)
         {
-            properties = new BasicProperties
+            headers = new Dictionary<string, object?>
             {
-                Type = sendCommandTypeFullName,
-                Headers = new Dictionary<string, object?>
-                {
-                    { StatePipesReplyToHeader, JsonUtility.GetJsonStringForObject(busConfig, true) }
-                }
+                { StatePipesReplyToHeader, JsonUtility.GetJsonStringForObject(busConfig, true) }
             };
             var eventJson = JsonUtility.GetJsonStringForObject(message, true);
             body = Encoding.UTF8.GetBytes(eventJson);
         }
 
-        internal static void Deserialize(BasicDeliverEventArgs ea, out object? message, out BusConfig? busConfig, TypeDictionary typeRepo)
+        internal static void Deserialize(ReceivedTransportMessage received, out object? message, out BusConfig? busConfig, TypeDictionary typeRepo)
         {
             message = null;
             busConfig = null;
-            if (string.IsNullOrEmpty(ea.BasicProperties.Type))
+            if (string.IsNullOrEmpty(received.Type))
             {
                 Log?.LogError("Received command with no Type information.");
                 return;
             }
-            if (ea.BasicProperties.Headers == null || !ea.BasicProperties.Headers.TryGetValue(StatePipesReplyToHeader, out object? value) || value == null)
+            if (received.Headers == null || !received.Headers.TryGetValue(StatePipesReplyToHeader, out object? value) || value == null)
             {
                 Log?.LogError($"Received command with no {StatePipesReplyToHeader} information.");
                 return;
             }
-            var cmdJson = Encoding.UTF8.GetString(ea.Body.ToArray());
-            var t = typeRepo.Get(ea.BasicProperties.Type);
+            var cmdJson = Encoding.UTF8.GetString(received.Body);
+            var t = typeRepo.Get(received.Type);
             if (t == null)
             {
-                Log?.LogError($"Unknown message type: {ea.BasicProperties.Type}");
+                Log?.LogError($"Unknown message type: {received.Type}");
                 return;
             }
+            DeserializeToTypes(cmdJson, t, Encoding.UTF8.GetString((byte[])value!), out message, out busConfig);
+        }
+        private static void DeserializeToTypes(string cmdJson, Type t, string busConfigJson, out object? message, out BusConfig? busConfig)
+        {
             message = JsonUtility.GetObjectFromJson(cmdJson, t);
             if (message == null)
             {
                 Log?.LogError("Failed to deserialize message.");
+                busConfig = null;
                 return;
             }
-            busConfig = JsonUtility.GetObjectForJsonString<BusConfig>(Encoding.UTF8.GetString((byte[])value!));
+            busConfig = JsonUtility.GetObjectForJsonString<BusConfig>(busConfigJson);
             if (busConfig == null)
             {
                 Log?.LogError($"Failed to deserialize BusConfig from {StatePipesReplyToHeader} property for message.");

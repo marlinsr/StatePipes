@@ -18,7 +18,7 @@ namespace @#$ClassLibraryName@#$.Builders
                 new BusConfig(
                     "@#$BrokerUri@#$", 
                     "@#$ClassLibraryName@#$", 
-                    "amqpuser.amqp09-broker.client.p12", 
+                    "@#$CertFileName@#$", 
                     "CommonPassword.txt"), 
                 setup.Assembly.GetName().Name!, 
                 setup.FullName!, 

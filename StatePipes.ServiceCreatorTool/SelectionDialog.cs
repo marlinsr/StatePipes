@@ -96,6 +96,50 @@ namespace StatePipes.ServiceCreatorTool
             return false;
         }
 
+        public static bool GetUserConfirmation(string prompt)
+        {
+            Size size = new(500, 130);
+            Form confirmBox = new()
+            {
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                ClientSize = size,
+                Text = "Confirm",
+                TopMost = true
+            };
+            // The prompt goes in the body rather than the title bar so a long question wraps instead of truncating.
+            Label promptLabel = new()
+            {
+                Size = new Size(size.Width - 10, size.Height - 45),
+                Location = new Point(5, 5),
+                Text = prompt
+            };
+            confirmBox.Controls.Add(promptLabel);
+            Button yesButton = new()
+            {
+                DialogResult = DialogResult.Yes,
+                Name = "yesButton",
+                Size = new Size(75, 23),
+                Text = "&Yes",
+                Location = new Point(size.Width - 80 - 80, size.Height - 30)
+            };
+            confirmBox.Controls.Add(yesButton);
+            Button noButton = new()
+            {
+                DialogResult = DialogResult.No,
+                Name = "noButton",
+                Size = new Size(75, 23),
+                Text = "&No",
+                Location = new Point(size.Width - 80, size.Height - 30)
+            };
+            confirmBox.Controls.Add(noButton);
+            confirmBox.AcceptButton = yesButton;
+            // Esc and the window's close button both land here, so anything short of an explicit Yes is a No.
+            confirmBox.CancelButton = noButton;
+            if (confirmBox.ShowDialog() == DialogResult.Yes) return true;
+            Console.WriteLine($"User declined: {prompt}");
+            return false;
+        }
+
         public static bool SelectFile(out string fileName, string prompt, string fileFilter = "All files (*.*)|*.*", string? initialDirectory = null)
         {
             OpenFileDialog dialog = new(){ Title = prompt, Filter = fileFilter, Multiselect = false};

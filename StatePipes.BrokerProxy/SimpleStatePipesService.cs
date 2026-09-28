@@ -1,13 +1,8 @@
-﻿using Autofac;
-using RabbitMQ.Client.Events;
+using Autofac;
 using StatePipes.Common;
 using StatePipes.Comms;
-using StatePipes.Interfaces;
-using StatePipes.Messages;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using StatePipes.Comms.Internal;
+using System;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.BrokerProxy
 {
@@ -15,17 +10,19 @@ namespace StatePipes.BrokerProxy
     {
         private readonly Guid _id = Guid.NewGuid();
         private IContainer? _container;
-        private SimpleConnectionChannel? _connectionChannel;
+        private ISimpleConnectionChannel? _connectionChannel;
         private readonly BusConfig _busConfig;
+        private readonly ReplyToEnvelope _replyTo;
         private readonly SimpleStatePipesProxy _proxy;
         public bool IsConnectedToBroker => (_connectionChannel?.IsOpen ?? false);
         public SimpleStatePipesService(BusConfig busConfig, SimpleStatePipesProxy proxy)
         {
             _busConfig = busConfig;
+            _replyTo = new ReplyToEnvelope(busConfig);
             _proxy = proxy;
-            _proxy.Subscribe(ProxyMessageHandler);
+            _proxy.Subscribe(PublishEvent, ReflectResponse);
         }
-        private void EventSendHelper(byte[] message, string routingKey, BusConfig busConfigFrom, string exchangeName)
+        private void EventSendHelper(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw, string exchangeName)
         {
             try
             {
@@ -33,7 +30,7 @@ namespace StatePipes.BrokerProxy
                 {
                     if (_connectionChannel.IsOpen)
                     {
-                        _connectionChannel.Send(message, routingKey, busConfigFrom, exchangeName);
+                        _connectionChannel.Send(body, routingKey, replyToRaw, exchangeName);
                     }
                     else
                     {
@@ -46,18 +43,25 @@ namespace StatePipes.BrokerProxy
                 Log?.LogException(ex);
             }
         }
-        public void ProxyMessageHandler(byte[]? eventMessage, string routingKey, BusConfig fromBusConfig, bool isResponse)
-        {
-            if (eventMessage == null) return;
-            if (isResponse) SendResponse(eventMessage, routingKey, fromBusConfig.PreviousHop);
-            else PublishEvent(eventMessage, routingKey, fromBusConfig);
-        }
-        public void PublishEvent(byte[] eventMessage, string routingKey, BusConfig fromBusConfig)
+        /// <summary>
+        /// Reflects an event onto the destination broker. The incoming reply-to header is spliced in as this
+        /// hop's PreviousHop without ever being parsed -- the whole point of ReplyToEnvelope.
+        /// </summary>
+        public void PublishEvent(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             Log?.LogVerbose($"Publishing {routingKey}");
-            EventSendHelper(eventMessage, routingKey, new BusConfig(_busConfig, fromBusConfig), _busConfig.EventExchangeName);
+            EventSendHelper(body, routingKey, _replyTo.Wrap(replyToRaw), _busConfig.EventExchangeName);
         }
-        public void SendResponse(byte[] eventMessage, string routingKey, BusConfig? busConfig)
+        /// <summary>
+        /// Reflects a response back to the hop that issued the command. This is the one path that has to read
+        /// the reply-to header, because the destination is derived from PreviousHop's fields.
+        /// </summary>
+        public void ReflectResponse(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
+        {
+            var previousHop = SimpleMessageHelper.ReadPreviousHop(replyToRaw);
+            SendResponse(body, routingKey, previousHop);
+        }
+        public void SendResponse(byte[] body, string routingKey, BusConfig? busConfig)
         {
             if (busConfig == null)
             {
@@ -75,7 +79,7 @@ namespace StatePipes.BrokerProxy
                 return;
             }
             Log?.LogVerbose($"Sending response {routingKey} to {busConfig.ResponseExchangeName}");
-            EventSendHelper(eventMessage, routingKey, busConfig, busConfig.ResponseExchangeName);
+            EventSendHelper(body, routingKey, new ReplyToEnvelope(busConfig).SelfOnly, busConfig.ResponseExchangeName);
         }
         public void Start() => StartLongRunningAndWait();
         public void Stop()
@@ -94,40 +98,37 @@ namespace StatePipes.BrokerProxy
                 Log?.LogException(ex);
             }
         }
-        private Task ConsumeCommand(object model, BasicDeliverEventArgs ea)
+        // routingKey is the message type name, taken from the AMQP Type property or the Kafka StatePipesType
+        // header. The previous version forwarded ea.RoutingKey here; publishers always set the AMQP routing key
+        // to that same type name (see Send), so this is the same value with one less broker concept in the way.
+        private void ConsumeCommand(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             try
             {
-                SimpleMessageHelper.Deserialize(ea, out byte[]? message, out string routingKey, out BusConfig? busConfig);
-                if (message == null || busConfig == null || string.IsNullOrEmpty(routingKey)) return Task.CompletedTask;
-                _proxy.SendCommand(message, ea.RoutingKey, busConfig);
+                _proxy.SendCommand(body, routingKey, replyToRaw);
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
             }
-            return Task.CompletedTask;
         }
-        private Task ConsumeResponse(object model, BasicDeliverEventArgs ea)
+        private void ConsumeResponse(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             try
             {
-                SimpleMessageHelper.Deserialize(ea, out byte[]? message, out string routingKey, out BusConfig? busConfig);
-                if (message == null || busConfig == null || string.IsNullOrEmpty(routingKey)) return Task.CompletedTask;
-                SendResponse(message, routingKey, busConfig.PreviousHop);
+                SendResponse(body, routingKey, SimpleMessageHelper.ReadPreviousHop(replyToRaw));
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
             }
-            return Task.CompletedTask;
         }
-        private void ConfigureBuses(SimpleConnectionChannel connectionChannel)
+        private void ConfigureBuses(ISimpleConnectionChannel connectionChannel)
         {
             try
             {
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName, ConsumeCommand, SimpleConnectionChannel.DefaultRoutingKeys);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, SimpleConnectionChannel.DefaultRoutingKeys, true);
+                connectionChannel.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName, ConsumeCommand, ISimpleConnectionChannel.DefaultRoutingKeys);
+                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ISimpleConnectionChannel.DefaultRoutingKeys, true);
                 connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName);
             }
             catch (Exception ex)
@@ -142,9 +143,9 @@ namespace StatePipes.BrokerProxy
                 PerformCancellation();
                 if (_connectionChannel == null)
                 {
-                    try { _connectionChannel = new SimpleConnectionChannel(_busConfig, null, ConfigureBuses); } catch { }
+                    try { _connectionChannel = SimpleConnectionChannelFactory.Create(_busConfig, null, ConfigureBuses); } catch { }
                 }
-                Thread.Sleep(StatePipesConnectionFactory.HeartbeatIntervalMilliseconds);
+                Thread.Sleep(TransportConstants.HeartbeatIntervalMilliseconds);
             }
         }
         public override void Dispose()

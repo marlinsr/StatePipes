@@ -1,14 +1,16 @@
 ﻿using System.Net;
 namespace StatePipes.ServiceCreatorTool
 {
-    internal class SolutionGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
+    internal class SolutionGeneratorTool(string solutionDir, string solutionFileName, bool usingRabbit) : BaseToolGenerator(solutionDir, solutionFileName)
     {
         public void GenerateSolution()
         {
             var projectName = GetSolutionNameNoPackages(SolutionNameNoExtension);
-            var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
-            var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
+            var monikers = CreateMonikers(SolutionNameNoExtension, projectName, usingRabbit);
+            var slnDir = _pathProvider.GetPath(PathName.Solution);
+            var helper = new GeneratorHelper(new DirectoryHelper(slnDir), monikers);
             GenerateSolutionFiles(helper);
+            ToolConfigurationUtility.WriteConfiguration(slnDir, new ToolConfiguration { UseRabbitMQ = usingRabbit });
             ProjectGeneratorTool.GenerateProjectFiles(helper);
         }
         public static void GenerateSolutionFiles(GeneratorHelper helper)
@@ -54,6 +56,7 @@ namespace StatePipes.ServiceCreatorTool
         }
         private static void CreateNewSolutionAndLaunch(string repoDirectory)
         {
+            var isRabbitMQ = SelectionDialog.GetUserConfirmation("Are you using RabbitMQ? [select yes if RabbitMQ, select no if using Kafka]");
             const string defaultAnswer = "Packages.MyCompany.MyProduct";
             string answer = defaultAnswer;
             if (SelectionDialog.ShowInputDialog(ref answer, "Enter the name of the solution directory [Prefix of 'Packages.' will be omitted in the solution name]") == DialogResult.OK)
@@ -67,7 +70,7 @@ namespace StatePipes.ServiceCreatorTool
                 {
                     answer += solutionExtension;
                 }
-                var sc = new SolutionGeneratorTool(Path.Combine(repoDirectory, BaseToolGenerator.GetSolutionNameNoExtension(answer)), answer);
+                var sc = new SolutionGeneratorTool(Path.Combine(repoDirectory, BaseToolGenerator.GetSolutionNameNoExtension(answer)), answer, isRabbitMQ);
                 sc.GenerateSolution();
                 bool missingHostFileEntries = HostFileReminder();
                 if (missingHostFileEntries) PdfOpener.OpenPdfFile(Path.Combine(sc.SolutionDir, "SetupAndRunInstructions.pdf"));
@@ -79,18 +82,24 @@ namespace StatePipes.ServiceCreatorTool
             var statePipesHostName = "statepipes.explorer";
             var stepCaHostName = "step-ca";
             var brokerHostName = "amqp09-broker";
+            var kafkaHostName = "kafka-broker";
+            var keycloakHostName = "keycloak";
             bool showReminder = false;
             try
             {
                 Dns.GetHostAddresses(statePipesHostName);
                 Dns.GetHostAddresses(stepCaHostName);
                 Dns.GetHostAddresses(brokerHostName);
+                Dns.GetHostAddresses(kafkaHostName);
+                Dns.GetHostAddresses(keycloakHostName);
             }
             catch { showReminder = true; }
             var hostsText = "Please add to your etc\\hosts file the following entires before proceeding:\n" +
                 $"\t127.0.0.1 {statePipesHostName}\n" +
                 $"\t127.0.0.1 {stepCaHostName}\n" +
-                $"\t127.0.0.1 {brokerHostName}\n";
+                $"\t127.0.0.1 {brokerHostName}\n" +
+                $"\t127.0.0.1 {kafkaHostName}\n" +
+                $"\t127.0.0.1 {keycloakHostName}\n";
             if (showReminder) MessageBox.Show(hostsText);
             return showReminder;
         }

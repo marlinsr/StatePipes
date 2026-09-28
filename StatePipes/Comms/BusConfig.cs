@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using StatePipes.Common;
+using StatePipes.Comms.Internal;
 
 namespace StatePipes.Comms
 {
@@ -19,6 +20,14 @@ namespace StatePipes.Comms
         public string ResponseExchangeGuid { get; } = string.IsNullOrEmpty(responseExchangeGuid) ? Guid.NewGuid().ToString("N") : responseExchangeGuid;
         public string ExchangeNamePostfix { get; private set; } = exchangeNamePostfix;
         public BusConfig? PreviousHop { get; } = previousHop;
+        /// <summary>
+        /// Derived from <see cref="BrokerUri"/> on every read rather than stored, so it stays
+        /// correct without being serialized: a URI beginning with
+        /// <see cref="TransportConstants.KafkaBrokerUriPrefix"/> (case-insensitive) is
+        /// <see cref="TransportKind.Kafka"/>, anything else is <see cref="TransportKind.RabbitMq"/>.
+        /// </summary>
+        [JsonIgnore]
+        public TransportKind TransportKind => BrokerUri.StartsWith(TransportConstants.KafkaBrokerUriPrefix, StringComparison.OrdinalIgnoreCase) ? TransportKind.Kafka : TransportKind.RabbitMq;
 
         public BusConfig(BusConfig config, BusConfig previousHop) : this(config.BrokerUri, config.ExchangeNamePrefix, config.ClientCertPath, config.ClientCertPasswordPath, config.ResponseExchangeGuid, config.ExchangeNamePostfix, previousHop){}
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string exchangeNamePostfix) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, exchangeNamePostfix, null) { }
@@ -33,7 +42,7 @@ namespace StatePipes.Comms
         }
         public bool Equals(BusConfig? other)
         {
-            if (ReferenceEquals(other, null)) return false;
+            if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             return BrokerUri == other.BrokerUri && ExchangeNamePrefix == other.ExchangeNamePrefix && ClientCertPath == other.ClientCertPath && ClientCertPasswordPath == other.ClientCertPasswordPath && ResponseExchangeGuid == other.ResponseExchangeGuid && ExchangeNamePostfix == other.ExchangeNamePostfix;
         }

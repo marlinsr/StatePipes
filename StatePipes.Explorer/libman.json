@@ -14,7 +14,7 @@
     },
     {
       "provider": "cdnjs",
-      "library": "Chart.js@4.5.0",
+      "library": "Chart.js@4.5.1",
       "destination": "wwwroot/Chart.js/"
     },
     {

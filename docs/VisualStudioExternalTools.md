@@ -63,7 +63,7 @@ The argument strings use standard Visual Studio External Tools macros:
 | `<SolutionDir>\RunScript\` | `DockerInfrastructureStart.ps1`, `DockerInfrastructureStop.ps1`, `Start.ps1`, `Stop.ps1` |
 | `<SolutionDir>\BuildScript\` | `NugetConfig.xml` |
 
-4. If `statepipes.explorer`, `step-ca`, or `amqp09-broker` are not resolvable in the local hosts file, a reminder message is shown listing the required `/etc/hosts` entries.
+4. If `statepipes.explorer`, `step-ca`, `amqp09-broker`, `kafka-broker`, or `keycloak` are not resolvable in the local hosts file, a reminder message is shown listing the required `/etc/hosts` entries.
 5. Launches a new Visual Studio instance with the generated solution.
 
 ---
