@@ -1,28 +1,30 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
-using StatePipes.Interfaces;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
-
 namespace StatePipes.BrokerProxy
 {
-    internal class SimpleConnectionChannel : IDisposable
+    /// <summary>
+    /// RabbitMQ <see cref="ISimpleConnectionChannel"/>. This is the original SimpleConnectionChannel; the
+    /// connection/channel handling, reconnect timer and fire-and-forget publish are unchanged. What changed is
+    /// that it now reads and writes the reply-to header as raw bytes, so callers never see
+    /// <see cref="BasicDeliverEventArgs"/> and nothing is deserialized on the way through.
+    /// </summary>
+    internal class RabbitMqConnectionChannel : ISimpleConnectionChannel
     {
         private IConnection? _connection;
         private IChannel? _channel;
-        private readonly Action<SimpleConnectionChannel>? _configureBuses;
+        private readonly Action<ISimpleConnectionChannel>? _configureBuses;
         private readonly CancellationToken _cancelToken;
         private readonly BusConfig _busConfig;
         private readonly object _lock = new();
         private bool _disposedValue;
         private Timer? _timer;
         private readonly string? _hashedPassword;
-        public static List<string> DefaultRoutingKeys { get; } = new List<string> { "#" };
-        public SimpleConnectionChannel(BusConfig busConfig, string? hashedPassword, Action<SimpleConnectionChannel>? configureBuses = null, CancellationToken cancelToken = default)
+        public RabbitMqConnectionChannel(BusConfig busConfig, string? hashedPassword, Action<ISimpleConnectionChannel>? configureBuses = null, CancellationToken cancelToken = default)
         {
             _configureBuses = configureBuses;
             _cancelToken = cancelToken;
@@ -90,7 +92,7 @@ namespace StatePipes.BrokerProxy
             }
         }
         private string GetQueueName(Guid id, CommunicationsType commsType) => commsType.ToString() + "." + id.ToString("N");
-        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, AsyncEventHandler<BasicDeliverEventArgs>? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
+        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, SimpleMessageReceived? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
         {
             if (_channel == null)
             {
@@ -105,11 +107,23 @@ namespace StatePipes.BrokerProxy
 
                 if (routingKeys != null) routingKeys.ForEach(routingKey => _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, arguments: null, noWait: false, _cancelToken).GetAwaiter().GetResult());
                 var consumer = new AsyncEventingBasicConsumer(_channel);
-                consumer.ReceivedAsync += consumeMethod;
+                consumer.ReceivedAsync += (_, ea) =>
+                {
+                    try
+                    {
+                        if (SimpleMessageHelper.TryRead(ea, out byte[]? body, out string routingKey, out ReadOnlyMemory<byte> replyToRaw))
+                            consumeMethod(body!, routingKey, replyToRaw);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log?.LogException(ex);
+                    }
+                    return Task.CompletedTask;
+                };
                 _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: _cancelToken).GetAwaiter().GetResult();
             }
         }
-        public void Send(byte[] message, string routingKey, BusConfig busConfigFrom, string exchangeName)
+        public void Send(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw, string exchangeName)
         {
             lock (_lock)
             {
@@ -123,13 +137,13 @@ namespace StatePipes.BrokerProxy
                     Log?.LogError($"Failed to send message {routingKey} because _channel == null");
                     return;
                 }
-                SimpleMessageHelper.Serialize(routingKey, busConfigFrom, out BasicProperties properties);
+                SimpleMessageHelper.Serialize(routingKey, replyToRaw, out BasicProperties properties);
                 try
                 {
                     var result = _channel.BasicPublishAsync(exchange: exchangeName,
                                          routingKey: routingKey,
                                          basicProperties: properties,
-                                         body: message,
+                                         body: body,
                                          mandatory: false, cancellationToken: _cancelToken);
                     if (!result.IsCompletedSuccessfully) Log?.LogVerbose($"Failed to publish message {routingKey} to exchange {exchangeName}");
                 }

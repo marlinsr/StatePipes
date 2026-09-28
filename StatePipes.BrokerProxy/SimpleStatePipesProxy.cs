@@ -1,13 +1,7 @@
-﻿using RabbitMQ.Client.Events;
 using StatePipes.Common;
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
-using StatePipes.Interfaces;
-using StatePipes.Messages;
 using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Text;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.BrokerProxy
 {
@@ -16,34 +10,44 @@ namespace StatePipes.BrokerProxy
         private readonly Guid _id = Guid.NewGuid();
         private bool _disposedValue;
         private readonly BusConfig _busConfig;
-        private SimpleConnectionChannel? _connectionChannel;
+        private readonly ReplyToEnvelope _replyTo;
+        private ISimpleConnectionChannel? _connectionChannel;
         private string? _hashedPassword;
         public BusConfig BusConfig { get => JsonUtility.Clone(_busConfig); }
         public string Name { get; private set; } = string.Empty;
         public bool IsConnectedToBroker => _connectionChannel?.IsOpen ?? false;
-        private Action<byte[]?, string, BusConfig, bool>? _messageHandler;
+        private SimpleMessageReceived? _messageHandler;
+        private SimpleMessageReceived? _responseHandler;
         public SimpleStatePipesProxy(string name, BusConfig busConfig, string? hashedPassword = null)
         {
             Name = name;
             _busConfig = busConfig;
+            _replyTo = new ReplyToEnvelope(busConfig);
             _hashedPassword = hashedPassword;
         }
 
-        public void Subscribe(Action<byte[]?, string, BusConfig, bool> handler)
+        /// <summary>
+        /// <paramref name="eventHandler"/> receives reflected events, <paramref name="responseHandler"/>
+        /// reflected responses. Both are handed the reply-to header as raw bytes: the proxy never decodes it.
+        /// </summary>
+        public void Subscribe(SimpleMessageReceived eventHandler, SimpleMessageReceived responseHandler)
         {
-            _messageHandler = handler;
+            _messageHandler = eventHandler;
+            _responseHandler = responseHandler;
         }
         public void UnSubscribe()
         {
             _messageHandler = null;
+            _responseHandler = null;
         }
-        public void SendCommand(byte[] message, string routingKey, BusConfig busConfigFrom)
+        public void SendCommand(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             try
             {
                 if (_connectionChannel != null && _connectionChannel.IsOpen)
                 {
-                    _connectionChannel.Send(message, routingKey, new(_busConfig, busConfigFrom), _busConfig.CommandExchangeName);
+                    // Was: new BusConfig(_busConfig, busConfigFrom) then serialize. Now a byte splice.
+                    _connectionChannel.Send(body, routingKey, _replyTo.Wrap(replyToRaw), _busConfig.CommandExchangeName);
                 }
                 else
                 {
@@ -58,7 +62,7 @@ namespace StatePipes.BrokerProxy
         public void Start()
         {
             if (_connectionChannel != null) return;
-            _connectionChannel = new SimpleConnectionChannel(_busConfig, _hashedPassword, ConfigureBuses);
+            _connectionChannel = SimpleConnectionChannelFactory.Create(_busConfig, _hashedPassword, ConfigureBuses);
         }
         public void Stop()
         {
@@ -69,12 +73,12 @@ namespace StatePipes.BrokerProxy
             }
             catch { }
         }
-        private void ConfigureBuses(SimpleConnectionChannel connectionChannel)
+        private void ConfigureBuses(ISimpleConnectionChannel connectionChannel)
         {
             try
             {
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName, ConsumeEvent, SimpleConnectionChannel.DefaultRoutingKeys);
-                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, SimpleConnectionChannel.DefaultRoutingKeys, true);
+                connectionChannel.ConfigureBus(_id, CommunicationsType.Event, _busConfig.EventExchangeName, ConsumeEvent, ISimpleConnectionChannel.DefaultRoutingKeys);
+                connectionChannel.ConfigureBus(_id, CommunicationsType.Response, _busConfig.ResponseExchangeName, ConsumeResponse, ISimpleConnectionChannel.DefaultRoutingKeys, true);
                 connectionChannel.ConfigureBus(_id, CommunicationsType.Command, _busConfig.CommandExchangeName);
             }
             catch (Exception ex)
@@ -82,33 +86,27 @@ namespace StatePipes.BrokerProxy
                 Log?.LogException(ex);
             }
         }
-        private Task ConsumeEvent(object model, BasicDeliverEventArgs ea)
+        private void ConsumeEvent(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             try
             {
-                SimpleMessageHelper.Deserialize(ea, out byte[]? eventMessage, out string routingKey, out BusConfig? busConfig);
-                if (eventMessage == null || busConfig == null || string.IsNullOrEmpty(routingKey)) return Task.CompletedTask;
-                _messageHandler?.Invoke(eventMessage, routingKey, busConfig, false);
+                _messageHandler?.Invoke(body, routingKey, replyToRaw);
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
             }
-            return Task.CompletedTask;
         }
-        private Task ConsumeResponse(object model, BasicDeliverEventArgs ea)
+        private void ConsumeResponse(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw)
         {
             try
             {
-                SimpleMessageHelper.Deserialize(ea, out byte[]? eventMessage, out string routingKey, out BusConfig? busConfig);
-                if (eventMessage == null || busConfig == null || string.IsNullOrEmpty(routingKey)) return Task.CompletedTask;
-                _messageHandler?.Invoke(eventMessage, routingKey, busConfig, true);
+                _responseHandler?.Invoke(body, routingKey, replyToRaw);
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
             }
-            return Task.CompletedTask;
         }
         protected virtual void Dispose(bool disposing)
         {
