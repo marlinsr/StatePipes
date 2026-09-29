@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.1 (2026-09-29)
+Merged PR: #88 Modified for slnx
+
+Referenced issues:
+- #87 Use slnx format
+
+
 ### v5.0.1 (2026-09-28)
 Merged PR: #86 Kafka phase0 addressing
 
