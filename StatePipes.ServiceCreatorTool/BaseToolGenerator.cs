@@ -7,7 +7,6 @@ namespace StatePipes.ServiceCreatorTool
         protected readonly PathHelper _pathProvider = new(solutionDir);
         protected const string solutionNameMoniker = "@#$SolutionName@#$";
         protected const string solutionInjection1Moniker = "# Injection Point 1, Do Not Delete or Modify";
-        protected const string solutionInjection2Moniker = "# Injection Point 2, Do Not Delete or Modify";
         protected const string proxyInjection1Moniker = "// Injection Point 1, Do Not Delete or Modify";
         protected const string proxyInjection2Moniker = "// Injection Point 2, Do Not Delete or Modify";
         protected const string proxyInjection3Moniker = "// Injection Point 3, Do Not Delete or Modify";
@@ -21,7 +20,7 @@ namespace StatePipes.ServiceCreatorTool
         protected const string publicTriggerUsingCommentMoniker = "//@#$PublicTriggers@#$";
         protected const string internalTriggerUsingCommentMoniker = "//@#$InternalTriggers@#$";
         public const string packagePrefix = "Packages.";
-        public const string solutionExtension = ".sln";
+        public const string solutionExtension = ".slnx";
         public const string projectExtension = ".csproj";
         public string SolutionFileName { get; private set; } = solutionFileName;
         public string SolutionFullPath => Path.Combine(_pathProvider.GetPath(PathName.Solution), SolutionFileName);
@@ -57,15 +56,11 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$ServiceProjectGuid@#$", Guid.NewGuid().ToString("B"));
             monikers.AddMoniker("@#$ClassLibraryProjectGuid@#$", Guid.NewGuid().ToString("B"));
             monikers.AddMoniker("@#$TestProjectGuid@#$", Guid.NewGuid().ToString("B"));
-            monikers.AddMoniker("@#$SolutionItemsGuid@#$", Guid.NewGuid().ToString("B"));
-            monikers.AddMoniker("@#$SolutionGuid@#$", Guid.NewGuid().ToString("B"));
             monikers.AddMoniker("@#$SecretsGuid@#$", Guid.NewGuid().ToString("D"));
             monikers.AddMoniker("@#$ContainerImageName@#$", projectName.Replace(".", "-").ToLower() + "-service");
             monikers.AddMoniker("@#$BuildFunctionName@#$", projectName.Replace(".", "_").ToLower() + "_Service_LocalImageBuild");
             monikers.AddMoniker("@#$StateMachineName@#$", GetDefaultStateMachineName(projectName));
             monikers.AddMoniker("@#$NetworkName@#$", $"{GetCompanyName(solutionName)}-net");
-            monikers.AddMoniker("@#$SolutionInjection1@#", solutionInjection1Moniker);
-            monikers.AddMoniker("@#$SolutionInjection2@#", solutionInjection2Moniker);
             monikers.AddMoniker("@#$ProxyInjection1@#$", proxyInjection1Moniker);
             monikers.AddMoniker("@#$ProxyInjection2@#$", proxyInjection2Moniker);
             monikers.AddMoniker("@#$ProxyInjection3@#$", proxyInjection3Moniker);

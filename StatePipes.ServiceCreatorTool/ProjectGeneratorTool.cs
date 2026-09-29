@@ -13,8 +13,7 @@
         public static void GenerateProjectFiles(GeneratorHelper helper)
         {
             helper.MoveToRootDirectory();
-            helper.Inject("SolutionProjectInjectionPoint1_sln.sample", $"{solutionNameMoniker}.sln", solutionInjection1Moniker);
-            helper.Inject("SolutionProjectInjectionPoint2_sln.sample", $"{solutionNameMoniker}.sln", solutionInjection2Moniker);
+            helper.Inject("SolutionProjectInjectionPoint1_sln.sample", $"{solutionNameMoniker}{solutionExtension}", "<!--" + solutionInjection1Moniker + "-->");
             helper.MoveToRootDirectory();
             //Solution Level
             _ = helper.SaveTextFile("Tests_runsettings.sample", "Tests.runsettings");
