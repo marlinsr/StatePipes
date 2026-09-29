@@ -21,7 +21,7 @@ namespace StatePipes.ServiceCreatorTool
             _ = helper.SaveTextFile("SolutionInfo_proj.sample", "SolutionInfo.proj");
             _ = helper.SaveTextFile("_dockerignore.sample", ".dockerignore");
             _ = helper.SaveTextFile("_gitignore.sample", ".gitignore");
-            _ = helper.SaveTextFile("Solution_sln.sample", $"{solutionNameMoniker}.sln");
+            _ = helper.SaveTextFile("Solution_slnx.sample", $"{solutionNameMoniker}{solutionExtension}");
             helper.MoveTo("RunScript");
             _ = helper.SaveTextFile("DockerInfrastructureStart_ps1.sample", "DockerInfrastructureStart.ps1");
             _ = helper.SaveTextFile("DockerInfrastructureStop_ps1.sample", "DockerInfrastructureStop.ps1");

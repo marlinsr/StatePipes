@@ -66,10 +66,9 @@
     <EmbeddedResource Include="Resources\ServiceStart_ps1.sample" />
     <EmbeddedResource Include="Resources\ServiceStop_ps1.sample" />
     <EmbeddedResource Include="Resources\SetupAndRunInstructions_pdf.sample" />
-    <EmbeddedResource Include="Resources\Solution_sln.sample" />
+    <EmbeddedResource Include="Resources\Solution_slnx.sample" />
     <EmbeddedResource Include="Resources\SolutionInfo_proj.sample" />
     <EmbeddedResource Include="Resources\SolutionProjectInjectionPoint1_sln.sample" />
-    <EmbeddedResource Include="Resources\SolutionProjectInjectionPoint2_sln.sample" />
     <EmbeddedResource Include="Resources\Start_ps1.sample" />
     <EmbeddedResource Include="Resources\StateMachine_cs.sample" />
     <EmbeddedResource Include="Resources\StateMachineDummyTests_cs.sample" />
