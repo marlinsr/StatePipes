@@ -5,56 +5,90 @@ using System.Text;
 namespace StatePipes.OpcUaBridge
 {
     /// <summary>
-    /// Turns an OPC UA NodeId into the name of its StatePipes Get command and Get event.
+    /// The namespace and name shared by a node's Get command and Get event. The command is
+    /// <c>{Namespace}.{Name}Command</c> and the event <c>{Namespace}.{Name}Event</c>.
+    /// </summary>
+    internal sealed record MessageNames(string Namespace, string Name)
+    {
+        public const string CommandSuffix = "Command";
+        public const string EventSuffix = "Event";
+        public string CommandTypeName => Name + CommandSuffix;
+        public string EventTypeName => Name + EventSuffix;
+        public string CommandTypeFullName => $"{Namespace}.{CommandTypeName}";
+        public string EventTypeFullName => $"{Namespace}.{EventTypeName}";
+    }
+
+    /// <summary>
+    /// Turns an OPC UA NodeId into the namespace and name of its StatePipes Get command and Get event.
+    ///
+    /// <para>The namespace mirrors where the node lives: the bridge's exchange name, the node's namespace index,
+    /// and, for a string identifier containing dots, everything before its last dot. On exchange <c>Line1Plc</c>,
+    /// <c>ns=2;s=Machine.Motor.Speed</c> is in namespace <c>Line1Plc.2.Machine.Motor</c>.</para>
     ///
     /// <para>The name is the namespace index and identifier, in the order and with the letters of the standard
-    /// NodeId notation: <c>ns=2;s=Line1.Temperature</c> becomes <c>Get_ns2_s_Line1_Temperature</c>. Dots become
-    /// underscores, as does any other character that cannot appear in a type name, because consumers such as
-    /// StatePipes.Explorer emit a real CLR type from the name. Non-string identifiers keep their own letter
-    /// (<c>i</c>, <c>g</c>, <c>b</c>) so <c>ns=2;i=5</c> and <c>ns=2;s=5</c> cannot collide.</para>
-    ///
-    /// <para>The command and event share the name and are told apart by namespace, so the Get command for a
-    /// node is <c>StatePipes.OpcUaBridge.Commands.Get_...</c> and its Get event is
-    /// <c>StatePipes.OpcUaBridge.Events.Get_...</c>.</para>
+    /// NodeId notation, with dots replaced by underscores: <c>Get_ns2_s_Machine_Motor_Speed</c>. Any other
+    /// character that cannot appear in a type name also becomes an underscore, in the name and in each namespace
+    /// segment, because consumers such as StatePipes.Explorer emit a real CLR type from it. Non-string
+    /// identifiers keep their own letter (<c>i</c>, <c>g</c>, <c>b</c>) so <c>ns=2;i=5</c> and <c>ns=2;s=5</c>
+    /// cannot collide.</para>
     /// </summary>
     internal static class OpcUaNaming
     {
-        public const string CommandNamespace = "StatePipes.OpcUaBridge.Commands";
-        public const string EventNamespace = "StatePipes.OpcUaBridge.Events";
         public const string AssemblyName = "StatePipes.OpcUaBridge.Messages";
 
-        /// <summary>
-        /// The message type's full name is its RabbitMQ routing key, which is capped at 255 bytes. Names are pure
-        /// ASCII, so this leaves room for the longer of the two namespaces plus a collision suffix.
-        /// </summary>
-        internal const int MaxMessageNameLength = 255 - 32 - 4; // "StatePipes.OpcUaBridge.Commands." is 32, "_999" is 4
+        /// <summary>A message type's full name is its RabbitMQ routing key, which is capped at 255 bytes.</summary>
+        internal const int MaxFullNameLength = 255;
+        /// <summary>Bounds the namespace so a long identifier path still leaves room for the type name.</summary>
+        internal const int MaxNamespaceLength = 160;
+        private const int CollisionSuffixReserve = 4; // "_999"
         private const int HashSuffixLength = 9; // "_" + 8 hex digits
 
-        public static string ToMessageName(NodeId nodeId)
+        public static MessageNames ToMessageNames(string exchangeName, NodeId nodeId)
         {
-            var name = $"Get_ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(IdentifierText(nodeId))}";
-            if (name.Length <= MaxMessageNameLength) return name;
-            // Truncated names would collide on a shared prefix, so the tail is replaced with a hash of the full id.
-            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(nodeId.ToString())))[..8];
-            return $"{name[..(MaxMessageNameLength - HashSuffixLength)]}_{hash}";
+            var identifier = IdentifierText(nodeId);
+            var @namespace = Fit(ToNamespace(exchangeName, nodeId, identifier), MaxNamespaceLength, nodeId);
+            // Names are pure ASCII, so characters are bytes. Leave room for the separating dot, the longer
+            // suffix and a possible collision suffix.
+            var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve;
+            var name = Fit($"Get_ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(identifier)}", maxNameLength, nodeId);
+            return new MessageNames(@namespace, name);
+        }
+
+        private static string ToNamespace(string exchangeName, NodeId nodeId, string identifier)
+        {
+            List<string> segments = [.. exchangeName.Split('.'), nodeId.NamespaceIndex.ToString()];
+            var lastDot = nodeId.IdType == IdType.String ? identifier.LastIndexOf('.') : -1;
+            if (lastDot >= 0) segments.AddRange(identifier[..lastDot].Split('.'));
+            return string.Join('.', segments.Select(segment => segment.Length == 0 ? "_" : Sanitize(segment)));
         }
 
         /// <summary>
-        /// Assigns every node a message name, making the rare collision unique with a numeric suffix. Collisions
-        /// are possible because sanitizing is lossy (<c>A.B</c> and <c>A_B</c> both become <c>A_B</c>); nodes are
-        /// ordered by their NodeId text first so the same address space always yields the same names.
+        /// Shortens <paramref name="text"/> to <paramref name="maxLength"/>. Truncated texts would collide on a
+        /// shared prefix, so the tail is replaced with a hash of the full NodeId.
         /// </summary>
-        public static IReadOnlyDictionary<NodeId, string> AssignUniqueNames(IEnumerable<NodeId> nodeIds, Action<string>? onCollision = null)
+        private static string Fit(string text, int maxLength, NodeId nodeId)
         {
-            Dictionary<NodeId, string> names = [];
+            if (text.Length <= maxLength) return text;
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(nodeId.ToString())))[..8];
+            return $"{text[..(maxLength - HashSuffixLength)]}_{hash}";
+        }
+
+        /// <summary>
+        /// Assigns every node its names, making the rare collision unique with a numeric suffix on the name.
+        /// Collisions are possible because sanitizing is lossy (<c>A-B</c> and <c>A_B</c> both become <c>A_B</c>);
+        /// nodes are ordered by their NodeId text first so the same address space always yields the same names.
+        /// </summary>
+        public static IReadOnlyDictionary<NodeId, MessageNames> AssignUniqueNames(string exchangeName, IEnumerable<NodeId> nodeIds, Action<string>? onCollision = null)
+        {
+            Dictionary<NodeId, MessageNames> names = [];
             HashSet<string> used = new(StringComparer.Ordinal);
             foreach (var nodeId in nodeIds.Distinct().OrderBy(n => n.ToString(), StringComparer.Ordinal))
             {
-                var baseName = ToMessageName(nodeId);
-                var name = baseName;
-                for (var suffix = 2; !used.Add(name); suffix++) name = $"{baseName}_{suffix}";
-                if (name != baseName) onCollision?.Invoke($"{nodeId} sanitizes to {baseName}, which is already taken; exposed as {name}");
-                names.Add(nodeId, name);
+                var baseNames = ToMessageNames(exchangeName, nodeId);
+                var messageNames = baseNames;
+                for (var suffix = 2; !used.Add(messageNames.CommandTypeFullName); suffix++) messageNames = baseNames with { Name = $"{baseNames.Name}_{suffix}" };
+                if (messageNames != baseNames) onCollision?.Invoke($"{nodeId} sanitizes to {baseNames.CommandTypeFullName}, which is already taken; exposed as {messageNames.CommandTypeFullName}");
+                names.Add(nodeId, messageNames);
             }
             return names;
         }

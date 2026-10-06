@@ -44,7 +44,7 @@ namespace StatePipes.OpcUaBridge
 
         private static TypeSerialization BuildCommand(OpcUaDataItem item)
         {
-            var description = CreateMessageDescription(OpcUaNaming.CommandNamespace, item.MessageName);
+            var description = CreateMessageDescription(item.Names.Namespace, item.Names.CommandTypeName);
             description.IsCommand = true;
             TypeSerialization serialization = new() { FullName = description.FullName };
             serialization.AddTypeDescription(description);
@@ -53,7 +53,7 @@ namespace StatePipes.OpcUaBridge
 
         private static TypeSerialization BuildEvent(OpcUaDataItem item)
         {
-            var description = CreateMessageDescription(OpcUaNaming.EventNamespace, item.MessageName);
+            var description = CreateMessageDescription(item.Names.Namespace, item.Names.EventTypeName);
             description.IsEvent = true;
             TypeSerialization serialization = new() { FullName = description.FullName };
             serialization.AddTypeDescription(description);

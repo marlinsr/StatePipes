@@ -6,17 +6,19 @@ On startup, OpcUaBridge connects to the OPC UA server and finds every variable t
 
 ## Naming
 
-Each name comes from the node's namespace index and identifier, with `.` replaced by `_`:
+Each node's Get command and Get event share a namespace built from the bridge's `EXCHANGE`, the node's namespace index and, if the string identifier contains dots, everything before its last dot. The type name is the namespace index and identifier with `.` replaced by `_`, suffixed with `Command` or `Event`. With `EXCHANGE=Line1Plc`:
 
-| OPC UA node | Get command | Get event |
-|---|---|---|
-| `ns=2;s=Line1.Temperature` | `StatePipes.OpcUaBridge.Commands.Get_ns2_s_Line1_Temperature` | `StatePipes.OpcUaBridge.Events.Get_ns2_s_Line1_Temperature` |
-| `ns=3;i=1001` | `StatePipes.OpcUaBridge.Commands.Get_ns3_i_1001` | `StatePipes.OpcUaBridge.Events.Get_ns3_i_1001` |
+| OPC UA node | Namespace | Get command | Get event |
+|---|---|---|---|
+| `ns=2;s=Machine.Motor.Speed` | `Line1Plc.2.Machine.Motor` | `Get_ns2_s_Machine_Motor_SpeedCommand` | `Get_ns2_s_Machine_Motor_SpeedEvent` |
+| `ns=2;s=Speed` | `Line1Plc.2` | `Get_ns2_s_SpeedCommand` | `Get_ns2_s_SpeedEvent` |
+| `ns=3;i=1001` | `Line1Plc.3` | `Get_ns3_i_1001Command` | `Get_ns3_i_1001Event` |
 
-- Any other character that can't appear in a type name also becomes `_`.
+- Any other character that can't appear in a type name becomes `_`, in the type name and in each namespace segment. An empty segment (from `..`) becomes `_`.
 - Numeric (`i`), GUID (`g`) and opaque (`b`) identifiers keep their own letter, so they never collide with string identifiers.
-- If two nodes still end up with the same name (for example `A.B` and `A_B`), the later one in NodeId order gets a `_2` suffix, and a warning is logged.
-- Names too long for a 255-byte RabbitMQ routing key are shortened and end with a hash of the NodeId.
+- If two nodes still end up with the same full name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix, and a warning is logged.
+- The full name is the RabbitMQ routing key, which is capped at 255 bytes. Namespaces over 160 characters, and type names too long for what's left, are shortened and end with a hash of the NodeId.
+- A namespace segment that starts with a digit, such as `2`, is fine for clients that build types from the self description (StatePipes.Explorer), but it can't be written as a C# namespace. A hand-written or generated C# client can't declare these types under the same full names.
 
 ## Get event
 
