@@ -26,6 +26,7 @@
     <ProjectReference Include="..\StatePipes.Explorer\StatePipes.Explorer.csproj" />
     <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
     <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
+    <ProjectReference Include="..\StatePipes.OpcUaBridge\StatePipes.OpcUaBridge.csproj" />
   </ItemGroup>
 
   <ItemGroup>

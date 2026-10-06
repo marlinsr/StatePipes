@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-StatePipes.OpcUaBridge-5f0c8f8e-0a3e-4a8c-9a59-2c6c2b1d7e41</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+  <Import Project="..\SolutionInfo.proj" />
+  <PropertyGroup>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IncludeSymbols>true</IncludeSymbols>
+    <Description>StatePipes.OpcUaBridge</Description>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
+    <RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
+    <PackageVersion>$(VersionPrefix)</PackageVersion>
+    <PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <EnableSdkContainerDebugging>True</EnableSdkContainerDebugging>
+    <IsPublishable>True</IsPublishable>
+    <EnableSdkContainerSupport>True</EnableSdkContainerSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NETCore.Platforms" Version="7.0.4" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="1.5.378.176" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.12" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
+  </ItemGroup>
+  <!-- The broker channels are BrokerProxy's hand-rolled RabbitMQ/Kafka plumbing, shared as linked source so the
+       bridge speaks exactly the same wire format without a message type registry. -->
+  <ItemGroup>
+    <Compile Include="..\StatePipes.BrokerProxy\ConsumerContext.cs" Link="BrokerChannels\ConsumerContext.cs" />
+    <Compile Include="..\StatePipes.BrokerProxy\ISimpleConnectionChannel.cs" Link="BrokerChannels\ISimpleConnectionChannel.cs" />
+    <Compile Include="..\StatePipes.BrokerProxy\KafkaConnectionChannel.cs" Link="BrokerChannels\KafkaConnectionChannel.cs" />
+    <Compile Include="..\StatePipes.BrokerProxy\RabbitMqConnectionChannel.cs" Link="BrokerChannels\RabbitMqConnectionChannel.cs" />
+    <Compile Include="..\StatePipes.BrokerProxy\SimpleConnectionChannelFactory.cs" Link="BrokerChannels\SimpleConnectionChannelFactory.cs" />
+    <Compile Include="..\StatePipes.BrokerProxy\SimpleMessageHelper.cs" Link="BrokerChannels\SimpleMessageHelper.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="StatePipes.Test" />
+  </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(OS)'=='Windows_NT' and '$(Configuration)' == 'Debug'">
+    <Exec Command="rmdir /S /Q $(OutDir)\certs&#xD;&#xA;mkdir $(OutDir)\certs&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\amqpuser.amqp09-broker.client.p12 $(OutDir)\certs\amqpuser.amqp09-broker.client.p12&#xD;&#xA;copy $(ProgramData)\SmallStep\step-ca\kafkauser.kafka-broker.client.p12 $(OutDir)\certs\kafkauser.kafka-broker.client.p12&#xD;&#xA;copy C:\ProgramData\SmallStep\step-ca\CommonPassword.txt $(OutDir)\certs\CommonPassword.txt" />
+  </Target>
+</Project>

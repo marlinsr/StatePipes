@@ -42,6 +42,9 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>StatePipes.BrokerProxy</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>StatePipes.OpcUaBridge</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup Condition="'$(OS)'=='Windows_NT'">
     <None Include="..\LICENSE">
