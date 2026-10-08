@@ -69,7 +69,7 @@ namespace StatePipes.OpcUaBridge
             var session = _session ?? throw new InvalidOperationException("Not connected to an OPC UA server");
             var variables = await BrowseVariablesAsync(session, ct);
             var readable = await ReadVariableAttributesAsync(session, variables, ct);
-            var names = OpcUaNaming.AssignUniqueNames(_settings.BusConfig.ExchangeNamePrefix, readable.Keys, message => Log?.LogError(message));
+            var names = OpcUaNaming.AssignUniqueNames(_settings.BusConfig.ExchangeNamePrefix, readable.Keys, message => Log?.LogWarning(message));
             return [.. readable
                 .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value))
                 .OrderBy(item => item.CommandTypeFullName, StringComparer.Ordinal)];

@@ -7,7 +7,7 @@
         "OPCUA_ENDPOINT": "opc.tcp://localhost:4840/PLCSimulator",
         "OPCUA_AUTO_ACCEPT_UNTRUSTED": "true",
         "BROKER": "amqps://amqp09-broker/Production",
-        "EXCHANGE": "OpcUaBridge",
+        "EXCHANGE": "PLCSimulator",
         "CERTPATH": "amqpuser.amqp09-broker.client.p12",
         "PWPATH": "CommonPassword.txt"
       },

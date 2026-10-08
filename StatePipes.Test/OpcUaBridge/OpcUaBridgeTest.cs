@@ -15,27 +15,39 @@ namespace StatePipes.Test.OpcUaBridge
         private const string Exchange = "Line1Plc";
 
         [TestMethod]
-        public void ToMessageNames_DottedStringNodeId_NamespaceIsExchangeNsAndPathBeforeLastDot()
+        public void ToMessageNames_DottedStringNodeId_NamespaceIsExchangeName()
         {
             var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Machine.Motor.Speed", 2));
-            Assert.AreEqual("Line1Plc.2.Machine.Motor", names.Namespace);
-            Assert.AreEqual("Line1Plc.2.Machine.Motor.Get_ns2_s_Machine_Motor_SpeedCommand", names.CommandTypeFullName);
-            Assert.AreEqual("Line1Plc.2.Machine.Motor.Get_ns2_s_Machine_Motor_SpeedEvent", names.EventTypeFullName);
+            Assert.AreEqual("Line1Plc", names.Namespace);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_Machine_Motor_Speed_Command", names.CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_Machine_Motor_Speed_Event", names.EventTypeFullName);
         }
 
         [TestMethod]
-        public void ToMessageNames_UndottedOrNonStringNodeId_NamespaceIsExchangeAndNs()
+        public void ToMessageNames_UndottedOrNonStringNodeId_NamespaceIsExchangeName()
         {
-            Assert.AreEqual("Line1Plc.2.Get_ns2_s_SpeedCommand", OpcUaNaming.ToMessageNames(Exchange, new NodeId("Speed", 2)).CommandTypeFullName);
-            Assert.AreEqual("Line1Plc.3.Get_ns3_i_1001Command", OpcUaNaming.ToMessageNames(Exchange, new NodeId(1001u, 3)).CommandTypeFullName);
-            Assert.AreEqual("Line1Plc.3.Get_ns3_s_1001Command", OpcUaNaming.ToMessageNames(Exchange, new NodeId("1001", 3)).CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_Speed_Command", OpcUaNaming.ToMessageNames(Exchange, new NodeId("Speed", 2)).CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns3_i_1001_Command", OpcUaNaming.ToMessageNames(Exchange, new NodeId(1001u, 3)).CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns3_s_1001_Command", OpcUaNaming.ToMessageNames(Exchange, new NodeId("1001", 3)).CommandTypeFullName);
         }
 
         [TestMethod]
-        public void ToMessageNames_CharactersInvalidInTypeNames_BecomeUnderscoresInEverySegment()
+        public void AssignUniqueNames_SameIdentifierDifferentIdType_NoCollision()
+        {
+            List<string> collisions = [];
+            var numeric = new NodeId(5u, 2);
+            var text = new NodeId("5", 2);
+            var names = OpcUaNaming.AssignUniqueNames(Exchange, [text, numeric], collisions.Add);
+            Assert.AreEqual("Line1Plc.Get_ns2_i_5_Command", names[numeric].CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_5_Command", names[text].CommandTypeFullName);
+            Assert.AreEqual(0, collisions.Count);
+        }
+
+        [TestMethod]
+        public void ToMessageNames_CharactersInvalidInTypeNames_BecomeUnderscores()
         {
             var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Line 1..[Temp-C]", 2));
-            Assert.AreEqual("Line1Plc.2.Line_1._", names.Namespace);
+            Assert.AreEqual("Line1Plc", names.Namespace);
             Assert.AreEqual("Get_ns2_s_Line_1___Temp_C_", names.Name);
         }
 
@@ -47,7 +59,15 @@ namespace StatePipes.Test.OpcUaBridge
             var second = OpcUaNaming.ToMessageNames(Exchange, new NodeId(path + ".Value2", 2));
             Assert.IsLessThanOrEqualTo(OpcUaNaming.MaxNamespaceLength, first.Namespace.Length);
             Assert.IsLessThanOrEqualTo(255, $"{first.CommandTypeFullName}_999".Length);
-            Assert.AreNotEqual(first.CommandTypeFullName, second.CommandTypeFullName);
+            Assert.AreNotEqual(first.Name, second.Name);
+        }
+
+        [TestMethod]
+        public void ToMessageNames_SameLeafInDifferentFolders_NamesStayUnique()
+        {
+            var first = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Motor1.Speed", 2));
+            var second = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Motor2.Speed", 2));
+            Assert.AreNotEqual(first.Name, second.Name);
         }
 
         [TestMethod]
@@ -60,8 +80,37 @@ namespace StatePipes.Test.OpcUaBridge
             var names = OpcUaNaming.AssignUniqueNames(Exchange, [underscored, dashed], collisions.Add);
 
             // "ns=2;s=A-B" sorts before "ns=2;s=A_B", so the dashed node keeps the plain name whatever the input order.
-            Assert.AreEqual("Line1Plc.2.Get_ns2_s_A_BCommand", names[dashed].CommandTypeFullName);
-            Assert.AreEqual("Line1Plc.2.Get_ns2_s_A_B_2Command", names[underscored].CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_A_B_Command", names[dashed].CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_A_B_2_Command", names[underscored].CommandTypeFullName);
+            Assert.HasCount(1, collisions);
+        }
+
+        [TestMethod]
+        public void AssignUniqueNames_CollisionSuffix_NeverTakesAnotherNodesOwnName()
+        {
+            var dashed = new NodeId("A-B", 2);
+            var underscored = new NodeId("A_B", 2);
+            var realSuffix = new NodeId("A_B_2", 2);
+
+            var names = OpcUaNaming.AssignUniqueNames(Exchange, [realSuffix, underscored, dashed]);
+
+            Assert.AreEqual("Get_ns2_s_A_B", names[dashed].Name);
+            Assert.AreEqual("Get_ns2_s_A_B_2", names[realSuffix].Name);
+            Assert.AreEqual("Get_ns2_s_A_B_3", names[underscored].Name);
+        }
+
+        [TestMethod]
+        public void AssignUniqueNames_DotAndUnderscore_Collide()
+        {
+            // Dots and underscores both become underscores, so both nodes sanitize to Get_ns2_s_A_B_C.
+            var dotFirst = new NodeId("A.B_C", 2);
+            var dotSecond = new NodeId("A_B.C", 2);
+            List<string> collisions = [];
+
+            var names = OpcUaNaming.AssignUniqueNames(Exchange, [dotSecond, dotFirst], collisions.Add);
+
+            Assert.AreEqual("Line1Plc.Get_ns2_s_A_B_C_Command", names[dotFirst].CommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_A_B_C_2_Command", names[dotSecond].CommandTypeFullName);
             Assert.HasCount(1, collisions);
         }
 
@@ -113,7 +162,7 @@ namespace StatePipes.Test.OpcUaBridge
                 Assert.IsNotNull(helper.GenerateExampleJson(), typeSerialization.FullName);
                 emitted[typeSerialization.FullName] = helper.ThisType;
             }
-            Assert.AreEqual("Line1Plc.2.Line1.Get_ns2_s_Line1_TemperatureCommand", emitted[temperature.CommandTypeFullName].FullName);
+            Assert.AreEqual("Line1Plc.Get_ns2_s_Line1_Temperature_Command", emitted[temperature.CommandTypeFullName].FullName);
             Assert.IsTrue(typeof(StatePipes.Interfaces.ICommand).IsAssignableFrom(emitted[temperature.CommandTypeFullName]));
             Assert.IsTrue(typeof(StatePipes.Interfaces.IEvent).IsAssignableFrom(emitted[temperature.EventTypeFullName]));
 
