@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.BrokerProxy", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatePipes.OpcUaBridge", "StatePipes.OpcUaBridge\StatePipes.OpcUaBridge.csproj", "{81F8231B-4181-4956-81E5-B394CF5EE10D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpcUaServer", "OpcUaServer\OpcUaServer.csproj", "{6DD3C216-4384-433B-D115-762B32E4712E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		All|Any CPU = All|Any CPU
@@ -86,6 +88,12 @@ Global
 		{81F8231B-4181-4956-81E5-B394CF5EE10D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81F8231B-4181-4956-81E5-B394CF5EE10D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{81F8231B-4181-4956-81E5-B394CF5EE10D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.All|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.All|Any CPU.Build.0 = Debug|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DD3C216-4384-433B-D115-762B32E4712E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
