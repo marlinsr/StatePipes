@@ -180,7 +180,7 @@ namespace StatePipes.OpcUaBridge
         internal static byte[] CreateGetEventBody(OpcUaDataItem item, DataValue dataValue)
         {
             JObject getEvent = new() { [SelfDescriptionBuilder.NodeIdProperty] = item.NodeIdText };
-            var value = StatusCode.IsBad(dataValue.StatusCode) ? JValue.CreateNull() : OpcUaValueMapper.ToJToken(dataValue.Value, item.ValueType);
+            var value = StatusCode.IsBad(dataValue.StatusCode) ? JValue.CreateNull() : ToJToken(item, dataValue.Value);
             if (value.Type != JTokenType.Null) getEvent[SelfDescriptionBuilder.ValueProperty] = value;
             getEvent[SelfDescriptionBuilder.StatusCodeProperty] = dataValue.StatusCode.Code;
             getEvent[SelfDescriptionBuilder.StatusProperty] = dataValue.StatusCode.ToString();
@@ -188,6 +188,10 @@ namespace StatePipes.OpcUaBridge
             getEvent[SelfDescriptionBuilder.ServerTimestampProperty] = dataValue.ServerTimestamp;
             return Encoding.UTF8.GetBytes(getEvent.ToString(Newtonsoft.Json.Formatting.None));
         }
+
+        private static JToken ToJToken(OpcUaDataItem item, object? value) => item.Structure == null
+            ? OpcUaValueMapper.ToJToken(value, item.ValueType)
+            : StructureDecoder.ToJToken(value, item.Structure, item.IsArray);
 
         private static bool TryGetReplyTo(ReadOnlyMemory<byte> replyToRaw, out BusConfig replyTo)
         {

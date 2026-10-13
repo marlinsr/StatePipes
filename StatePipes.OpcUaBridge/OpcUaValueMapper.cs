@@ -10,8 +10,9 @@ namespace StatePipes.OpcUaBridge
     ///
     /// <para>Scalars and one-dimensional arrays of the numeric, boolean, string, date, guid and byte string
     /// built-in types keep their natural type, so a client gets a <c>double</c> for a Double variable. Anything
-    /// without a faithful plain type -- structures, NodeIds, localized text, matrices, variables whose rank or
-    /// type is not fixed -- is published as a string holding its text or JSON form.</para>
+    /// without a faithful plain type -- NodeIds, localized text, matrices, variables whose rank or type is not
+    /// fixed, structures <see cref="StructureDecoder"/> cannot decode -- is published as a string holding its
+    /// text or JSON form.</para>
     /// </summary>
     internal static class OpcUaValueMapper
     {

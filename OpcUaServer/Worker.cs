@@ -35,6 +35,7 @@ public class Worker : BackgroundService
                 _server.NodeManager?.UpdatePressure(Math.Round(pressure, 4));
                 _server.NodeManager?.UpdateMsg($"Running | Pressure: {pressure:F2} PSI");
                 _server.NodeManager?.UpdateDensity(Math.Round(volume, 4), Math.Round(mass, 4));
+                _server.NodeManager?.UpdateTank(Math.Round(pressure, 4), Math.Round(volume, 4), Math.Round(mass, 4));
 
                 angle += 0.1;
                 if (angle > 2 * Math.PI)

@@ -53,6 +53,20 @@ namespace StatePipes.OpcUaBridge
             return new MessageNames(@namespace, name);
         }
 
+        /// <summary>
+        /// Names the type a structure DataType is published as: <c>{exchange}.Types.ns{index}_{letter}_{identifier}</c>,
+        /// so <c>ns=2;s=DensityDataType</c> on <c>Line1Plc</c> becomes <c>Line1Plc.Types.ns2_s_DensityDataType</c>.
+        /// Built from the DataType's NodeId like message names, so two DataTypes never share a name.
+        /// </summary>
+        public static (string Namespace, string Name) ToStructureTypeNames(string exchangeName, NodeId dataTypeId)
+        {
+            var unfittedNamespace = ToNamespace(exchangeName);
+            var @namespace = Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace) + ".Types";
+            var maxNameLength = MaxFullNameLength - @namespace.Length - 1;
+            var name = Fit($"ns{dataTypeId.NamespaceIndex}_{IdTypeLetter(dataTypeId.IdType)}_{Sanitize(IdentifierText(dataTypeId))}", maxNameLength, dataTypeId.ToString());
+            return (@namespace, name);
+        }
+
         private static string ToNamespace(string exchangeName) =>
             string.Join('.', exchangeName.Split('.').Select(segment => segment.Length == 0 ? "_" : Sanitize(segment)));
 

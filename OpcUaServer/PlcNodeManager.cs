@@ -7,12 +7,16 @@ public class PlcNodeManager : CustomNodeManager2
 {
     private BaseDataVariableState<double> _pressure = null!;
     private BaseDataVariableState<string> _msg = null!;
+    private const int TankHistoryLength = 3;
     private BaseDataVariableState<ExtensionObject> _density = null!;
+    private BaseDataVariableState<ExtensionObject> _tank = null!;
+    private readonly Queue<DensityData> _tankHistory = new();
 
     public PlcNodeManager(IServerInternal server, ApplicationConfiguration configuration)
         : base(server, configuration, "http://plcsimulator.org/")
     {
         EncodeableFactory.GlobalFactory.AddEncodeableType(DensityData.BinaryEncodingId, typeof(DensityData));
+        EncodeableFactory.GlobalFactory.AddEncodeableType(TankData.BinaryEncodingId, typeof(TankData));
     }
 
     public override void CreateAddressSpace(IDictionary<NodeId, IList<IReference>> externalReferences)
@@ -67,7 +71,16 @@ public class PlcNodeManager : CustomNodeManager2
             root.AddChild(_msg);
             AddPredefinedNode(SystemContext, _msg);
 
-            var densityTypeId = CreateDensityDataType(externalReferences);
+            var densityType = CreateStructureDataType(externalReferences, "DensityDataType",
+                new StructureField { Name = "Volume", DataType = DataTypeIds.Double, ValueRank = ValueRanks.Scalar },
+                new StructureField { Name = "Mass", DataType = DataTypeIds.Double, ValueRank = ValueRanks.Scalar });
+            var densityTypeId = densityType.DataType.NodeId;
+            var tankType = CreateStructureDataType(externalReferences, "TankDataType",
+                new StructureField { Name = "Name", DataType = DataTypeIds.String, ValueRank = ValueRanks.Scalar },
+                new StructureField { Name = "Density", DataType = densityTypeId, ValueRank = ValueRanks.Scalar },
+                new StructureField { Name = "History", DataType = densityTypeId, ValueRank = ValueRanks.OneDimension },
+                new StructureField { Name = "Readings", DataType = DataTypeIds.Double, ValueRank = ValueRanks.OneDimension });
+            CreateBinaryTypeDictionary(externalReferences, densityType, tankType);
 
             // Density variable — single node whose value is a DensityData structure
             _density = new BaseDataVariableState<ExtensionObject>(root);
@@ -86,6 +99,24 @@ public class PlcNodeManager : CustomNodeManager2
             _density.Timestamp = DateTime.UtcNow;
             root.AddChild(_density);
             AddPredefinedNode(SystemContext, _density);
+
+            // Tank variable — a TankData structure nesting a DensityData and an array of them
+            _tank = new BaseDataVariableState<ExtensionObject>(root);
+            _tank.Create(
+                SystemContext,
+                new NodeId("Tank", NamespaceIndex),
+                new QualifiedName("Tank", NamespaceIndex),
+                new LocalizedText("Tank"),
+                false);
+            _tank.DataType = tankType.DataType.NodeId;
+            _tank.ValueRank = ValueRanks.Scalar;
+            _tank.AccessLevel = AccessLevels.CurrentRead;
+            _tank.UserAccessLevel = AccessLevels.CurrentRead;
+            _tank.Value = new ExtensionObject(TankData.BinaryEncodingId, new TankData { Name = "Tank1" });
+            _tank.StatusCode = StatusCodes.Good;
+            _tank.Timestamp = DateTime.UtcNow;
+            root.AddChild(_tank);
+            AddPredefinedNode(SystemContext, _tank);
 
             var calcMethod = new MethodState(root);
             calcMethod.Create(
@@ -125,20 +156,22 @@ public class PlcNodeManager : CustomNodeManager2
         }
     }
 
-    // Exposes DensityDataType so clients can resolve the structure behind ns=2;s=Density:
+    private sealed record StructureDataType(DataTypeState DataType, BaseObjectState Encoding);
+
+    // Exposes a structure DataType so clients can resolve the structure behind a variable:
     //  - DataType node (subtype of Structure) with a StructureDefinition (OPC UA 1.04+ clients)
     //  - Default Binary encoding node linked via HasEncoding
-    //  - OPC Binary type dictionary + DataTypeDescription linked via HasDescription (pre-1.04 clients, e.g. Matrikon)
-    private NodeId CreateDensityDataType(IDictionary<NodeId, IList<IReference>> externalReferences)
+    // The nodes are added by CreateBinaryTypeDictionary, once the encodings are linked to their descriptions.
+    private StructureDataType CreateStructureDataType(IDictionary<NodeId, IList<IReference>> externalReferences, string typeName, params StructureField[] fields)
     {
-        var typeId = new NodeId("DensityDataType", NamespaceIndex);
-        var encodingId = new NodeId("DensityDataType_Encoding_DefaultBinary", NamespaceIndex);
+        var typeId = new NodeId(typeName, NamespaceIndex);
+        var encodingId = new NodeId($"{typeName}_Encoding_DefaultBinary", NamespaceIndex);
 
         var dataType = new DataTypeState
         {
             NodeId = typeId,
-            BrowseName = new QualifiedName("DensityDataType", NamespaceIndex),
-            DisplayName = new LocalizedText("DensityDataType"),
+            BrowseName = new QualifiedName(typeName, NamespaceIndex),
+            DisplayName = new LocalizedText(typeName),
             SuperTypeId = DataTypeIds.Structure,
             IsAbstract = false,
             DataTypeDefinition = new ExtensionObject(new StructureDefinition
@@ -146,11 +179,7 @@ public class PlcNodeManager : CustomNodeManager2
                 DefaultEncodingId = encodingId,
                 BaseDataType = DataTypeIds.Structure,
                 StructureType = StructureType.Structure,
-                Fields =
-                [
-                    new StructureField { Name = "Volume", DataType = DataTypeIds.Double, ValueRank = ValueRanks.Scalar },
-                    new StructureField { Name = "Mass", DataType = DataTypeIds.Double, ValueRank = ValueRanks.Scalar }
-                ]
+                Fields = [.. fields]
             })
         };
         dataType.AddReference(ReferenceTypeIds.HasEncoding, false, encodingId);
@@ -164,7 +193,13 @@ public class PlcNodeManager : CustomNodeManager2
             TypeDefinitionId = ObjectTypeIds.DataTypeEncodingType
         };
         encoding.AddReference(ReferenceTypeIds.HasEncoding, true, typeId);
+        return new StructureDataType(dataType, encoding);
+    }
 
+    // The OPC Binary type dictionary + a DataTypeDescription per type linked via HasDescription, for pre-1.04
+    // clients (e.g. Matrikon). A namespace has one dictionary holding all of its structures.
+    private void CreateBinaryTypeDictionary(IDictionary<NodeId, IList<IReference>> externalReferences, params StructureDataType[] types)
+    {
         var schema =
             $"""
             <opc:TypeDictionary xmlns:opc="http://opcfoundation.org/BinarySchema/" xmlns:ua="http://opcfoundation.org/UA/" xmlns:tns="{NamespaceUris.First()}" DefaultByteOrder="LittleEndian" TargetNamespace="{NamespaceUris.First()}">
@@ -172,6 +207,14 @@ public class PlcNodeManager : CustomNodeManager2
               <opc:StructuredType Name="DensityDataType" BaseType="ua:ExtensionObject">
                 <opc:Field Name="Volume" TypeName="opc:Double" />
                 <opc:Field Name="Mass" TypeName="opc:Double" />
+              </opc:StructuredType>
+              <opc:StructuredType Name="TankDataType" BaseType="ua:ExtensionObject">
+                <opc:Field Name="Name" TypeName="opc:String" />
+                <opc:Field Name="Density" TypeName="tns:DensityDataType" />
+                <opc:Field Name="NoOfHistory" TypeName="opc:Int32" />
+                <opc:Field Name="History" TypeName="tns:DensityDataType" LengthField="NoOfHistory" />
+                <opc:Field Name="NoOfReadings" TypeName="opc:Int32" />
+                <opc:Field Name="Readings" TypeName="opc:Double" LengthField="NoOfReadings" />
               </opc:StructuredType>
             </opc:TypeDictionary>
             """;
@@ -209,29 +252,31 @@ public class PlcNodeManager : CustomNodeManager2
         };
         dictionary.AddChild(namespaceUri);
 
-        var description = new BaseDataVariableState<string>(dictionary)
+        foreach (var type in types)
         {
-            NodeId = new NodeId("PLCSimulator_BinarySchema_DensityDataType", NamespaceIndex),
-            BrowseName = new QualifiedName("DensityDataType", NamespaceIndex),
-            DisplayName = new LocalizedText("DensityDataType"),
-            TypeDefinitionId = VariableTypeIds.DataTypeDescriptionType,
-            ReferenceTypeId = ReferenceTypeIds.HasComponent,
-            DataType = DataTypeIds.String,
-            ValueRank = ValueRanks.Scalar,
-            AccessLevel = AccessLevels.CurrentRead,
-            UserAccessLevel = AccessLevels.CurrentRead,
-            Value = "DensityDataType"
-        };
-        dictionary.AddChild(description);
+            var typeName = type.DataType.BrowseName.Name;
+            var description = new BaseDataVariableState<string>(dictionary)
+            {
+                NodeId = new NodeId($"PLCSimulator_BinarySchema_{typeName}", NamespaceIndex),
+                BrowseName = new QualifiedName(typeName, NamespaceIndex),
+                DisplayName = new LocalizedText(typeName),
+                TypeDefinitionId = VariableTypeIds.DataTypeDescriptionType,
+                ReferenceTypeId = ReferenceTypeIds.HasComponent,
+                DataType = DataTypeIds.String,
+                ValueRank = ValueRanks.Scalar,
+                AccessLevel = AccessLevels.CurrentRead,
+                UserAccessLevel = AccessLevels.CurrentRead,
+                Value = typeName
+            };
+            dictionary.AddChild(description);
 
-        encoding.AddReference(ReferenceTypeIds.HasDescription, false, description.NodeId);
-        description.AddReference(ReferenceTypeIds.HasDescription, true, encodingId);
+            type.Encoding.AddReference(ReferenceTypeIds.HasDescription, false, description.NodeId);
+            description.AddReference(ReferenceTypeIds.HasDescription, true, type.Encoding.NodeId);
 
-        AddPredefinedNode(SystemContext, dataType);
-        AddPredefinedNode(SystemContext, encoding);
+            AddPredefinedNode(SystemContext, type.DataType);
+            AddPredefinedNode(SystemContext, type.Encoding);
+        }
         AddPredefinedNode(SystemContext, dictionary);
-
-        return typeId;
     }
 
     private static void AddExternalReference(
@@ -275,6 +320,26 @@ public class PlcNodeManager : CustomNodeManager2
             _density.Timestamp = DateTime.UtcNow;
             _density.StatusCode = StatusCodes.Good;
             _density.ClearChangeMasks(SystemContext, false);
+        }
+    }
+
+    public void UpdateTank(double pressure, double volume, double mass)
+    {
+        lock (Lock)
+        {
+            var current = new DensityData { Volume = volume, Mass = mass };
+            _tankHistory.Enqueue(current);
+            while (_tankHistory.Count > TankHistoryLength) _tankHistory.Dequeue();
+            _tank.Value = new ExtensionObject(TankData.BinaryEncodingId, new TankData
+            {
+                Name = "Tank1",
+                Density = current,
+                History = [.. _tankHistory],
+                Readings = [pressure, volume, mass]
+            });
+            _tank.Timestamp = DateTime.UtcNow;
+            _tank.StatusCode = StatusCodes.Good;
+            _tank.ClearChangeMasks(SystemContext, false);
         }
     }
 

@@ -71,7 +71,7 @@ namespace StatePipes.OpcUaBridge
             var readable = await ReadVariableAttributesAsync(session, variables, ct);
             var names = OpcUaNaming.AssignUniqueNames(_settings.BusConfig.ExchangeNamePrefix, readable.Keys, message => Log?.LogWarning(message));
             return [.. readable
-                .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value))
+                .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value.ValueType, kv.Value.Structure, kv.Value.IsArray))
                 .OrderBy(item => item.CommandTypeFullName, StringComparer.Ordinal)];
         }
 
@@ -199,11 +199,18 @@ namespace StatePipes.OpcUaBridge
 
         /// <summary>
         /// Reads access level, data type and value rank for each variable, keeping only those this session may
-        /// read and pairing each with the CLR type its value will be published as.
+        /// read and pairing each with the CLR type its value will be published as, or, for a structure the
+        /// bridge can decode, with the structure's layout.
         /// </summary>
-        private async Task<Dictionary<NodeId, Type>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, CancellationToken ct)
+        private async Task<Dictionary<NodeId, (Type ValueType, StructureLayout? Structure, bool IsArray)>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, CancellationToken ct)
         {
-            Dictionary<NodeId, Type> readable = [];
+            Dictionary<NodeId, (Type, StructureLayout?, bool)> readable = [];
+            Dictionary<NodeId, DataTypeInfo?> dataTypes = [];
+            StructureLayoutBuilder layouts = new(_settings.BusConfig.ExchangeNamePrefix, async (dataTypeId, token) =>
+            {
+                if (!dataTypes.TryGetValue(dataTypeId, out var info)) dataTypes[dataTypeId] = info = await DescribeDataTypeAsync(session, dataTypeId, token);
+                return info;
+            });
             uint[] attributes = [Attributes.UserAccessLevel, Attributes.DataType, Attributes.ValueRank];
             foreach (var chunk in variables.Where(IsIncluded).Chunk(ReadBatchSize / attributes.Length))
             {
@@ -217,12 +224,47 @@ namespace StatePipes.OpcUaBridge
                     var dataType = results[i * 3 + 1];
                     var valueRank = results[i * 3 + 2];
                     if (StatusCode.IsBad(accessLevel.StatusCode) || accessLevel.Value is not byte level || (level & AccessLevels.CurrentRead) == 0) continue;
-                    var builtInType = dataType.Value is NodeId dataTypeId ? await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct) : BuiltInType.Null;
+                    var dataTypeId = dataType.Value as NodeId;
+                    var builtInType = dataTypeId != null ? await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct) : BuiltInType.Null;
                     var rank = valueRank.Value is int r ? r : ValueRanks.Any;
-                    readable[chunk[i]] = OpcUaValueMapper.MapToClrType(builtInType, rank);
+                    var valueType = OpcUaValueMapper.MapToClrType(builtInType, rank);
+                    var structure = await BuildStructureLayoutAsync(layouts, chunk[i], dataTypeId, builtInType, rank, ct);
+                    readable[chunk[i]] = (valueType, structure, rank == ValueRanks.OneDimension);
                 }
             }
             return readable;
+        }
+
+        /// <summary>
+        /// The layout of a variable holding a structure or a one-dimensional array of one, or null when its value
+        /// is not a structure or not one the bridge can decode -- then it travels as a string, as before.
+        /// </summary>
+        private static async Task<StructureLayout?> BuildStructureLayoutAsync(StructureLayoutBuilder layouts, NodeId variable, NodeId? dataTypeId, BuiltInType builtInType, int rank, CancellationToken ct)
+        {
+            if (builtInType != BuiltInType.ExtensionObject || dataTypeId == null || dataTypeId == DataTypeIds.Structure) return null;
+            if (rank != ValueRanks.Scalar && rank != ValueRanks.OneDimension) return null;
+            var layout = await layouts.BuildAsync(dataTypeId, ct);
+            if (layout == null) Log?.LogWarning($"{variable} holds structure {dataTypeId}, which the bridge cannot decode; its value is published as a string");
+            return layout;
+        }
+
+        /// <summary>
+        /// Reads what a DataType's layout depends on. The definition comes from the DataTypeDefinition attribute
+        /// (OPC UA 1.04); a server without it describes no structures and they travel as strings.
+        /// </summary>
+        private static async Task<DataTypeInfo?> DescribeDataTypeAsync(ISession session, NodeId dataTypeId, CancellationToken ct)
+        {
+            ReadValueIdCollection toRead =
+            [
+                new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.IsAbstract },
+                new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.DataTypeDefinition }
+            ];
+            var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, ct);
+            var isAbstract = response.Results[0];
+            if (StatusCode.IsBad(isAbstract.StatusCode)) return null;
+            var definition = response.Results[1].Value is ExtensionObject { Body: StructureDefinition structureDefinition } ? structureDefinition : null;
+            var builtInType = await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct);
+            return new DataTypeInfo(builtInType, isAbstract.Value is true, definition);
         }
 
         private bool IsIncluded(NodeId nodeId) => (_settings.IncludeNamespaceZero || nodeId.NamespaceIndex != 0)
