@@ -168,7 +168,7 @@ namespace StatePipes.OpcUaBridge
             {
                 Log?.LogError($"OPC UA read of {batch.Count} items failed: {ex.Message}");
                 var status = ex is ServiceResultException sre ? sre.StatusCode : StatusCodes.BadCommunicationError;
-                return [.. batch.Select(_ => new DataValue(status))];
+                return [.. batch.Select(_ => DataValue.FromStatusCode(status))];
             }
         }
 
@@ -180,12 +180,12 @@ namespace StatePipes.OpcUaBridge
         internal static byte[] CreateGetEventBody(OpcUaDataItem item, DataValue dataValue)
         {
             JObject getEvent = new() { [SelfDescriptionBuilder.NodeIdProperty] = item.NodeIdText };
-            var value = StatusCode.IsBad(dataValue.StatusCode) ? JValue.CreateNull() : ToJToken(item, dataValue.Value);
+            var value = StatusCode.IsBad(dataValue.StatusCode) ? JValue.CreateNull() : ToJToken(item, dataValue.WrappedValue);
             if (value.Type != JTokenType.Null) getEvent[SelfDescriptionBuilder.ValueProperty] = value;
             getEvent[SelfDescriptionBuilder.StatusCodeProperty] = dataValue.StatusCode.Code;
             getEvent[SelfDescriptionBuilder.StatusProperty] = dataValue.StatusCode.ToString();
-            getEvent[SelfDescriptionBuilder.SourceTimestampProperty] = dataValue.SourceTimestamp;
-            getEvent[SelfDescriptionBuilder.ServerTimestampProperty] = dataValue.ServerTimestamp;
+            getEvent[SelfDescriptionBuilder.SourceTimestampProperty] = dataValue.SourceTimestamp.ToDateTime();
+            getEvent[SelfDescriptionBuilder.ServerTimestampProperty] = dataValue.ServerTimestamp.ToDateTime();
             return Encoding.UTF8.GetBytes(getEvent.ToString(Newtonsoft.Json.Formatting.None));
         }
 

@@ -15,8 +15,10 @@ public class PlcNodeManager : CustomNodeManager2
     public PlcNodeManager(IServerInternal server, ApplicationConfiguration configuration)
         : base(server, configuration, "http://plcsimulator.org/")
     {
-        EncodeableFactory.GlobalFactory.AddEncodeableType(DensityData.BinaryEncodingId, typeof(DensityData));
-        EncodeableFactory.GlobalFactory.AddEncodeableType(TankData.BinaryEncodingId, typeof(TankData));
+        var builder = server.Factory.Builder;
+        builder.AddType(DensityData.BinaryEncodingId, typeof(DensityData));
+        builder.AddType(TankData.BinaryEncodingId, typeof(TankData));
+        builder.Commit();
     }
 
     public override void CreateAddressSpace(IDictionary<NodeId, IList<IReference>> externalReferences)
@@ -33,11 +35,11 @@ public class PlcNodeManager : CustomNodeManager2
                 new QualifiedName("PLC_Data", NamespaceIndex),
                 new LocalizedText("PLC_Data"),
                 false);
-            root.AddReference(ReferenceTypes.Organizes, true, ObjectIds.ObjectsFolder);
-            references.Add(new NodeStateReference(ReferenceTypes.Organizes, false, root.NodeId));
+            root.AddReference(ReferenceTypeIds.Organizes, true, ObjectIds.ObjectsFolder);
+            references.Add(new NodeStateReference(ReferenceTypeIds.Organizes, false, root.NodeId));
             AddPredefinedNode(SystemContext, root);
 
-            _pressure = new BaseDataVariableState<double>(root);
+            _pressure = new BaseDataVariableState<double>.Implementation<VariantBuilder>(root);
             _pressure.Create(
                 SystemContext,
                 new NodeId("pressure", NamespaceIndex),
@@ -54,7 +56,7 @@ public class PlcNodeManager : CustomNodeManager2
             root.AddChild(_pressure);
             AddPredefinedNode(SystemContext, _pressure);
 
-            _msg = new BaseDataVariableState<string>(root);
+            _msg = new BaseDataVariableState<string>.Implementation<VariantBuilder>(root);
             _msg.Create(
                 SystemContext,
                 new NodeId("msg", NamespaceIndex),
@@ -83,7 +85,7 @@ public class PlcNodeManager : CustomNodeManager2
             CreateBinaryTypeDictionary(externalReferences, densityType, tankType);
 
             // Density variable — single node whose value is a DensityData structure
-            _density = new BaseDataVariableState<ExtensionObject>(root);
+            _density = new BaseDataVariableState<ExtensionObject>.Implementation<VariantBuilder>(root);
             _density.Create(
                 SystemContext,
                 new NodeId("Density", NamespaceIndex),
@@ -101,7 +103,7 @@ public class PlcNodeManager : CustomNodeManager2
             AddPredefinedNode(SystemContext, _density);
 
             // Tank variable — a TankData structure nesting a DensityData and an array of them
-            _tank = new BaseDataVariableState<ExtensionObject>(root);
+            _tank = new BaseDataVariableState<ExtensionObject>.Implementation<VariantBuilder>(root);
             _tank.Create(
                 SystemContext,
                 new NodeId("Tank", NamespaceIndex),
@@ -126,23 +128,23 @@ public class PlcNodeManager : CustomNodeManager2
                 new LocalizedText("CalculatePressureVolumeMass"),
                 false);
             calcMethod.ReferenceTypeId = ReferenceTypeIds.HasComponent;
-            calcMethod.InputArguments = new PropertyState<Argument[]>(calcMethod);
+            calcMethod.InputArguments = new PropertyState<ArrayOf<Argument>>.Implementation<StructureBuilder<Argument>>(calcMethod);
             calcMethod.InputArguments.Create(
                 SystemContext,
                 new NodeId("CalculatePressureVolumeMass_InputArguments", NamespaceIndex),
                 new QualifiedName(BrowseNames.InputArguments),
-                null,
+                LocalizedText.Null,
                 false);
             calcMethod.InputArguments.Value =
             [
                 new Argument { Name = "temperature", DataType = DataTypeIds.Double, ValueRank = ValueRanks.Scalar }
             ];
-            calcMethod.OutputArguments = new PropertyState<Argument[]>(calcMethod);
+            calcMethod.OutputArguments = new PropertyState<ArrayOf<Argument>>.Implementation<StructureBuilder<Argument>>(calcMethod);
             calcMethod.OutputArguments.Create(
                 SystemContext,
                 new NodeId("CalculatePressureVolumeMass_OutputArguments", NamespaceIndex),
                 new QualifiedName(BrowseNames.OutputArguments),
-                null,
+                LocalizedText.Null,
                 false);
             calcMethod.OutputArguments.Value =
             [
@@ -219,7 +221,7 @@ public class PlcNodeManager : CustomNodeManager2
             </opc:TypeDictionary>
             """;
 
-        var dictionary = new BaseDataVariableState<byte[]>(null)
+        var dictionary = new BaseDataVariableState<ByteString>.Implementation<VariantBuilder>(null)
         {
             NodeId = new NodeId("PLCSimulator_BinarySchema", NamespaceIndex),
             BrowseName = new QualifiedName("PLCSimulator", NamespaceIndex),
@@ -230,14 +232,14 @@ public class PlcNodeManager : CustomNodeManager2
             ValueRank = ValueRanks.Scalar,
             AccessLevel = AccessLevels.CurrentRead,
             UserAccessLevel = AccessLevels.CurrentRead,
-            Value = System.Text.Encoding.UTF8.GetBytes(schema),
+            Value = System.Text.Encoding.UTF8.GetBytes(schema).ToByteString(),
             StatusCode = StatusCodes.Good,
             Timestamp = DateTime.UtcNow
         };
         dictionary.AddReference(ReferenceTypeIds.HasComponent, true, ObjectIds.OPCBinarySchema_TypeSystem);
         AddExternalReference(externalReferences, ObjectIds.OPCBinarySchema_TypeSystem, ReferenceTypeIds.HasComponent, dictionary.NodeId);
 
-        var namespaceUri = new PropertyState<string>(dictionary)
+        var namespaceUri = new PropertyState<string>.Implementation<VariantBuilder>(dictionary)
         {
             NodeId = new NodeId("PLCSimulator_BinarySchema_NamespaceUri", NamespaceIndex),
             BrowseName = new QualifiedName(BrowseNames.NamespaceUri, 0),
@@ -254,8 +256,8 @@ public class PlcNodeManager : CustomNodeManager2
 
         foreach (var type in types)
         {
-            var typeName = type.DataType.BrowseName.Name;
-            var description = new BaseDataVariableState<string>(dictionary)
+            var typeName = type.DataType.BrowseName.Name ?? string.Empty;
+            var description = new BaseDataVariableState<string>.Implementation<VariantBuilder>(dictionary)
             {
                 NodeId = new NodeId($"PLCSimulator_BinarySchema_{typeName}", NamespaceIndex),
                 BrowseName = new QualifiedName(typeName, NamespaceIndex),
@@ -346,8 +348,8 @@ public class PlcNodeManager : CustomNodeManager2
     private ServiceResult OnCalculatePressureVolumeMass(
         ISystemContext context,
         MethodState method,
-        IList<object> inputArguments,
-        IList<object> outputArguments)
+        ArrayOf<Variant> inputArguments,
+        List<Variant> outputArguments)
     {
         var temperature = (double)inputArguments[0];
         outputArguments[0] = CalculatePressureVolumeMass(temperature);
@@ -358,7 +360,7 @@ public class PlcNodeManager : CustomNodeManager2
     {
         lock (Lock)
         {
-            var d = (_density.Value?.Body as DensityData) ?? new DensityData();
+            var d = _density.Value.TryGetValue(out DensityData? density) && density != null ? density : new DensityData();
             return _pressure.Value * d.Volume * d.Mass;
         }
     }

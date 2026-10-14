@@ -121,12 +121,9 @@ namespace StatePipes.OpcUaBridge
             _ => "x"
         };
 
-        private static string IdentifierText(NodeId nodeId) => nodeId.Identifier switch
-        {
-            byte[] opaque => Convert.ToBase64String(opaque),
-            null => string.Empty,
-            var identifier => identifier.ToString() ?? string.Empty
-        };
+        private static string IdentifierText(NodeId nodeId) => nodeId.TryGetValue(out ByteString opaque)
+            ? Convert.ToBase64String(opaque.Span)
+            : nodeId.IdentifierAsString ?? string.Empty;
 
         internal static string Sanitize(string identifier)
         {

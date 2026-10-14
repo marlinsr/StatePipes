@@ -30,7 +30,7 @@ public class DensityData : IEncodeable
         Mass = decoder.ReadDouble("Mass");
     }
 
-    public bool IsEqual(IEncodeable encodeable) =>
+    public bool IsEqual(IEncodeable? encodeable) =>
         encodeable is DensityData other && Volume == other.Volume && Mass == other.Mass;
 
     public object Clone() => new DensityData { Volume = Volume, Mass = Mass };

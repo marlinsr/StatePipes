@@ -44,7 +44,7 @@ namespace StatePipes.OpcUaBridge
             _layouts[dataTypeId] = layout;
             started.Add(dataTypeId);
             HashSet<string> fieldNames = new(StringComparer.Ordinal);
-            foreach (var field in definition.Fields)
+            foreach (var field in definition.Fields.ToList())
             {
                 var fieldLayout = await BuildFieldAsync(field, UniqueFieldName(field.Name, fieldNames), started, ct);
                 if (fieldLayout == null)

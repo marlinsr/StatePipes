@@ -61,7 +61,7 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 | `OPCUA_AUTO_ACCEPT_UNTRUSTED` | `false` | Trust any server certificate. Convenient for testing; when it's off, untrusted certificates land in `/pki/rejected/certs`, and you trust one by moving it to `/pki/trusted/certs`. |
 | `OPCUA_PKI_PATH` | `/pki` | Certificate stores. The bridge creates its own application certificate in `/pki/own` on first start; the server may need to trust it. |
 | `OPCUA_APPLICATION_NAME` | `StatePipes.OpcUaBridge` | Application and session name shown to the server. |
-| `OPCUA_INCLUDE_NS0` | `false` | Also expose namespace 0 (the server's own diagnostics). |
+| `OPCUA_INCLUDE_NS0` | `false` | Also expose namespace 0 and the `http://opcfoundation.org/UA/Diagnostics` namespace (the server's own diagnostics). |
 | `OPCUA_NODE_FILTER` | | Regex matched against the NodeId text. When set, only matching nodes are exposed. |
 | `OPCUA_RECONNECT_SECONDS` | `5` | Delay before reconnecting after the session is lost. |
 

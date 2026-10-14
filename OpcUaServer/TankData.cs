@@ -22,20 +22,20 @@ public class TankData : IEncodeable
     public void Encode(IEncoder encoder)
     {
         encoder.WriteString("Name", Name);
-        encoder.WriteEncodeable("Density", Density, typeof(DensityData));
-        encoder.WriteEncodeableArray("History", History, typeof(DensityData));
+        encoder.WriteEncodeable("Density", Density);
+        encoder.WriteEncodeableArray<DensityData>("History", History);
         encoder.WriteDoubleArray("Readings", Readings);
     }
 
     public void Decode(IDecoder decoder)
     {
-        Name = decoder.ReadString("Name");
-        Density = (DensityData)decoder.ReadEncodeable("Density", typeof(DensityData));
-        History = [.. decoder.ReadEncodeableArray("History", typeof(DensityData)).Cast<DensityData>()];
+        Name = decoder.ReadString("Name") ?? string.Empty;
+        Density = decoder.ReadEncodeable<DensityData>("Density");
+        History = [.. decoder.ReadEncodeableArray<DensityData>("History")];
         Readings = [.. decoder.ReadDoubleArray("Readings")];
     }
 
-    public bool IsEqual(IEncodeable encodeable) =>
+    public bool IsEqual(IEncodeable? encodeable) =>
         encodeable is TankData other && Name == other.Name && Density.IsEqual(other.Density)
         && History.Length == other.History.Length && History.Zip(other.History).All(pair => pair.First.IsEqual(pair.Second))
         && Readings.SequenceEqual(other.Readings);

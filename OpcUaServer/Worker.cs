@@ -5,6 +5,7 @@ namespace OpcUaServer;
 
 public class Worker : BackgroundService
 {
+    private const string EndpointUrl = "opc.tcp://localhost:4840/PLCSimulator";
     private readonly ILogger<Worker> _logger;
     private PlcServer? _server;
 
@@ -15,14 +16,14 @@ public class Worker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var telemetry = DefaultTelemetry.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
         try
         {
-            var config = await BuildServerConfiguration();
-            _server = new PlcServer();
-            _server.Start(config);
+            var config = await BuildServerConfiguration(telemetry, stoppingToken);
+            _server = new PlcServer(telemetry);
+            await _server.StartAsync(config, stoppingToken);
 
-            _logger.LogInformation("OPC UA Server started at {Endpoint}",
-                config.ServerConfiguration.BaseAddresses.FirstOrDefault());
+            _logger.LogInformation("OPC UA Server started at {Endpoint}", EndpointUrl);
 
             double angle = 0.0;
 
@@ -55,14 +56,14 @@ public class Worker : BackgroundService
         }
         finally
         {
-            _server?.Stop();
+            if (_server != null) await _server.StopAsync(CancellationToken.None);
             _logger.LogInformation("OPC UA Server stopped");
         }
     }
 
-    private static async Task<ApplicationConfiguration> BuildServerConfiguration()
+    private static async Task<ApplicationConfiguration> BuildServerConfiguration(ITelemetryContext telemetry, CancellationToken ct)
     {
-        var config = new ApplicationConfiguration
+        var config = new ApplicationConfiguration(telemetry)
         {
             ApplicationName = "PLCSimulator OPC UA Server",
             ApplicationUri = Utils.Format("urn:{0}:PLCSimulator:OpcUaServer", Utils.GetHostName()),
@@ -97,27 +98,29 @@ public class Worker : BackgroundService
                 RejectSHA1SignedCertificates = false
             },
 
-            TransportConfigurations = new TransportConfigurationCollection(),
+            TransportConfigurations = [],
             TransportQuotas = new TransportQuotas { OperationTimeout = 15000 },
 
             ServerConfiguration = new ServerConfiguration
             {
-                BaseAddresses = { "opc.tcp://localhost:4840/PLCSimulator" },
+                BaseAddresses = [EndpointUrl],
                 MinRequestThreadCount = 5,
                 MaxRequestThreadCount = 100,
                 MaxQueuedRequestCount = 200,
-                SecurityPolicies = new ServerSecurityPolicyCollection
-                {
+                // No discovery server registration: the default LDS URL is opc.tcp://localhost:4840, this server's own port
+                MaxRegistrationInterval = 0,
+                SecurityPolicies =
+                [
                     new ServerSecurityPolicy
                     {
                         SecurityMode = MessageSecurityMode.None,
                         SecurityPolicyUri = SecurityPolicies.None
                     }
-                },
-                UserTokenPolicies = new UserTokenPolicyCollection
-                {
+                ],
+                UserTokenPolicies =
+                [
                     new UserTokenPolicy { TokenType = UserTokenType.Anonymous }
-                }
+                ]
             },
 
             TraceConfiguration = new TraceConfiguration
@@ -127,10 +130,10 @@ public class Worker : BackgroundService
             }
         };
 
-        await config.Validate(ApplicationType.Server);
+        await config.ValidateAsync(ApplicationType.Server, ct);
 
-        var application = new ApplicationInstance { ApplicationConfiguration = config };
-        await application.CheckApplicationInstanceCertificate(false, 2048);
+        var application = new ApplicationInstance(config, telemetry);
+        await application.CheckApplicationInstanceCertificatesAsync(false, null, ct);
 
         return config;
     }

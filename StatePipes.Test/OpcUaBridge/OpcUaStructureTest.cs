@@ -115,7 +115,7 @@ namespace StatePipes.Test.OpcUaBridge
         {
             var tank = (await CreateBuilder().BuildAsync(TankTypeId, CancellationToken.None))!;
 
-            var value = (JObject)StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), EncodeTank()), tank, isArray: false);
+            var value = (JObject)StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), EncodeTank().ToByteString()), tank, isArray: false);
 
             Assert.AreEqual("T1", value["Name"]!.Value<string>());
             Assert.AreEqual(1.0, value["Density"]!["Volume"]!.Value<double>());
@@ -131,8 +131,8 @@ namespace StatePipes.Test.OpcUaBridge
             var tank = (await CreateBuilder().BuildAsync(TankTypeId, CancellationToken.None))!;
             var bytes = EncodeTank();
 
-            Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), bytes[..^3]), tank, false).Type);
-            Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), bytes.Concat(new byte[] { 1 }).ToArray()), tank, false).Type);
+            Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), bytes[..^3].ToByteString()), tank, false).Type);
+            Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken(new ExtensionObject(new ExpandedNodeId(TankTypeId), bytes.Concat(new byte[] { 1 }).ToArray().ToByteString()), tank, false).Type);
             Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken("not a structure", tank, false).Type);
             Assert.AreEqual(JTokenType.Null, StructureDecoder.ToJToken(null, tank, false).Type);
         }
@@ -153,26 +153,26 @@ namespace StatePipes.Test.OpcUaBridge
             var emitted = EmitLikeExplorer([density, tank, densities]);
             var now = DateTime.UtcNow;
 
-            var body = OpcUaBridgeService.CreateGetEventBody(density, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(DensityTypeId), EncodeDensity(1.0, 2.0))), StatusCodes.Good, now, now));
+            var body = OpcUaBridgeService.CreateGetEventBody(density, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(DensityTypeId), EncodeDensity(1.0, 2.0).ToByteString())), StatusCodes.Good, now, now));
             dynamic getEvent = Deserialize(body, emitted[density.EventTypeFullName]);
             Assert.AreEqual("Line1Plc.Types.ns2_s_DensityDataType", ((object)getEvent.Value).GetType().FullName);
             Assert.AreEqual(1.0, (double)getEvent.Value.Volume);
             Assert.AreEqual(2.0, (double)getEvent.Value.Mass);
 
-            body = OpcUaBridgeService.CreateGetEventBody(tank, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(TankTypeId), EncodeTank())), StatusCodes.Good, now, now));
+            body = OpcUaBridgeService.CreateGetEventBody(tank, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(TankTypeId), EncodeTank().ToByteString())), StatusCodes.Good, now, now));
             getEvent = Deserialize(body, emitted[tank.EventTypeFullName]);
             Assert.AreEqual("T1", (string)getEvent.Value.Name);
             Assert.AreEqual(2.0, (double)getEvent.Value.Density.Mass);
             Assert.AreEqual(6.0, (double)getEvent.Value.History[1].Mass);
             CollectionAssert.AreEqual(new[] { 1.5, 2.5 }, (double[])getEvent.Value.Readings);
 
-            ExtensionObject[] array = [new(new ExpandedNodeId(DensityTypeId), EncodeDensity(5.0, 6.0)), new(new ExpandedNodeId(DensityTypeId), EncodeDensity(7.0, 8.0))];
+            ExtensionObject[] array = [new(new ExpandedNodeId(DensityTypeId), EncodeDensity(5.0, 6.0).ToByteString()), new(new ExpandedNodeId(DensityTypeId), EncodeDensity(7.0, 8.0).ToByteString())];
             body = OpcUaBridgeService.CreateGetEventBody(densities, new DataValue(new Variant(array), StatusCodes.Good, now, now));
             getEvent = Deserialize(body, emitted[densities.EventTypeFullName]);
             Assert.AreEqual(8.0, (double)getEvent.Value[1].Mass);
 
             // A body the layout cannot decode leaves Value out, like a failed read, so the event still deserializes.
-            body = OpcUaBridgeService.CreateGetEventBody(density, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(DensityTypeId), new byte[] { 1, 2 })), StatusCodes.Good, now, now));
+            body = OpcUaBridgeService.CreateGetEventBody(density, new DataValue(new Variant(new ExtensionObject(new ExpandedNodeId(DensityTypeId), new byte[] { 1, 2 }.ToByteString())), StatusCodes.Good, now, now));
             Assert.DoesNotContain("\"Value\"", Encoding.UTF8.GetString(body));
             Deserialize(body, emitted[density.EventTypeFullName]);
         }
@@ -221,9 +221,9 @@ namespace StatePipes.Test.OpcUaBridge
 
         private static byte[] Encode(Action<BinaryEncoder> write)
         {
-            using BinaryEncoder encoder = new(new ServiceMessageContext(DefaultTelemetry.Create(_ => { })));
+            using BinaryEncoder encoder = new(ServiceMessageContext.Create(DefaultTelemetry.Create(_ => { })));
             write(encoder);
-            return encoder.CloseAndReturnBuffer();
+            return encoder.CloseAndReturnBuffer() ?? [];
         }
 
         private static StructureLayoutBuilder CreateBuilder(Dictionary<NodeId, DataTypeInfo>? extra = null)

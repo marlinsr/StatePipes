@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Configuration;
+using Opc.Ua.Security.Certificates;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
 namespace StatePipes.OpcUaBridge
@@ -10,8 +11,8 @@ namespace StatePipes.OpcUaBridge
     /// The OPC UA half of the bridge: owns one session, finds every readable variable and reads them on demand.
     ///
     /// <para>Discovery walks the hierarchical references down from the Objects folder, which is how a generic
-    /// client sees "everything on the server". Namespace 0 holds the server's own diagnostics and type system
-    /// rather than plant data, so its nodes are skipped unless <see cref="BridgeSettings.IncludeNamespaceZero"/>
+    /// client sees "everything on the server". Namespace 0 and the stack's Diagnostics namespace hold the server's
+    /// own diagnostics and type system rather than plant data, so their nodes are skipped unless <see cref="BridgeSettings.IncludeNamespaceZero"/>
     /// is set; they are still browsed through, because user nodes often hang beneath them.
     /// <see cref="BridgeSettings.NodeFilter"/> narrows the set further on servers too large to describe in one
     /// self-description message.</para>
@@ -21,6 +22,7 @@ namespace StatePipes.OpcUaBridge
         private const uint SessionTimeoutMilliseconds = 60_000;
         private const int BrowseBatchSize = 100;
         private const int ReadBatchSize = 500;
+        private const string DiagnosticsNamespaceUri = "http://opcfoundation.org/UA/Diagnostics";
         private readonly BridgeSettings _settings;
         private readonly ITelemetryContext _telemetry;
         private ApplicationConfiguration? _configuration;
@@ -43,11 +45,11 @@ namespace StatePipes.OpcUaBridge
                 ?? throw new InvalidOperationException($"No endpoint found at {_settings.OpcUaEndpoint}");
             var endpoint = new ConfiguredEndpoint(null, endpointDescription, EndpointConfiguration.Create(_configuration));
             var session = await new DefaultSessionFactory(_telemetry).CreateAsync(_configuration, endpoint, false, false,
-                _settings.ApplicationName, SessionTimeoutMilliseconds, CreateIdentity(), null, ct);
+                _settings.ApplicationName, SessionTimeoutMilliseconds, CreateIdentity(), default, ct);
             _keepAliveFailed = false;
             session.KeepAlive += OnKeepAlive;
             _session = session;
-            Log?.LogInfo($"Connected to OPC UA server {endpointDescription.EndpointUrl} [{endpointDescription.SecurityMode} {SecurityPolicies.GetDisplayName(endpointDescription.SecurityPolicyUri) ?? endpointDescription.SecurityPolicyUri}]");
+            Log?.LogInfo($"Connected to OPC UA server {endpointDescription.EndpointUrl} [{endpointDescription.SecurityMode} {SecurityPolicies.Default.GetDisplayName(endpointDescription.SecurityPolicyUri ?? string.Empty) ?? endpointDescription.SecurityPolicyUri}]");
         }
 
         public async Task DisconnectAsync()
@@ -78,11 +80,12 @@ namespace StatePipes.OpcUaBridge
         public async Task<IReadOnlyList<DataValue>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken ct)
         {
             var session = _session;
-            if (session == null || !IsConnected) return [.. nodeIds.Select(_ => new DataValue(StatusCodes.BadNotConnected))];
-            ReadValueIdCollection toRead = [.. nodeIds.Select(nodeId => new ReadValueId { NodeId = nodeId, AttributeId = Attributes.Value })];
+            if (session == null || !IsConnected) return [.. nodeIds.Select(_ => DataValue.FromStatusCode(StatusCodes.BadNotConnected))];
+            List<ReadValueId> toRead = [.. nodeIds.Select(nodeId => new ReadValueId { NodeId = nodeId, AttributeId = Attributes.Value })];
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, toRead, ct);
-            ClientBase.ValidateResponse(response.Results, toRead);
-            return response.Results;
+            var results = response.Results.ToList();
+            ClientBase.ValidateResponse(results, toRead);
+            return results;
         }
 
         private async Task<ApplicationConfiguration> CreateConfigurationAsync(CancellationToken ct)
@@ -111,25 +114,24 @@ namespace StatePipes.OpcUaBridge
                 ClientConfiguration = new ClientConfiguration { DefaultSessionTimeout = (int)SessionTimeoutMilliseconds }
             };
             await configuration.ValidateAsync(ApplicationType.Client, ct);
-            configuration.CertificateValidator.CertificateValidation += OnCertificateValidation;
             ApplicationInstance application = new(configuration, _telemetry);
             if (!await application.CheckApplicationInstanceCertificatesAsync(false, null, ct))
                 throw new InvalidOperationException("The OPC UA application instance certificate is invalid");
+            // CertificateManager is only populated by CheckApplicationInstanceCertificatesAsync
+            configuration.CertificateManager.AcceptError = OnCertificateError;
             return configuration;
         }
 
-        private void OnCertificateValidation(CertificateValidator sender, CertificateValidationEventArgs e)
+        private bool OnCertificateError(Certificate certificate, ServiceResult error)
         {
-            if (e.Error.StatusCode != StatusCodes.BadCertificateUntrusted) return;
+            if (error.StatusCode != StatusCodes.BadCertificateUntrusted) return false;
             if (_settings.AutoAcceptUntrustedCertificates)
             {
-                e.Accept = true;
-                Log?.LogInfo($"Auto-accepted untrusted OPC UA server certificate {e.Certificate.Subject}");
+                Log?.LogInfo($"Auto-accepted untrusted OPC UA server certificate {certificate.Subject}");
+                return true;
             }
-            else
-            {
-                Log?.LogError($"Rejected untrusted OPC UA server certificate {e.Certificate.Subject}. Copy it from {Path.Combine(_settings.PkiPath, "rejected")} to {Path.Combine(_settings.PkiPath, "trusted")} or set OPCUA_AUTO_ACCEPT_UNTRUSTED=true");
-            }
+            Log?.LogError($"Rejected untrusted OPC UA server certificate {certificate.Subject}. Copy it from {Path.Combine(_settings.PkiPath, "rejected")} to {Path.Combine(_settings.PkiPath, "trusted")} or set OPCUA_AUTO_ACCEPT_UNTRUSTED=true");
+            return false;
         }
 
         private IUserIdentity CreateIdentity() => string.IsNullOrEmpty(_settings.UserName)
@@ -152,13 +154,13 @@ namespace StatePipes.OpcUaBridge
             while (toBrowse.Count > 0)
             {
                 ct.ThrowIfCancellationRequested();
-                BrowseDescriptionCollection batch = [];
+                List<BrowseDescription> batch = [];
                 while (toBrowse.Count > 0 && batch.Count < BrowseBatchSize) batch.Add(CreateBrowseDescription(toBrowse.Dequeue()));
                 foreach (var reference in await BrowseAllAsync(session, batch, ct))
                 {
                     if (reference.NodeId.IsAbsolute) continue; // lives on another server
                     var nodeId = ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris);
-                    if (nodeId == null || !visited.Add(nodeId)) continue;
+                    if (nodeId.IsNull || !visited.Add(nodeId)) continue;
                     if (reference.NodeClass == NodeClass.Variable) variables.Add(nodeId);
                     toBrowse.Enqueue(nodeId); // variables can have child variables (properties, structure fields)
                 }
@@ -177,14 +179,14 @@ namespace StatePipes.OpcUaBridge
         };
 
         /// <summary>Browses a batch, following continuation points until every reference has been returned.</summary>
-        private static async Task<List<ReferenceDescription>> BrowseAllAsync(ISession session, BrowseDescriptionCollection batch, CancellationToken ct)
+        private static async Task<List<ReferenceDescription>> BrowseAllAsync(ISession session, List<BrowseDescription> batch, CancellationToken ct)
         {
             List<ReferenceDescription> references = [];
             var response = await session.BrowseAsync(null, null, 0, batch, ct);
             var results = response.Results;
             while (true)
             {
-                ByteStringCollection continuationPoints = [];
+                List<ByteString> continuationPoints = [];
                 foreach (var result in results)
                 {
                     if (StatusCode.IsBad(result.StatusCode)) continue;
@@ -212,10 +214,10 @@ namespace StatePipes.OpcUaBridge
                 return info;
             });
             uint[] attributes = [Attributes.UserAccessLevel, Attributes.DataType, Attributes.ValueRank];
-            foreach (var chunk in variables.Where(IsIncluded).Chunk(ReadBatchSize / attributes.Length))
+            foreach (var chunk in variables.Where(nodeId => IsIncluded(nodeId, session.NamespaceUris)).Chunk(ReadBatchSize / attributes.Length))
             {
                 ct.ThrowIfCancellationRequested();
-                ReadValueIdCollection toRead = [.. chunk.SelectMany(nodeId => attributes.Select(attributeId => new ReadValueId { NodeId = nodeId, AttributeId = attributeId }))];
+                List<ReadValueId> toRead = [.. chunk.SelectMany(nodeId => attributes.Select(attributeId => new ReadValueId { NodeId = nodeId, AttributeId = attributeId }))];
                 var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, ct);
                 var results = response.Results;
                 for (var i = 0; i < chunk.Length; i++)
@@ -223,10 +225,10 @@ namespace StatePipes.OpcUaBridge
                     var accessLevel = results[i * 3];
                     var dataType = results[i * 3 + 1];
                     var valueRank = results[i * 3 + 2];
-                    if (StatusCode.IsBad(accessLevel.StatusCode) || accessLevel.Value is not byte level || (level & AccessLevels.CurrentRead) == 0) continue;
-                    var dataTypeId = dataType.Value as NodeId;
-                    var builtInType = dataTypeId != null ? await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct) : BuiltInType.Null;
-                    var rank = valueRank.Value is int r ? r : ValueRanks.Any;
+                    if (StatusCode.IsBad(accessLevel.StatusCode) || !accessLevel.WrappedValue.TryGetValue(out byte level) || (level & AccessLevels.CurrentRead) == 0) continue;
+                    var dataTypeId = dataType.WrappedValue.TryGetValue(out NodeId id) ? id : NodeId.Null;
+                    var builtInType = !dataTypeId.IsNull ? await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct) : BuiltInType.Null;
+                    var rank = valueRank.WrappedValue.TryGetValue(out int r) ? r : ValueRanks.Any;
                     var valueType = OpcUaValueMapper.MapToClrType(builtInType, rank);
                     var structure = await BuildStructureLayoutAsync(layouts, chunk[i], dataTypeId, builtInType, rank, ct);
                     readable[chunk[i]] = (valueType, structure, rank == ValueRanks.OneDimension);
@@ -239,9 +241,9 @@ namespace StatePipes.OpcUaBridge
         /// The layout of a variable holding a structure or a one-dimensional array of one, or null when its value
         /// is not a structure or not one the bridge can decode -- then it travels as a string, as before.
         /// </summary>
-        private static async Task<StructureLayout?> BuildStructureLayoutAsync(StructureLayoutBuilder layouts, NodeId variable, NodeId? dataTypeId, BuiltInType builtInType, int rank, CancellationToken ct)
+        private static async Task<StructureLayout?> BuildStructureLayoutAsync(StructureLayoutBuilder layouts, NodeId variable, NodeId dataTypeId, BuiltInType builtInType, int rank, CancellationToken ct)
         {
-            if (builtInType != BuiltInType.ExtensionObject || dataTypeId == null || dataTypeId == DataTypeIds.Structure) return null;
+            if (builtInType != BuiltInType.ExtensionObject || dataTypeId.IsNull || dataTypeId == DataTypeIds.Structure) return null;
             if (rank != ValueRanks.Scalar && rank != ValueRanks.OneDimension) return null;
             var layout = await layouts.BuildAsync(dataTypeId, ct);
             if (layout == null) Log?.LogWarning($"{variable} holds structure {dataTypeId}, which the bridge cannot decode; its value is published as a string");
@@ -254,7 +256,7 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         private static async Task<DataTypeInfo?> DescribeDataTypeAsync(ISession session, NodeId dataTypeId, CancellationToken ct)
         {
-            ReadValueIdCollection toRead =
+            List<ReadValueId> toRead =
             [
                 new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.IsAbstract },
                 new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.DataTypeDefinition }
@@ -262,13 +264,20 @@ namespace StatePipes.OpcUaBridge
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, ct);
             var isAbstract = response.Results[0];
             if (StatusCode.IsBad(isAbstract.StatusCode)) return null;
-            var definition = response.Results[1].Value is ExtensionObject { Body: StructureDefinition structureDefinition } ? structureDefinition : null;
+            StructureDefinition? definition = response.Results[1].WrappedValue.GetStructure<StructureDefinition>();
             var builtInType = await TypeInfo.GetBuiltInTypeAsync(dataTypeId, session.TypeTree, ct);
-            return new DataTypeInfo(builtInType, isAbstract.Value is true, definition);
+            return new DataTypeInfo(builtInType, isAbstract.WrappedValue.TryGetValue(out bool abstractType) && abstractType, definition);
         }
 
-        private bool IsIncluded(NodeId nodeId) => (_settings.IncludeNamespaceZero || nodeId.NamespaceIndex != 0)
+        private bool IsIncluded(NodeId nodeId, NamespaceTable namespaceUris) => (_settings.IncludeNamespaceZero || !IsServerOwnNamespace(nodeId.NamespaceIndex, namespaceUris))
             && (_settings.NodeFilter?.IsMatch(nodeId.ToString()) ?? true);
+
+        /// <summary>
+        /// Namespace 0 and the stack's Diagnostics namespace hold the server's own diagnostics, conditions and
+        /// type system rather than plant data.
+        /// </summary>
+        internal static bool IsServerOwnNamespace(ushort namespaceIndex, NamespaceTable namespaceUris) =>
+            namespaceIndex == 0 || namespaceUris.GetString(namespaceIndex) == DiagnosticsNamespaceUri;
 
         public async ValueTask DisposeAsync() => await DisconnectAsync();
     }

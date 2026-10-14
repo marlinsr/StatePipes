@@ -3,7 +3,7 @@ using Opc.Ua.Server;
 
 namespace OpcUaServer;
 
-public class PlcServer : StandardServer
+public class PlcServer(ITelemetryContext telemetry) : StandardServer(telemetry)
 {
     public PlcNodeManager? NodeManager { get; private set; }
 

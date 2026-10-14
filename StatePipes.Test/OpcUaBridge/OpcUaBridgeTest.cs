@@ -15,6 +15,17 @@ namespace StatePipes.Test.OpcUaBridge
         private const string Exchange = "Line1Plc";
 
         [TestMethod]
+        public void IsServerOwnNamespace_NamespaceZeroAndDiagnostics_AreServerOwned()
+        {
+            NamespaceTable namespaceUris = new(["http://opcfoundation.org/UA/", "urn:host:Plc", "http://plcsimulator.org/", "http://opcfoundation.org/UA/Diagnostics"]);
+            Assert.IsTrue(OpcUaClient.IsServerOwnNamespace(0, namespaceUris));
+            Assert.IsTrue(OpcUaClient.IsServerOwnNamespace(3, namespaceUris));
+            Assert.IsFalse(OpcUaClient.IsServerOwnNamespace(1, namespaceUris));
+            Assert.IsFalse(OpcUaClient.IsServerOwnNamespace(2, namespaceUris));
+            Assert.IsFalse(OpcUaClient.IsServerOwnNamespace(9, namespaceUris));
+        }
+
+        [TestMethod]
         public void ToMessageNames_DottedStringNodeId_NamespaceIsExchangeName()
         {
             var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Machine.Motor.Speed", 2));
@@ -178,7 +189,7 @@ namespace StatePipes.Test.OpcUaBridge
             CollectionAssert.AreEqual(new[] { 4, 5 }, (int[])getEvent.Value);
 
             // A failed read carries no value at all, so it deserializes even where Value was emitted non-nullable.
-            body = OpcUaBridgeService.CreateGetEventBody(temperature, new DataValue(StatusCodes.BadNotConnected));
+            body = OpcUaBridgeService.CreateGetEventBody(temperature, DataValue.FromStatusCode(StatusCodes.BadNotConnected));
             Assert.DoesNotContain("\"Value\"", Encoding.UTF8.GetString(body));
             getEvent = JsonUtility.GetObjectFromJson(Encoding.UTF8.GetString(body), emitted[temperature.EventTypeFullName])!;
             Assert.AreEqual((uint)StatusCodes.BadNotConnected, (uint)getEvent.StatusCode);

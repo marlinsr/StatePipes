@@ -17,11 +17,11 @@ namespace StatePipes.OpcUaBridge
     /// </summary>
     internal static class StructureDecoder
     {
-        private static readonly ServiceMessageContext MessageContext = new(DefaultTelemetry.Create(_ => { }));
+        private static readonly IServiceMessageContext MessageContext = ServiceMessageContext.Create(DefaultTelemetry.Create(_ => { }));
 
         public static JToken ToJToken(object? value, StructureLayout layout, bool isArray)
         {
-            if (value is Variant variant) value = variant.Value;
+            if (value is Variant variant) value = variant.AsBoxedObject(Variant.BoxingBehavior.Legacy);
             if (!isArray) return value is ExtensionObject extension ? Decode(extension, layout) : JValue.CreateNull();
             if (value is not Array array) return JValue.CreateNull();
             JArray result = [];
@@ -36,11 +36,12 @@ namespace StatePipes.OpcUaBridge
 
         private static JToken Decode(ExtensionObject extension, StructureLayout layout)
         {
-            if (extension.Body is not byte[] body)
+            if (!extension.TryGetAsBinary(out ByteString encoded, MessageContext))
             {
                 Log?.LogWarning($"Cannot decode {layout.FullName}: the value is not binary encoded");
                 return JValue.CreateNull();
             }
+            var body = encoded.ToArray();
             try
             {
                 using BinaryDecoder decoder = new(body, MessageContext);

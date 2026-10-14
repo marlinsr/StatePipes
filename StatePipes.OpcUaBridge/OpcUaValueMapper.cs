@@ -68,10 +68,15 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         public static JToken ToJToken(object? value, Type targetType)
         {
-            if (value is Variant variant) value = variant.Value;
+            if (value is Variant variant) value = variant.AsBoxedObject(Variant.BoxingBehavior.Legacy);
             if (value == null) return JValue.CreateNull();
             if (targetType == typeof(string)) return new JValue(ToText(value));
-            if (targetType == typeof(byte[])) return value is byte[] bytes ? new JValue(bytes) : JValue.CreateNull();
+            if (targetType == typeof(byte[])) return value switch
+            {
+                byte[] bytes => new JValue(bytes),
+                ByteString byteString => new JValue(byteString.ToArray()),
+                _ => JValue.CreateNull()
+            };
             if (targetType.IsArray)
             {
                 if (value is not Array array) return JValue.CreateNull();
@@ -92,6 +97,7 @@ namespace StatePipes.OpcUaBridge
                 {
                     StatusCode statusCode => statusCode.Code,
                     Uuid uuid => (Guid)uuid,
+                    DateTimeUtc dateTime => dateTime.ToDateTime(),
                     _ => value
                 };
                 if (targetType.IsInstanceOfType(value)) return value;
@@ -109,12 +115,22 @@ namespace StatePipes.OpcUaBridge
         {
             string s => s,
             LocalizedText text => text.Text ?? string.Empty,
-            NodeId or ExpandedNodeId or QualifiedName or StatusCode or System.Xml.XmlElement => value.ToString() ?? string.Empty,
+            NodeId or ExpandedNodeId or QualifiedName or StatusCode or XmlElement or System.Xml.XmlElement => value.ToString() ?? string.Empty,
             DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
+            DateTimeUtc dt => dt.ToDateTime().ToString("O", CultureInfo.InvariantCulture),
+            Uuid uuid => ((Guid)uuid).ToString(),
+            ByteString byteString => ToJson(byteString.ToArray()),
             IFormattable formattable when value.GetType().IsPrimitive => formattable.ToString(null, CultureInfo.InvariantCulture),
-            ExtensionObject { Body: not null } extension => ToJson(extension.Body),
+            ExtensionObject extension => ExtensionToText(extension),
             _ => ToJson(value)
         };
+
+        private static string ExtensionToText(ExtensionObject extension)
+        {
+            if (extension.TryGetValue(out IEncodeable? body) && body != null) return ToJson(body);
+            if (extension.TryGetAsBinary(out ByteString binary)) return ToJson(binary.ToArray());
+            return ToJson(extension);
+        }
 
         private static string ToJson(object value)
         {
