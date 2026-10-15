@@ -2,20 +2,20 @@
 
 A docker container that presents an OPC UA server as a StatePipes service on a RabbitMQ or Kafka broker.
 
-On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
+On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command** and a **Monitor command**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
 
 ## Naming
 
 Every Get command and Get event is in the namespace given by the bridge's `EXCHANGE`. The type name is the whole NodeId: its namespace index, the letter of its identifier type (`i`, `s`, `g` or `b`, as in NodeId notation) and its identifier, with dots replaced by underscores, prefixed with `Get_` and suffixed with `_Command` or `_Event`. With `EXCHANGE=Line1Plc`:
 
-| OPC UA node | Namespace | Get command | Get event |
-|---|---|---|---|
-| `ns=2;s=Machine.Motor.Speed` | `Line1Plc` | `Get_ns2_s_Machine_Motor_Speed_Command` | `Get_ns2_s_Machine_Motor_Speed_Event` |
-| `ns=2;s=Speed` | `Line1Plc` | `Get_ns2_s_Speed_Command` | `Get_ns2_s_Speed_Event` |
-| `ns=3;i=1001` | `Line1Plc` | `Get_ns3_i_1001_Command` | `Get_ns3_i_1001_Event` |
+| OPC UA node | Namespace | Get command | Get event | Monitor command |
+|---|---|---|---|---|
+| `ns=2;s=Machine.Motor.Speed` | `Line1Plc` | `Get_ns2_s_Machine_Motor_Speed_Command` | `Get_ns2_s_Machine_Motor_Speed_Event` | `Monitor_ns2_s_Machine_Motor_Speed_Command` |
+| `ns=2;s=Speed` | `Line1Plc` | `Get_ns2_s_Speed_Command` | `Get_ns2_s_Speed_Event` | `Monitor_ns2_s_Speed_Command` |
+| `ns=3;i=1001` | `Line1Plc` | `Get_ns3_i_1001_Command` | `Get_ns3_i_1001_Event` | `Monitor_ns3_i_1001_Command` |
 
 - Any other character that can't appear in a type name becomes `_`, in the type name and in each segment of the exchange name.
-- If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged.
+- If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged. The Monitor command gets the same suffix.
 - The full name is the RabbitMQ routing key, which is capped at 255 bytes. Type names too long for that are shortened and end with a hash of the NodeId.
 
 ## Get event
@@ -34,6 +34,70 @@ Every Get command and Get event is in the namespace given by the bridge's `EXCHA
 `Value` keeps the variable's natural type for scalars and one-dimensional arrays of Boolean, the integer types, Float, Double, String, DateTime, Guid and ByteString. Enumerations are sent as `int`. Everything else is sent as a string with the value's text or JSON form. This includes structures, NodeIds, LocalizedText, matrices, and variables whose type or rank isn't fixed.
 
 When a read fails, `Value` is left out and `StatusCode`/`Status` explain why. For example, `BadNotConnected` means the OPC UA server is unreachable.
+
+## Monitors
+
+A Monitor command asks the bridge to watch a variable:
+
+```json
+{
+  "MonitorName": "MotorSpeed",
+  "MonitoringMode": "Reporting",
+  "DataChangeTrigger": "StatusValue",
+  "DeadbandType": "Absolute",
+  "DeadbandValue": 0.5,
+  "SamplingInterval": 100,
+  "QueueSize": 10,
+  "PublishingInterval": 1000
+}
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| `MonitorName` | 1 to 256 characters | Your name for the monitor. |
+| `MonitoringMode` | `Disabled`, `Reporting` | `Disabled` keeps the monitored item on the server but silent. |
+| `DataChangeTrigger` | `Status`, `StatusValue`, `StatusValueTimestamp` | What counts as a change. |
+| `DeadbandType` | `None`, `Absolute`, `Percent` | How small a change is ignored. `Percent` needs an AnalogItem with an EURange. |
+| `DeadbandValue` | at least 0 (at most 100 for `Percent`) | Ignored when `DeadbandType` is `None`. |
+| `SamplingInterval` | ms, at least 0 | 0 asks for the server's fastest rate. |
+| `QueueSize` | at least 1 | Values the server queues between publishes; the oldest is discarded. |
+| `PublishingInterval` | ms, more than 0 | How often the server sends changes. Monitors with the same interval share one OPC UA subscription. |
+
+Enums can be sent as names or numbers. The server may revise the intervals and queue size; the revised values come back in the status.
+
+- **Identity.** A monitor is identified by the sender's command exchange and its `MonitorName`. Sending a Monitor command with a name you already use updates that monitor, on whichever variable the command is for, and its responses go to the reply-to of the latest command. A restarted client takes its monitors back by sending its Monitor commands again.
+- **Data changes** arrive as the variable's Get event, sent to you as a response.
+- **`DeleteMonitorCommand`** (`{"MonitorName": "MotorSpeed"}`) deletes your monitor with that name.
+- **Persistence.** Monitors are saved to `MONITOR_STORE_PATH` and rebuilt on every new OPC UA session, so they survive both a PLC reboot and a bridge restart.
+- **Suspension.** When your response exchange disappears (your client disconnected), your monitors are suspended. The bridge stops sending and keeps them until you send their Monitor commands again, delete them, or `MONITOR_SUSPENDED_EXPIRY_HOURS` passes. The bridge checks every 30 seconds.
+
+### Monitor status
+
+Every Monitor and Delete command is answered with a `StatePipes.OpcUaBridge.Messages.MonitorStatusEvent`. Every monitor that is not suspended also gets one each time monitors are rebuilt on a new OPC UA session:
+
+```json
+{
+  "MonitorName": "MotorSpeed",
+  "NodeId": "ns=2;s=Machine.Motor.Speed",
+  "State": "Active",
+  "StatusCode": 0,
+  "Status": "Good",
+  "RevisedSamplingInterval": 100,
+  "RevisedQueueSize": 10,
+  "RevisedPublishingInterval": 1000
+}
+```
+
+`State` is `Active`, `Pending` (saved while the OPC UA server is unreachable), `Failed`, or `Deleted`. Revised values are 0 unless `Active`.
+
+| Status | Meaning |
+|---|---|
+| `BadInvalidArgument` | A field is missing or out of range. Nothing was saved. |
+| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Nothing was saved; send the command again. `NodeId` is empty. |
+| `BadNodeIdUnknown` | The variable is not on the server, or no longer is. |
+| `BadNotFound` | Delete: you have no monitor with that name. |
+| `BadNotConnected` | `Pending`: saved, and applied when the server is back. |
+| `BadDeadbandFilterInvalid` / `BadFilterNotAllowed` | The server refused the deadband, for example `Percent` on a variable that is not an AnalogItem. The monitor is kept and retried on every reconnect. |
 
 ## Configuration
 
@@ -65,11 +129,20 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 | `OPCUA_NODE_FILTER` | | Regex matched against the NodeId text. When set, only matching nodes are exposed. |
 | `OPCUA_RECONNECT_SECONDS` | `5` | Delay before reconnecting after the session is lost. |
 
+### Monitors
+
+| Variable | Default | Description |
+|---|---|---|
+| `MONITOR_STORE_PATH` | `/usr/share/StatePipes/StatePipes.OpcUaBridge/Config/monitors.json` | Where monitors are saved. Mount the directory as a volume to keep monitors when the container is re-created. An unreadable file is renamed to `monitors.json.corrupt-<time>` and the bridge starts with no monitors. |
+| `MONITOR_SUSPENDED_EXPIRY_HOURS` | *(never)* | Delete monitors that stay suspended this long. |
+
+On Kafka, suspension needs the broker setting `auto.create.topics.enable=false`. Otherwise the next data change recreates a departed client's response topic, and its monitors keep sending to it.
+
 Discovery browses down from the Objects folder. It runs again after every reconnect, so a restarted or reconfigured server is picked up automatically. While the server is unreachable, Get commands are still answered, with a Bad status.
 
 ### Large servers
 
-The self description lists every Get command and event in **one message**, at roughly 3 KB per variable. Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 5,000 variables on RabbitMQ and about 300 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) or raise the broker's limit.
+The self description lists every Get command, Get event and Monitor command in **one message**, at roughly 7.5 KB per variable (about 3.3 KB of it for the Get command and event, 4.2 KB for the Monitor command). Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 2,200 variables on RabbitMQ and about 130 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) or raise the broker's limit.
 
 ## Running
 
@@ -79,6 +152,7 @@ docker run -d --name opcuabridge \
   -v /path/to/root_ca.pem:/etc/ssl/certs/root_ca.pem:ro \
   -v /path/to/intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem:ro \
   -v opcuabridge-pki:/pki \
+  -v opcuabridge-config:/usr/share/StatePipes/StatePipes.OpcUaBridge/Config \
   -e OPCUA_ENDPOINT=opc.tcp://plc:4840 \
   -e BROKER=amqps://amqp09-broker/Production \
   -e EXCHANGE=Line1Plc \
@@ -95,3 +169,5 @@ To try it without a PLC, use Microsoft's simulator: `docker run -d -p 50000:5000
 
 - The bridge doesn't host a `StatePipesService`. Its Get commands only exist at runtime, and a compiled service dispatches on compiled message types. Instead it speaks the StatePipes wire format directly over BrokerProxy's RabbitMQ/Kafka channels, which it compiles as linked source.
 - Get commands are queued off the broker's receive thread. A single reader then batches whatever has queued up into one OPC UA Read.
+- Every monitor change (commands, rebuilds, suspension, expiry) goes through one queue with a single reader, so a command never races a rebuild.
+- Monitor responses use a second broker channel. RabbitMQ closes a channel that publishes to a missing exchange; on its own channel that never interrupts commands or heartbeats, and it triggers an immediate reply-to check.

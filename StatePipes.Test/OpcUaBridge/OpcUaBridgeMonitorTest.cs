@@ -269,3 +269,45 @@ namespace StatePipes.Test.OpcUaBridge
         }
     }
 }
+
+namespace StatePipes.Test.OpcUaBridge
+{
+    [TestClass]
+    [TestCategory(TestCategories.Unit)]
+    public class BridgeSettingsMonitorTest
+    {
+        private static readonly string[] Variables = ["OPCUA_ENDPOINT", "BROKER", "EXCHANGE", "MONITOR_STORE_PATH", "MONITOR_SUSPENDED_EXPIRY_HOURS"];
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            foreach (var name in Variables) Environment.SetEnvironmentVariable(name, null);
+        }
+
+        private static BridgeSettings Load(string? storePath = null, string? expiryHours = null)
+        {
+            Environment.SetEnvironmentVariable("OPCUA_ENDPOINT", "opc.tcp://plc:4840");
+            Environment.SetEnvironmentVariable("BROKER", "amqps://broker");
+            Environment.SetEnvironmentVariable("EXCHANGE", "Line1Plc");
+            Environment.SetEnvironmentVariable("MONITOR_STORE_PATH", storePath);
+            Environment.SetEnvironmentVariable("MONITOR_SUSPENDED_EXPIRY_HOURS", expiryHours);
+            return BridgeSettings.Load();
+        }
+
+        [TestMethod]
+        public void Load_Defaults_StoreInStatePipesConfigDirectoryNoExpiry()
+        {
+            var settings = Load();
+            Assert.AreEqual(Path.Combine(StatePipes.ProcessLevelServices.DirHelper.GetProductDataCategoryDirectoryForProcess(StatePipes.ProcessLevelServices.DirHelper.FileCategory.Config), "monitors.json"), settings.MonitorStorePath);
+            Assert.IsNull(settings.MonitorSuspendedExpiry);
+        }
+
+        [TestMethod]
+        public void Load_Overrides_Used()
+        {
+            var settings = Load("/data/m.json", "48");
+            Assert.AreEqual("/data/m.json", settings.MonitorStorePath);
+            Assert.AreEqual(TimeSpan.FromHours(48), settings.MonitorSuspendedExpiry);
+        }
+    }
+}
