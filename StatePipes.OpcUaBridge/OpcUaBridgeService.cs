@@ -208,14 +208,9 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         private void SendResponse(byte[] body, string routingKey, BusConfig replyTo, byte[] replyToRaw)
         {
-            if (replyTo.BrokerUri != busConfig.BrokerUri)
+            if (!ReplyToGuard.Allows(busConfig, replyTo, out var reason))
             {
-                Log?.LogError($"Can't send response {routingKey} because it is on broker {replyTo.BrokerUri}");
-                return;
-            }
-            if (replyTo.ClientCertPath != busConfig.ClientCertPath)
-            {
-                Log?.LogError($"Can't send response {routingKey} because it uses a {replyTo.ClientCertPath} certificate for authentication");
+                Log?.LogError($"Can't send response {routingKey} because {reason}");
                 return;
             }
             Send(body, routingKey, replyToRaw, replyTo.ResponseExchangeName);
