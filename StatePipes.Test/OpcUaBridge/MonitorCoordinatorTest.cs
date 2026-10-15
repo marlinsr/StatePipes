@@ -336,7 +336,7 @@ namespace StatePipes.Test.OpcUaBridge
             NextStatus(); NextStatus(); NextStatus();
             _output.Missing["abc"] = true;
             _coordinator.CheckReplyTos();
-            WaitUntil(() => _registry.Get(b.Key)!.IsSuspended && _registry.Get(a.Key)!.IsSuspended, "suspension");
+            WaitUntil(() => _registry.Get(b.Key)!.IsSuspended && _registry.Get(a.Key)!.IsSuspended && _output.ExistenceChecks.Count == 2, "suspension");
             CollectionAssert.AreEquivalent(new[] { a.Key, b.Key }, session.Disabled.ToArray());
             Assert.IsFalse(_registry.Get(live.Key)!.IsSuspended);
             CollectionAssert.AreEquivalent(new[] { "abc", "live" }, _output.ExistenceChecks.ToArray());
