@@ -317,6 +317,10 @@ with the main channel unaffected; Kafka broker with `auto.create.topics.enable=f
 
 ## Known limitations
 
+- A short client reconnect can suspend its monitors: the auto-delete response exchange vanishes while the client is
+  disconnected, and a reply-to check in that gap suspends them. Suspended monitors are not reactivated automatically
+  and no status is sent (decided 2026-10-15); clients must re-send their Monitor commands after every reconnect.
+
 - On Kafka, suspension depends on broker auto-create being disabled, and a crashed client's topic is never
   removed until the Kafka auto-delete sub-project is done.
 - Status is sent only as a command response or after a rebuild; a monitor failing at any other time is visible

@@ -70,6 +70,7 @@ Enums can be sent as names or numbers. The server may revise the intervals and q
 - **`DeleteMonitorCommand`** (`{"MonitorName": "MotorSpeed"}`) deletes your monitor with that name.
 - **Persistence.** Monitors are saved to `MONITOR_STORE_PATH` and rebuilt on every new OPC UA session, so they survive both a PLC reboot and a bridge restart.
 - **Suspension.** When your response exchange disappears (your client disconnected), your monitors are suspended. The bridge stops sending and keeps them until you send their Monitor commands again, delete them, or `MONITOR_SUSPENDED_EXPIRY_HOURS` passes. The bridge checks every 30 seconds.
+- **Re-send your Monitor commands after every reconnect.** A client's response exchange is deleted whenever its broker connection drops, even briefly. If a check happens during that gap, your monitors are suspended, and they stay suspended after you reconnect, with no status sent. Sending your Monitor commands again after each reconnect reclaims them; for monitors that are still active, it is a harmless update.
 
 ### Monitor status
 
