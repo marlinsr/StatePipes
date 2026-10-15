@@ -46,11 +46,17 @@ namespace StatePipes.OpcUaBridge
         private const int CollisionSuffixReserve = 4; // "_999"
         private const int HashSuffixLength = 9; // "_" + 8 hex digits
 
+        /// <summary>The namespace every message name on <paramref name="exchangeName"/> shares.</summary>
+        public static string MessageNamespace(string exchangeName)
+        {
+            var unfittedNamespace = ToNamespace(exchangeName);
+            return Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace);
+        }
+
         public static MessageNames ToMessageNames(string exchangeName, NodeId nodeId)
         {
             var identifier = IdentifierText(nodeId);
-            var unfittedNamespace = ToNamespace(exchangeName);
-            var @namespace = Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace);
+            var @namespace = MessageNamespace(exchangeName);
             // Names are pure ASCII, so characters are bytes. Leave room for the separating dot, the longer
             // suffix, a possible collision suffix and the Monitor command's longer prefix.
             var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve
@@ -66,8 +72,7 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         public static (string Namespace, string Name) ToStructureTypeNames(string exchangeName, NodeId dataTypeId)
         {
-            var unfittedNamespace = ToNamespace(exchangeName);
-            var @namespace = Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace) + ".Types";
+            var @namespace = MessageNamespace(exchangeName) + ".Types";
             var maxNameLength = MaxFullNameLength - @namespace.Length - 1;
             var name = Fit($"ns{dataTypeId.NamespaceIndex}_{IdTypeLetter(dataTypeId.IdType)}_{Sanitize(IdentifierText(dataTypeId))}", maxNameLength, dataTypeId.ToString());
             return (@namespace, name);

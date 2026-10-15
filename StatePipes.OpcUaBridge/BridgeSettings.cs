@@ -28,6 +28,10 @@ namespace StatePipes.OpcUaBridge
         /// <summary>When set, only nodes whose NodeId text (e.g. <c>ns=2;s=Line1.Temperature</c>) matches are exposed.</summary>
         public Regex? NodeFilter { get; init; }
         public TimeSpan ReconnectDelay { get; init; } = TimeSpan.FromSeconds(5);
+        /// <summary>Where monitors are persisted; must be on a mounted volume to outlive the container.</summary>
+        public string MonitorStorePath { get; init; } = Path.Combine(AppContext.BaseDirectory, "Config", "monitors.json");
+        /// <summary>How long a suspended monitor is kept for its client to reclaim it; null keeps it until deleted.</summary>
+        public TimeSpan? MonitorSuspendedExpiry { get; init; }
 
         public static BridgeSettings Load()
         {
@@ -49,6 +53,8 @@ namespace StatePipes.OpcUaBridge
                 IncludeNamespaceZero = GetBool("OPCUA_INCLUDE_NS0", false),
                 NodeFilter = string.IsNullOrEmpty(Get("OPCUA_NODE_FILTER")) ? null : new Regex(Get("OPCUA_NODE_FILTER"), RegexOptions.Compiled | RegexOptions.CultureInvariant),
                 ReconnectDelay = TimeSpan.FromSeconds(GetInt("OPCUA_RECONNECT_SECONDS", 5)),
+                MonitorStorePath = NullIfEmpty(Get("MONITOR_STORE_PATH")) ?? Path.Combine(AppContext.BaseDirectory, "Config", "monitors.json"),
+                MonitorSuspendedExpiry = GetInt("MONITOR_SUSPENDED_EXPIRY_HOURS", 0) is > 0 and var hours ? TimeSpan.FromHours(hours) : null,
             };
         }
 
