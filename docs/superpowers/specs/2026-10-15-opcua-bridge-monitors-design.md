@@ -201,12 +201,17 @@ Suspended monitors are not created as active and receive no status.
 
 ### Suspension
 
-- **RabbitMQ:** a send failure on the notification channel (channel closed with 404 NOT_FOUND) triggers a
-  passive exchange-declare check on a fresh channel. If the exchange does not exist, enqueue `Suspend(key)`.
-- **Kafka:** a delivery report with `UnknownTopicOrPart` enqueues `Suspend(key)`. This requires the broker to
-  have `auto.create.topics.enable=false`; otherwise the produce recreates the topic and the monitor is never
-  suspended (documented limitation until the Kafka auto-delete sub-project lands).
-- Worker: `DisableAsync(key)`, `registry.Suspend(key)` (sets `SuspendedSince`), persist.
+`ISimpleConnectionChannel` sends are fire-and-forget on both brokers, so a failed send gives no signal. Instead
+the channel gains `Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct)`: a passive
+exchange declare on a temporary RabbitMQ channel, a topic metadata lookup on Kafka.
+
+- The coordinator checks every distinct reply-to of non-suspended monitors every 30 s, and immediately when the
+  notification channel is found closed (RabbitMQ closes it on a 404 from a vanished exchange).
+- A reply-to whose bus does not exist → `Suspend(key)` for every monitor using it: `DisableAsync(key)`,
+  `registry.Suspend(key)` (sets `SuspendedSince`), persist.
+- **Kafka:** requires the broker to have `auto.create.topics.enable=false`; otherwise a notification produced
+  before the next check recreates the topic and the monitor is never suspended (documented limitation until the
+  Kafka auto-delete sub-project lands).
 - Reclaim: the same sender re-sends a Monitor command with the same name → normal Monitor flow.
 
 ## Persistence
@@ -292,7 +297,7 @@ stored `Pending`.
 - `SelfDescriptionBuilder`: Monitor command and fixed/enum types described; Explorer's
   `TypeSerializationToTypeConverter` round-trips them.
 
-### Integration tests (against the in-repo `OpcUaServer`, as `OpcUaBridgeTest` does)
+### Integration tests (in-process `PlcServer` from the `OpcUaServer` project on a test port; fake broker channel)
 
 - Create → Get events on value change, `MonitorStatusEvent` `Active` with revised values.
 - Absolute deadband suppresses small changes; Percent on a non-analog node → `Failed` + `BadFilterNotAllowed`.
@@ -301,13 +306,14 @@ stored `Pending`.
 - Monitor before first discovery → `BadWaitingForInitialData`.
 - Server reboot: stop/restart `OpcUaServer` → monitors return, status per monitor, notifications resume.
 - Bridge restart: new bridge with the same `monitors.json` → monitors return.
-- Suspension (RabbitMQ): client disconnects (auto-delete exchange disappears) → monitor suspended, main
-  channel still serves Gets; reconnect + re-send → reclaimed.
+- Suspension: fake channel reports the reply-to bus missing → monitor suspended, Gets still served;
+  re-send → reclaimed.
 
 ### Manual end-to-end
 
-`opc-plc` in Docker against both brokers using the existing harness; Kafka broker with
-`auto.create.topics.enable=false` to verify the Kafka suspension path (not covered by automated tests).
+`opc-plc` in Docker against both brokers using the existing harness: RabbitMQ client disconnect → suspension
+with the main channel unaffected; Kafka broker with `auto.create.topics.enable=false` → suspension.
+`BusExistsAsync` on both real brokers is verified only here.
 
 ## Known limitations
 
