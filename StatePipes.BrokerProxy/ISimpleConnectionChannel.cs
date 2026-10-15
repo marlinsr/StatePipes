@@ -1,7 +1,9 @@
-using StatePipes.Comms;
+﻿using StatePipes.Comms;
 using StatePipes.Comms.Internal;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace StatePipes.BrokerProxy
 {
@@ -46,5 +48,12 @@ namespace StatePipes.BrokerProxy
         /// <c>StatePipesReplyTo</c> header. Nothing is serialized here. Fire and forget: never waits on the broker.
         /// </summary>
         void Send(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw, string exchangeName);
+
+        /// <summary>
+        /// Whether a bus still exists on the broker. Sends are fire and forget, so this is how a caller learns that
+        /// a peer's auto-delete bus has gone. Answers true whenever existence cannot be determined, so that a
+        /// broker outage is never mistaken for a missing bus.
+        /// </summary>
+        Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct);
     }
 }

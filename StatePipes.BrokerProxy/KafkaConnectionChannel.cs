@@ -1,4 +1,4 @@
-using Confluent.Kafka;
+﻿using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using StatePipes.Common.Internal;
 using StatePipes.Comms;
@@ -62,7 +62,7 @@ namespace StatePipes.BrokerProxy
                 { GroupId = $"{topic}.{id:N}", AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = false, FetchWaitMaxMs = FetchWaitMaxMilliseconds, AllowAutoCreateTopics = true }))
                     .SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka consumer error on {topic}: {e.Reason}")).Build();
                 ctx.Consumer.Subscribe(topic);
-                ctx.Loop = new Thread(() => ConsumeLoop(ctx)) {IsBackground = true, Name = $"kafka-{commsType}-{topic}"};
+                ctx.Loop = new Thread(() => ConsumeLoop(ctx)) { IsBackground = true, Name = $"kafka-{commsType}-{topic}" };
                 _consumers.Add(ctx);
                 ctx.Loop.Start();
             }
@@ -79,13 +79,37 @@ namespace StatePipes.BrokerProxy
             {
                 // Produce, not ProduceAsync: enqueue and return so the reflect path never waits on the broker.
                 _producer.Produce(topic, new Message<string, byte[]>
-                {Key = routingKey, Value = body, Headers = SimpleMessageHelper.SerializeKafkaHeaders(routingKey, replyToRaw)},
+                { Key = routingKey, Value = body, Headers = SimpleMessageHelper.SerializeKafkaHeaders(routingKey, replyToRaw) },
                 report => { if (report.Error.IsError) Log?.LogVerbose($"Failed to publish message {routingKey} to topic {topic}: {report.Error.Reason}"); });
             }
             catch (Exception e)
             {
                 Log?.LogError($"Topic '{topic}' could not be published to: {routingKey} Exception: {e.Message}");
             }
+        }
+        /// <summary>
+        /// Looks the topic up in the cluster metadata. Only an explicit unknown-topic answer counts as missing;
+        /// note that a broker with auto.create.topics.enable recreates a topic on the next produce to it.
+        /// </summary>
+        public Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct)
+        {
+            var topic = KafkaTopicNamer.ToTopic(exchangeName);
+            return Task.Run(() =>
+            {
+                try
+                {
+                    using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig())).Build();
+                    var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(5));
+                    var found = metadata.Topics.Find(t => t.Topic == topic);
+                    return found == null || found.Error.Code != ErrorCode.UnknownTopicOrPart;
+                }
+                catch (KafkaException ex)
+                {
+                    if (ex.Error.Code == ErrorCode.UnknownTopicOrPart) return false;
+                    Log?.LogVerbose($"Could not check topic {topic}: {ex.Message}");
+                    return true;
+                }
+            }, ct);
         }
         private void ConsumeLoop(ConsumerContext ctx)
         {
