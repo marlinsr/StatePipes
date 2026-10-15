@@ -1,5 +1,4 @@
 using Opc.Ua;
-using Opc.Ua.Configuration;
 
 namespace OpcUaServer;
 
@@ -19,9 +18,7 @@ public class Worker : BackgroundService
         var telemetry = DefaultTelemetry.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
         try
         {
-            var config = await BuildServerConfiguration(telemetry, stoppingToken);
-            _server = new PlcServer(telemetry);
-            await _server.StartAsync(config, stoppingToken);
+            _server = await PlcServerHost.StartAsync(EndpointUrl, "%LocalApplicationData%/PLCSimulator", telemetry, stoppingToken);
 
             _logger.LogInformation("OPC UA Server started at {Endpoint}", EndpointUrl);
 
@@ -59,82 +56,5 @@ public class Worker : BackgroundService
             if (_server != null) await _server.StopAsync(CancellationToken.None);
             _logger.LogInformation("OPC UA Server stopped");
         }
-    }
-
-    private static async Task<ApplicationConfiguration> BuildServerConfiguration(ITelemetryContext telemetry, CancellationToken ct)
-    {
-        var config = new ApplicationConfiguration(telemetry)
-        {
-            ApplicationName = "PLCSimulator OPC UA Server",
-            ApplicationUri = Utils.Format("urn:{0}:PLCSimulator:OpcUaServer", Utils.GetHostName()),
-            ProductUri = "urn:PLCSimulator:OpcUaServer",
-            ApplicationType = ApplicationType.Server,
-
-            SecurityConfiguration = new SecurityConfiguration
-            {
-                ApplicationCertificate = new CertificateIdentifier
-                {
-                    StoreType = CertificateStoreType.Directory,
-                    StorePath = "%LocalApplicationData%/PLCSimulator/pki/own",
-                    SubjectName = "CN=PLCSimulator OPC UA Server, DC=localhost"
-                },
-                TrustedIssuerCertificates = new CertificateTrustList
-                {
-                    StoreType = CertificateStoreType.Directory,
-                    StorePath = "%LocalApplicationData%/PLCSimulator/pki/issuer"
-                },
-                TrustedPeerCertificates = new CertificateTrustList
-                {
-                    StoreType = CertificateStoreType.Directory,
-                    StorePath = "%LocalApplicationData%/PLCSimulator/pki/trusted"
-                },
-                RejectedCertificateStore = new CertificateTrustList
-                {
-                    StoreType = CertificateStoreType.Directory,
-                    StorePath = "%LocalApplicationData%/PLCSimulator/pki/rejected"
-                },
-                AutoAcceptUntrustedCertificates = true,
-                AddAppCertToTrustedStore = true,
-                RejectSHA1SignedCertificates = false
-            },
-
-            TransportConfigurations = [],
-            TransportQuotas = new TransportQuotas { OperationTimeout = 15000 },
-
-            ServerConfiguration = new ServerConfiguration
-            {
-                BaseAddresses = [EndpointUrl],
-                MinRequestThreadCount = 5,
-                MaxRequestThreadCount = 100,
-                MaxQueuedRequestCount = 200,
-                // No discovery server registration: the default LDS URL is opc.tcp://localhost:4840, this server's own port
-                MaxRegistrationInterval = 0,
-                SecurityPolicies =
-                [
-                    new ServerSecurityPolicy
-                    {
-                        SecurityMode = MessageSecurityMode.None,
-                        SecurityPolicyUri = SecurityPolicies.None
-                    }
-                ],
-                UserTokenPolicies =
-                [
-                    new UserTokenPolicy { TokenType = UserTokenType.Anonymous }
-                ]
-            },
-
-            TraceConfiguration = new TraceConfiguration
-            {
-                OutputFilePath = "%LocalApplicationData%/PLCSimulator/logs/trace.log",
-                DeleteOnLoad = true
-            }
-        };
-
-        await config.ValidateAsync(ApplicationType.Server, ct);
-
-        var application = new ApplicationInstance(config, telemetry);
-        await application.CheckApplicationInstanceCertificatesAsync(false, null, ct);
-
-        return config;
     }
 }

@@ -88,6 +88,14 @@ namespace StatePipes.OpcUaBridge
             return results;
         }
 
+        /// <summary>The monitored items of the current session; a new session needs a new manager.</summary>
+        public IMonitorSession CreateMonitorManager(Action<MonitorKey, DataValue> onNotification)
+        {
+            var session = _session;
+            if (session == null || !IsConnected) throw new InvalidOperationException("Not connected to an OPC UA server");
+            return new OpcUaMonitorManager(session, _telemetry, onNotification);
+        }
+
         private async Task<ApplicationConfiguration> CreateConfigurationAsync(CancellationToken ct)
         {
             var pki = _settings.PkiPath;

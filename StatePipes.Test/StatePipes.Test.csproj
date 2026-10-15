@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -28,6 +28,7 @@
     <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
     <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
     <ProjectReference Include="..\StatePipes.OpcUaBridge\StatePipes.OpcUaBridge.csproj" />
+    <ProjectReference Include="..\OpcUaServer\OpcUaServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
