@@ -39,10 +39,11 @@ namespace StatePipes.OpcUaBridge
 
         private void Enqueue(MonitorWork work) => _work.Writer.TryWrite(work);
 
-        public void OnNotification(MonitorKey key, DataValue value)
+        public void OnNotification(MonitorKey key, string nodeIdText, DataValue value)
         {
             var definition = registry.Get(key);
-            if (definition == null || definition.IsSuspended || !_catalog.TryGetValue(definition.NodeIdText, out var item)) return;
+            // A notification from a node the monitor has just moved away from is dropped, not relabelled.
+            if (definition == null || definition.IsSuspended || definition.NodeIdText != nodeIdText || !_catalog.TryGetValue(nodeIdText, out var item)) return;
             output.SendNotification(item, value, definition.ReplyToRaw);
         }
 
@@ -100,7 +101,7 @@ namespace StatePipes.OpcUaBridge
         {
             if (_session == null) return MonitorApplyResult.Pending;
             try { return await _session.ApplyAsync(definition, ct); }
-            catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or ObjectDisposedException)
+            catch (Exception ex) when (IsSessionFailure(ex, ct))
             {
                 Log?.LogError($"Could not apply monitor {definition.Key.MonitorName} on {definition.NodeIdText}: {ex.Message}");
                 return MonitorApplyResult.Pending;
@@ -135,7 +136,7 @@ namespace StatePipes.OpcUaBridge
             var known = live.Except(unknown).ToList();
             IReadOnlyDictionary<MonitorKey, MonitorApplyResult> results;
             try { results = await start.Session.ApplyAllAsync(known, ct); }
-            catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or ObjectDisposedException)
+            catch (Exception ex) when (IsSessionFailure(ex, ct))
             {
                 Log?.LogError($"Could not rebuild {known.Count} monitors: {ex.Message}");
                 results = known.ToDictionary(d => d.Key, _ => MonitorApplyResult.Pending);
@@ -186,7 +187,7 @@ namespace StatePipes.OpcUaBridge
                     if (_session != null)
                     {
                         try { await _session.DisableAsync(definition.Key, ct); }
-                        catch (Exception ex) when (ex is ServiceResultException or ObjectDisposedException) { Log?.LogVerbose($"Could not disable monitor {definition.Key.MonitorName}: {ex.Message}"); }
+                        catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not disable monitor {definition.Key.MonitorName}: {ex.Message}"); }
                     }
                     registry.Suspend(definition.Key);
                 }
@@ -202,8 +203,14 @@ namespace StatePipes.OpcUaBridge
         {
             if (_session == null) return;
             try { await _session.RemoveAsync(key, ct); }
-            catch (Exception ex) when (ex is ServiceResultException or ObjectDisposedException) { Log?.LogVerbose($"Could not remove monitor {key.MonitorName}: {ex.Message}"); }
+            catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not remove monitor {key.MonitorName}: {ex.Message}"); }
         }
+
+        /// <summary>
+        /// Every call into the session gets the same rule: anything but our own cancellation is the session failing,
+        /// and must not abort the handling of the monitor it was for, or of the monitors after it.
+        /// </summary>
+        private static bool IsSessionFailure(Exception ex, CancellationToken ct) => ex is not OperationCanceledException || !ct.IsCancellationRequested;
 
         private void SendStatus(MonitorDefinition definition, MonitorState state, MonitorApplyResult result) =>
             output.SendStatus(Status(definition.Key.MonitorName, definition.NodeIdText, state, result), definition.ReplyToRaw);

@@ -29,7 +29,7 @@ namespace StatePipes.Test.OpcUaBridge
             _plc.NodeManager.UpdatePressure(_pressure);
             _client = new OpcUaClient(_plc.CreateBridgeSettings(MonitorRegistryTest.Own));
             await _client.ConnectAsync(CancellationToken.None);
-            _session = _client.CreateMonitorManager((key, value) => Values(key).Add(value));
+            _session = _client.CreateMonitorManager((key, _, value) => Values(key).Add(value));
         }
 
         [TestCleanup]
@@ -207,6 +207,29 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.AreEqual(MonitorState.Active, result.State);
             SetPressure(1);
             AssertNoNotification(definition.Key);
+        }
+    }
+}
+
+namespace StatePipes.Test.OpcUaBridge
+{
+    [TestClass]
+    [TestCategory(TestCategories.Unit)]
+    public class OpcUaMonitorManagerCallErrorTest
+    {
+        [TestMethod]
+        public void CallFailed_SessionStillConnected_FailedWithServerCode()
+        {
+            var result = OpcUaMonitorManager.CallFailed(new ServiceResultException(StatusCodes.BadTooManySubscriptions), sessionConnected: true);
+            Assert.AreEqual(MonitorState.Failed, result.State);
+            Assert.AreEqual(StatusCodes.BadTooManySubscriptions, result.StatusCode.Code);
+        }
+
+        [TestMethod]
+        public void CallFailed_SessionGone_Pending()
+        {
+            var result = OpcUaMonitorManager.CallFailed(new ServiceResultException(StatusCodes.BadSessionClosed), sessionConnected: false);
+            Assert.AreEqual(MonitorState.Pending, result.State);
         }
     }
 }

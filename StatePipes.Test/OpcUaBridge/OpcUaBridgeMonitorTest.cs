@@ -242,7 +242,7 @@ namespace StatePipes.Test.OpcUaBridge
             _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
             Assert.AreEqual(MonitorState.Active, NextStatus().State);
-            _bridge.Monitors.OnNotification(new MonitorKey(Client.CommandExchangeName, "m1"), new DataValue(new Variant(42.0)));
+            _bridge.Monitors.OnNotification(new MonitorKey(Client.CommandExchangeName, "m1"), _pressure.NodeIdText, new DataValue(new Variant(42.0)));
             var sent = Next(_channels.Notifications, _pressure.EventTypeFullName);
             Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
             Assert.AreEqual(42.0, (double)JObject.Parse(Encoding.UTF8.GetString(sent.Body))["Value"]!);
@@ -259,7 +259,7 @@ namespace StatePipes.Test.OpcUaBridge
             notifications.Open = false;
             notifications.MissingBuses[Client.ResponseExchangeName] = true;
             var key = new MonitorKey(Client.CommandExchangeName, "m1");
-            _bridge.Monitors.OnNotification(key, new DataValue(new Variant(1.0)));
+            _bridge.Monitors.OnNotification(key, _pressure.NodeIdText, new DataValue(new Variant(1.0)));
             var deadline = DateTime.UtcNow.AddSeconds(5);
             while (!_registry.Get(key)!.IsSuspended)
             {

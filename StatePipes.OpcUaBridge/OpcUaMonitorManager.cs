@@ -11,13 +11,19 @@ namespace StatePipes.OpcUaBridge
     /// deleted when its last item goes. Every item carries a DataChangeFilter built from its definition, so the
     /// server never falls back to defaults of its own.
     /// </summary>
-    internal sealed class OpcUaMonitorManager(ISession session, ITelemetryContext telemetry, Action<MonitorKey, DataValue> onNotification) : IMonitorSession
+    internal sealed class OpcUaMonitorManager(ISession session, ITelemetryContext telemetry, Action<MonitorKey, string, DataValue> onNotification) : IMonitorSession
     {
         private const uint KeepAliveCount = 10;
         private const uint LifetimeCount = 100;
         private readonly SemaphoreSlim _gate = new(1, 1);
         private readonly Dictionary<double, Subscription> _subscriptions = [];
         private readonly Dictionary<MonitorKey, Entry> _entries = [];
+
+        /// <summary>
+        /// Which monitor and node an item belongs to. The node travels with each notification so one from an item
+        /// that is being replaced by a move is not taken for the monitor's new node.
+        /// </summary>
+        private sealed record ItemHandle(MonitorKey Key, string NodeIdText);
 
         private sealed record Entry(MonitoredItem Item, Subscription Subscription, string NodeIdText, double PublishingInterval);
 
@@ -96,10 +102,11 @@ namespace StatePipes.OpcUaBridge
             catch (ServiceResultException ex)
             {
                 Log?.LogError($"OPC UA could not create {created.Count} monitored items: {ex.Message}");
+                var failed = CallFailed(ex, session.Connected);
                 foreach (var (definition, item) in created)
                 {
                     item.Subscription?.RemoveItem(item);
-                    results[definition.Key] = MonitorApplyResult.Pending;
+                    results[definition.Key] = failed;
                 }
                 await DeleteIfEmptyAsync(publishingInterval, ct);
                 return results;
@@ -120,6 +127,14 @@ namespace StatePipes.OpcUaBridge
             return results;
         }
 
+        /// <summary>
+        /// The result when a whole request fails. Pending promises the monitor is applied on the next session,
+        /// which is only true when this one is gone; while it is still up -- too many subscriptions, a timeout --
+        /// the monitor has failed, and like any failed monitor it is retried on every rebuild.
+        /// </summary>
+        internal static MonitorApplyResult CallFailed(ServiceResultException ex, bool sessionConnected) =>
+            sessionConnected ? MonitorApplyResult.Failed(ex.StatusCode) : MonitorApplyResult.Pending;
+
         private async Task<MonitorApplyResult> ModifyAsync(Entry entry, MonitorParameters parameters, CancellationToken ct)
         {
             var item = entry.Item;
@@ -135,7 +150,7 @@ namespace StatePipes.OpcUaBridge
             catch (ServiceResultException ex)
             {
                 Log?.LogError($"OPC UA could not modify monitored item on {entry.NodeIdText}: {ex.Message}");
-                return MonitorApplyResult.Pending;
+                return CallFailed(ex, session.Connected);
             }
             var error = item.Status.Error;
             return error != null && ServiceResult.IsBad(error) ? MonitorApplyResult.Failed(error.StatusCode) : Active(item, entry.Subscription);
@@ -195,15 +210,15 @@ namespace StatePipes.OpcUaBridge
                 DiscardOldest = true,
                 Filter = CreateFilter(parameters)
             })
-            { Handle = definition.Key };
+            { Handle = new ItemHandle(definition.Key, definition.NodeIdText) };
             item.Notification += OnNotification;
             return item;
         }
 
         private void OnNotification(MonitoredItem item, MonitoredItemNotificationEventArgs e)
         {
-            if (item.Handle is not MonitorKey key || e.NotificationValue is not MonitoredItemNotification notification) return;
-            try { onNotification(key, notification.Value); }
+            if (item.Handle is not ItemHandle handle || e.NotificationValue is not MonitoredItemNotification notification) return;
+            try { onNotification(handle.Key, handle.NodeIdText, notification.Value); }
             catch (Exception ex) { Log?.LogException(ex); }
         }
 
