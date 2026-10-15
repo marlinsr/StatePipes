@@ -6,16 +6,21 @@ namespace StatePipes.OpcUaBridge
 {
     /// <summary>
     /// The namespace and name shared by a node's Get command and Get event. The command is
-    /// <c>{Namespace}.{Name}_Command</c> and the event <c>{Namespace}.{Name}_Event</c>.
+    /// <c>{Namespace}.{Name}_Command</c> and the event <c>{Namespace}.{Name}_Event</c>. The Monitor command
+    /// swaps the name's <c>Get_</c> prefix for <c>Monitor_</c>, so it carries any collision suffix too.
     /// </summary>
     internal sealed record MessageNames(string Namespace, string Name)
     {
+        public const string GetPrefix = "Get_";
+        public const string MonitorPrefix = "Monitor_";
         public const string CommandSuffix = "_Command";
         public const string EventSuffix = "_Event";
         public string CommandTypeName => Name + CommandSuffix;
         public string EventTypeName => Name + EventSuffix;
+        public string MonitorCommandTypeName => MonitorPrefix + Name[GetPrefix.Length..] + CommandSuffix;
         public string CommandTypeFullName => $"{Namespace}.{CommandTypeName}";
         public string EventTypeFullName => $"{Namespace}.{EventTypeName}";
+        public string MonitorCommandTypeFullName => $"{Namespace}.{MonitorCommandTypeName}";
     }
 
     /// <summary>
@@ -47,9 +52,10 @@ namespace StatePipes.OpcUaBridge
             var unfittedNamespace = ToNamespace(exchangeName);
             var @namespace = Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace);
             // Names are pure ASCII, so characters are bytes. Leave room for the separating dot, the longer
-            // suffix and a possible collision suffix.
-            var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve;
-            var name = Fit($"Get_ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(identifier)}", maxNameLength, nodeId.ToString());
+            // suffix, a possible collision suffix and the Monitor command's longer prefix.
+            var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve
+                - (MessageNames.MonitorPrefix.Length - MessageNames.GetPrefix.Length);
+            var name = Fit($"{MessageNames.GetPrefix}ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(identifier)}", maxNameLength, nodeId.ToString());
             return new MessageNames(@namespace, name);
         }
 

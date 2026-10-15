@@ -1,4 +1,5 @@
 using StatePipes.Messages;
+using StatePipes.OpcUaBridge.Messages;
 using StatePipes.SelfDescription;
 
 namespace StatePipes.OpcUaBridge
@@ -25,9 +26,24 @@ namespace StatePipes.OpcUaBridge
         public const string StatusProperty = "Status";
         public const string SourceTimestampProperty = "SourceTimestamp";
         public const string ServerTimestampProperty = "ServerTimestamp";
+        public const string MonitorNameProperty = "MonitorName";
+        public const string MonitoringModeProperty = "MonitoringMode";
+        public const string DataChangeTriggerProperty = "DataChangeTrigger";
+        public const string DeadbandTypeProperty = "DeadbandType";
+        public const string DeadbandValueProperty = "DeadbandValue";
+        public const string SamplingIntervalProperty = "SamplingInterval";
+        public const string QueueSizeProperty = "QueueSize";
+        public const string PublishingIntervalProperty = "PublishingInterval";
 
-        /// <summary>The StatePipes messages the bridge itself handles or publishes, described from the real types.</summary>
-        private static readonly Type[] StatePipesMessageTypes = [typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent)];
+        /// <summary>
+        /// The messages the bridge itself handles or publishes, described from the real types. Enums are not
+        /// listed: clients expect only messages at the top level, and each message carries the enums it uses.
+        /// </summary>
+        private static readonly Type[] StatePipesMessageTypes =
+        [
+            typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent),
+            typeof(DeleteMonitorCommand), typeof(MonitorStatusEvent)
+        ];
 
         public static TypeSerializationList Build(IEnumerable<OpcUaDataItem> items)
         {
@@ -38,8 +54,37 @@ namespace StatePipes.OpcUaBridge
             {
                 list.TypeSerializations.Add(BuildCommand(item));
                 list.TypeSerializations.Add(BuildEvent(item));
+                list.TypeSerializations.Add(BuildMonitorCommand(item, converter));
             }
             return list;
+        }
+
+        /// <summary>
+        /// A Monitor command's enum properties are the bridge's compiled enums. Each type serialization stands
+        /// alone, so the enums' descriptions, values included, are copied into it.
+        /// </summary>
+        private static TypeSerialization BuildMonitorCommand(OpcUaDataItem item, TypeSerializationConverter converter)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.MonitorCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, MonitorNameProperty, typeof(string));
+            AddEnumProperty(serialization, description, MonitoringModeProperty, typeof(MonitoringModeKind), converter);
+            AddEnumProperty(serialization, description, DataChangeTriggerProperty, typeof(DataChangeTriggerKind), converter);
+            AddEnumProperty(serialization, description, DeadbandTypeProperty, typeof(DeadbandTypeKind), converter);
+            AddProperty(serialization, description, DeadbandValueProperty, typeof(double));
+            AddProperty(serialization, description, SamplingIntervalProperty, typeof(double));
+            AddProperty(serialization, description, QueueSizeProperty, typeof(uint));
+            AddProperty(serialization, description, PublishingIntervalProperty, typeof(double));
+            return serialization;
+        }
+
+        private static void AddEnumProperty(TypeSerialization serialization, TypeDescription owner, string name, Type enumType, TypeSerializationConverter converter)
+        {
+            owner.Properties.Add(new ParameterDescription(name, enumType.FullName!, false, []));
+            if (!serialization.HasTypeDescription(enumType.FullName!))
+                serialization.AddTypeDescription(converter.CreateFromType(enumType).GetTopLevelDescription());
         }
 
         private static TypeSerialization BuildCommand(OpcUaDataItem item)

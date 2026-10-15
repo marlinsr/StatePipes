@@ -15,5 +15,6 @@ namespace StatePipes.OpcUaBridge
     {
         public string CommandTypeFullName => Names.CommandTypeFullName;
         public string EventTypeFullName => Names.EventTypeFullName;
+        public string MonitorCommandTypeFullName => Names.MonitorCommandTypeFullName;
     }
 }
