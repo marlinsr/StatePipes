@@ -13,7 +13,8 @@ namespace StatePipes.OpcUaBridge
     /// </summary>
     internal sealed class MonitorStore(string path)
     {
-        private const int Version = 1;
+        /// <summary>Version 1 keyed monitors by a client-chosen name; it is set aside like any unreadable file.</summary>
+        private const int Version = 2;
         private static readonly JsonSerializerSettings Settings = new()
         {
             Converters = [new StringEnumConverter()],
@@ -72,7 +73,6 @@ namespace StatePipes.OpcUaBridge
         private sealed class StoreEntry
         {
             [JsonProperty("senderCommandExchange", Required = Required.Always)] public string SenderCommandExchange { get; set; } = string.Empty;
-            [JsonProperty("monitorName", Required = Required.Always)] public string MonitorName { get; set; } = string.Empty;
             [JsonProperty("nodeId", Required = Required.Always)] public string NodeId { get; set; } = string.Empty;
             [JsonProperty("monitoringMode", Required = Required.Always)] public MonitoringModeKind MonitoringMode { get; set; }
             [JsonProperty("dataChangeTrigger", Required = Required.Always)] public DataChangeTriggerKind DataChangeTrigger { get; set; }
@@ -87,7 +87,6 @@ namespace StatePipes.OpcUaBridge
             public static StoreEntry From(MonitorDefinition definition) => new()
             {
                 SenderCommandExchange = definition.Key.SenderCommandExchange,
-                MonitorName = definition.Key.MonitorName,
                 NodeId = definition.NodeIdText,
                 MonitoringMode = definition.Parameters.MonitoringMode,
                 DataChangeTrigger = definition.Parameters.DataChangeTrigger,
@@ -100,7 +99,7 @@ namespace StatePipes.OpcUaBridge
                 SuspendedSince = definition.SuspendedSince
             };
 
-            public MonitorDefinition ToDefinition() => new(new MonitorKey(SenderCommandExchange, MonitorName), NodeId,
+            public MonitorDefinition ToDefinition() => new(new MonitorKey(SenderCommandExchange, NodeId),
                 new MonitorParameters(MonitoringMode, DataChangeTrigger, DeadbandType, DeadbandValue, SamplingInterval, QueueSize, PublishingInterval),
                 ReplyTo, SuspendedSince);
         }

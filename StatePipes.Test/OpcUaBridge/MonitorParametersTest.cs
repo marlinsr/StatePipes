@@ -12,7 +12,6 @@ namespace StatePipes.Test.OpcUaBridge
     {
         private static JObject Baseline() => new()
         {
-            ["MonitorName"] = "m1",
             ["MonitoringMode"] = 1,
             ["DataChangeTrigger"] = "StatusValue",
             ["DeadbandType"] = 1,
@@ -40,17 +39,11 @@ namespace StatePipes.Test.OpcUaBridge
         {
             var parsed = Parse();
             Assert.AreEqual(StatusCodes.Good, parsed.Status.Code);
-            Assert.AreEqual("m1", parsed.MonitorName);
             Assert.AreEqual(new MonitorParameters(MonitoringModeKind.Reporting, DataChangeTriggerKind.StatusValue, DeadbandTypeKind.Absolute, 0.5, 100, 2, 1000), parsed.Parameters);
         }
 
         [TestMethod]
-        public void Parse_EmptyOrLongName_Invalid()
-        {
-            AssertInvalid(Parse(b => b["MonitorName"] = ""));
-            AssertInvalid(Parse(b => b["MonitorName"] = new string('x', 257)));
-            Assert.AreEqual(StatusCodes.Good, Parse(b => b["MonitorName"] = new string('x', 256)).Status.Code);
-        }
+        public void Parse_ExtraMonitorName_Ignored() => Assert.AreEqual(StatusCodes.Good, Parse(b => b["MonitorName"] = "old client").Status.Code);
 
         [TestMethod]
         public void Parse_NegativeSampling_Invalid()
@@ -96,16 +89,8 @@ namespace StatePipes.Test.OpcUaBridge
         [TestMethod]
         public void Parse_Garbage_InvalidNoThrow()
         {
-            var parsed = MonitorParameters.Parse(Encoding.UTF8.GetBytes("{not json"));
-            AssertInvalid(parsed);
-            Assert.AreEqual("", parsed.MonitorName);
-        }
-
-        [TestMethod]
-        public void ReadMonitorName_InvalidParametersStillNamed()
-        {
-            Assert.AreEqual("m1", MonitorParameters.ReadMonitorName(Encoding.UTF8.GetBytes("{\"MonitorName\":\"m1\",\"QueueSize\":0}")));
-            Assert.IsNull(MonitorParameters.ReadMonitorName(Encoding.UTF8.GetBytes("garbage")));
+            AssertInvalid(MonitorParameters.Parse(Encoding.UTF8.GetBytes("{not json")));
+            AssertInvalid(MonitorParameters.Parse([]));
         }
     }
 }

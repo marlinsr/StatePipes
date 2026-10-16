@@ -89,7 +89,7 @@ namespace StatePipes.OpcUaBridge
         }
 
         /// <summary>The monitored items of the current session; a new session needs a new manager.</summary>
-        public IMonitorSession CreateMonitorManager(Action<MonitorKey, string, DataValue> onNotification)
+        public IMonitorSession CreateMonitorManager(Action<MonitorKey, DataValue> onNotification)
         {
             var session = _session;
             if (session == null || !IsConnected) throw new InvalidOperationException("Not connected to an OPC UA server");

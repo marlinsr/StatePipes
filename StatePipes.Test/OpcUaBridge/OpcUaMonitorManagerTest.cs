@@ -29,7 +29,7 @@ namespace StatePipes.Test.OpcUaBridge
             _plc.NodeManager.UpdatePressure(_pressure);
             _client = new OpcUaClient(_plc.CreateBridgeSettings(MonitorRegistryTest.Own));
             await _client.ConnectAsync(CancellationToken.None);
-            _session = _client.CreateMonitorManager((key, _, value) => Values(key).Add(value));
+            _session = _client.CreateMonitorManager((key, value) => Values(key).Add(value));
         }
 
         [TestCleanup]
@@ -50,9 +50,10 @@ namespace StatePipes.Test.OpcUaBridge
         private void AssertNoNotification(MonitorKey key, double seconds = 1.5) =>
             Assert.IsFalse(Values(key).TryTake(out var value, TimeSpan.FromSeconds(seconds)), $"Unexpected notification {value.WrappedValue}");
 
-        private static MonitorDefinition Definition(string name, NodeId nodeId, DeadbandTypeKind deadbandType = DeadbandTypeKind.None, double deadband = 0,
+        /// <summary>A monitor on <paramref name="nodeId"/> for the client named <paramref name="sender"/>.</summary>
+        private static MonitorDefinition Definition(string sender, NodeId nodeId, DeadbandTypeKind deadbandType = DeadbandTypeKind.None, double deadband = 0,
             double publishingInterval = 100, MonitoringModeKind mode = MonitoringModeKind.Reporting) =>
-            MonitorStoreTest.Definition(name, nodeId.ToString()) with
+            MonitorStoreTest.Definition(nodeId.ToString(), sender: sender) with
             {
                 Parameters = new MonitorParameters(mode, DataChangeTriggerKind.StatusValue, deadbandType, deadband, 50, 10, publishingInterval)
             };
@@ -133,20 +134,6 @@ namespace StatePipes.Test.OpcUaBridge
             while (Values(definition.Key).TryTake(out _, TimeSpan.FromMilliseconds(500))) { }
             SetPressure(0.5);
             AssertNoNotification(definition.Key);
-        }
-
-        [TestMethod]
-        public async Task Apply_SameKeyNewNode_NotificationsOnlyFromNewNode()
-        {
-            var definition = Definition("a", _plc.Pressure);
-            await _session.ApplyAsync(definition, CancellationToken.None);
-            Next(definition.Key);
-            await _session.ApplyAsync(Definition("a", _plc.Msg), CancellationToken.None);
-            Assert.IsTrue(Next(definition.Key).WrappedValue.TryGetValue(out string _));
-            SetPressure(1);
-            AssertNoNotification(definition.Key);
-            _plc.NodeManager.UpdateMsg("changed " + _pressure);
-            Assert.AreEqual("changed " + _pressure, Next(definition.Key).WrappedValue.TryGetValue(out string text) ? text : null);
         }
 
         [TestMethod]

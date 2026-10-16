@@ -69,7 +69,6 @@ namespace StatePipes.Test.OpcUaBridge
     {
         internal static readonly BusConfig Client = new("amqps://broker", "Client1", "c.p12", "p.txt");
         internal static readonly string ClientReplyTo = JsonUtility.GetJsonStringForObject(Client, true);
-        private static readonly string StatusEventName = typeof(MonitorStatusEvent).FullName!;
 
         private readonly FakeTimeProvider _time = new();
         private readonly FakeChannelFactory _channels = new();
@@ -80,6 +79,7 @@ namespace StatePipes.Test.OpcUaBridge
         private OpcUaBridgeService _bridge = null!;
         private Task _running = Task.CompletedTask;
         private OpcUaDataItem _pressure = null!;
+        private MonitorKey _key;
 
         [TestInitialize]
         public void Initialize()
@@ -96,9 +96,12 @@ namespace StatePipes.Test.OpcUaBridge
             _opcUa = new OpcUaClient(settings);
             _bridge = new OpcUaBridgeService(MonitorRegistryTest.Own, _opcUa, _registry, _time, _channels.Create);
             _running = _bridge.RunAsync(_cts.Token);
-            var nodeId = new NodeId("pressure", 2);
-            _pressure = new(nodeId, nodeId.ToString(), OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, nodeId), typeof(double));
+            _pressure = Item(new NodeId("pressure", 2));
+            _key = new MonitorKey(Client.CommandExchangeName, _pressure.NodeIdText);
         }
+
+        private static OpcUaDataItem Item(NodeId nodeId, MessageNames? names = null) =>
+            new(nodeId, nodeId.ToString(), names ?? OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, nodeId), typeof(double));
 
         [TestCleanup]
         public async Task Cleanup()
@@ -110,9 +113,8 @@ namespace StatePipes.Test.OpcUaBridge
             Directory.Delete(_directory, true);
         }
 
-        private static byte[] MonitorBody(string name = "m1", uint queueSize = 1) => Encoding.UTF8.GetBytes(new JObject
+        private static byte[] MonitorBody(uint queueSize = 1) => Encoding.UTF8.GetBytes(new JObject
         {
-            ["MonitorName"] = name,
             ["MonitoringMode"] = "Reporting",
             ["DataChangeTrigger"] = "StatusValue",
             ["DeadbandType"] = "None",
@@ -138,23 +140,27 @@ namespace StatePipes.Test.OpcUaBridge
             return default;
         }
 
-        private MonitorStatusEvent NextStatus()
+        /// <summary>The next status sent on <paramref name="statusEvent"/>, by default the pressure item's.</summary>
+        private JObject NextStatus(string? statusEvent = null)
         {
-            var sent = Next(_channels.Notifications, StatusEventName);
+            var sent = Next(_channels.Notifications, statusEvent ?? _pressure.MonitorStatusEventTypeFullName);
             Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
             Assert.AreEqual(ClientReplyTo, sent.ReplyToRaw);
-            return JsonUtility.GetObjectForJsonString<MonitorStatusEvent>(Encoding.UTF8.GetString(sent.Body))!;
+            return JObject.Parse(Encoding.UTF8.GetString(sent.Body));
+        }
+
+        private static void AssertStatus(JObject status, MonitorState state, StatusCode statusCode, string nodeId)
+        {
+            Assert.AreEqual(state.ToString(), (string)status["State"]!);
+            Assert.AreEqual(statusCode.Code, (uint)status["StatusCode"]!);
+            Assert.AreEqual(nodeId, (string)status["NodeId"]!);
         }
 
         [TestMethod]
         public void MonitorCommand_BeforeDiscovery_FailedWaitingForInitialData()
         {
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
-            var status = NextStatus();
-            Assert.AreEqual("m1", status.MonitorName);
-            Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadWaitingForInitialData, status.StatusCode);
-            Assert.AreEqual("", status.NodeId);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadWaitingForInitialData, "");
             Assert.IsEmpty(_registry.GetAll());
         }
 
@@ -163,9 +169,7 @@ namespace StatePipes.Test.OpcUaBridge
         {
             _bridge.SetCatalog([]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
-            var status = NextStatus();
-            Assert.AreEqual(StatusCodes.BadNodeIdUnknown, status.StatusCode);
-            Assert.AreEqual("", status.NodeId);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadNodeIdUnknown, "");
         }
 
         [TestMethod]
@@ -173,24 +177,32 @@ namespace StatePipes.Test.OpcUaBridge
         {
             _bridge.SetCatalog([_pressure]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody(queueSize: 0));
-            var status = NextStatus();
-            Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadInvalidArgument, status.StatusCode);
-            Assert.AreEqual(_pressure.NodeIdText, status.NodeId);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadInvalidArgument, _pressure.NodeIdText);
             Assert.IsEmpty(_registry.GetAll());
         }
 
         [TestMethod]
-        public void MonitorCommand_Valid_ReachesCoordinatorAndRespondsOnNotificationChannel()
+        public void MonitorCommand_Valid_StoredByItemAndRespondsOnNotificationChannel()
         {
             _bridge.SetCatalog([_pressure]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            AssertStatus(NextStatus(), MonitorState.Pending, StatusCodes.BadNotConnected, _pressure.NodeIdText);
+            Assert.IsNotNull(_registry.Get(_key));
+            Assert.IsFalse(_channels.Main.Sent.Any(s => s.RoutingKey == _pressure.MonitorStatusEventTypeFullName));
+        }
+
+        [TestMethod]
+        public void StatusEvent_BodyHasSpecProperties()
+        {
+            _bridge.SetCatalog([_pressure]);
+            _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
             var status = NextStatus();
-            Assert.AreEqual(MonitorState.Pending, status.State);
-            var stored = _registry.Get(new MonitorKey(Client.CommandExchangeName, "m1"));
-            Assert.IsNotNull(stored);
-            Assert.AreEqual(_pressure.NodeIdText, stored.NodeIdText);
-            Assert.IsFalse(_channels.Main.Sent.Any(s => s.RoutingKey == StatusEventName));
+            CollectionAssert.AreEquivalent(new[] { "NodeId", "State", "StatusCode", "Status", "RevisedSamplingInterval", "RevisedQueueSize", "RevisedPublishingInterval" },
+                status.Properties().Select(p => p.Name).ToArray());
+            Assert.AreEqual("Active", (string)status["State"]!);
+            Assert.AreEqual("Good", (string)status["Status"]!);
+            Assert.AreEqual(100.0, (double)status["RevisedPublishingInterval"]!);
         }
 
         [TestMethod]
@@ -205,24 +217,47 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
-        public void DeleteMonitorCommand_BeforeDiscovery_Processed()
+        public void DeleteCommand_BeforeDiscovery_FailedWaitingForInitialData()
         {
-            SendCommand(typeof(DeleteMonitorCommand).FullName!, Encoding.UTF8.GetBytes("{\"MonitorName\":\"m1\"}"));
-            var status = NextStatus();
-            Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadNotFound, status.StatusCode);
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadWaitingForInitialData, "");
         }
 
         [TestMethod]
-        public void DeleteMonitorCommand_Existing_Deleted()
+        public void DeleteCommand_NoMonitor_FailedNotFound()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadNotFound, _pressure.NodeIdText);
+        }
+
+        [TestMethod]
+        public void DeleteCommand_Existing_Deleted()
         {
             _bridge.SetCatalog([_pressure]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
             NextStatus();
             _channels.Notifications.Sent.Clear();
-            SendCommand(typeof(DeleteMonitorCommand).FullName!, Encoding.UTF8.GetBytes("{\"MonitorName\":\"m1\"}"));
-            Assert.AreEqual(MonitorState.Deleted, NextStatus().State);
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Deleted, StatusCodes.Good, _pressure.NodeIdText);
             Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void DeleteCommand_CollisionSuffixedItem_AnsweredOnItsOwnStatusEvent()
+        {
+            var dashed = new NodeId("A-B", 2);
+            var underscored = new NodeId("A_B", 2);
+            var names = OpcUaNaming.AssignUniqueNames(MonitorRegistryTest.Own.ExchangeNamePrefix, [dashed, underscored]);
+            OpcUaDataItem first = Item(dashed, names[dashed]), second = Item(underscored, names[underscored]);
+            _bridge.SetCatalog([first, second]);
+            SendCommand(second.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus(second.MonitorStatusEventTypeFullName);
+            _channels.Notifications.Sent.Clear();
+            SendCommand(second.DeleteCommandTypeFullName, []);
+            StringAssert.EndsWith(second.MonitorStatusEventTypeFullName, "_2_Event");
+            AssertStatus(NextStatus(second.MonitorStatusEventTypeFullName), MonitorState.Deleted, StatusCodes.Good, "ns=2;s=A_B");
+            Assert.IsFalse(_channels.Notifications.Sent.Any(s => s.RoutingKey == first.MonitorStatusEventTypeFullName));
         }
 
         [TestMethod]
@@ -241,8 +276,8 @@ namespace StatePipes.Test.OpcUaBridge
             _bridge.SetCatalog([_pressure]);
             _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
             SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
-            Assert.AreEqual(MonitorState.Active, NextStatus().State);
-            _bridge.Monitors.OnNotification(new MonitorKey(Client.CommandExchangeName, "m1"), _pressure.NodeIdText, new DataValue(new Variant(42.0)));
+            Assert.AreEqual("Active", (string)NextStatus()["State"]!);
+            _bridge.Monitors.OnNotification(_key, new DataValue(new Variant(42.0)));
             var sent = Next(_channels.Notifications, _pressure.EventTypeFullName);
             Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
             Assert.AreEqual(42.0, (double)JObject.Parse(Encoding.UTF8.GetString(sent.Body))["Value"]!);
@@ -258,10 +293,9 @@ namespace StatePipes.Test.OpcUaBridge
             var notifications = _channels.Notifications;
             notifications.Open = false;
             notifications.MissingBuses[Client.ResponseExchangeName] = true;
-            var key = new MonitorKey(Client.CommandExchangeName, "m1");
-            _bridge.Monitors.OnNotification(key, _pressure.NodeIdText, new DataValue(new Variant(1.0)));
+            _bridge.Monitors.OnNotification(_key, new DataValue(new Variant(1.0)));
             var deadline = DateTime.UtcNow.AddSeconds(5);
-            while (!_registry.Get(key)!.IsSuspended)
+            while (!_registry.Get(_key)!.IsSuspended)
             {
                 if (DateTime.UtcNow > deadline) Assert.Fail("Monitor was not suspended");
                 Thread.Sleep(10);

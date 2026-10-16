@@ -26,7 +26,6 @@ namespace StatePipes.OpcUaBridge
         public const string StatusProperty = "Status";
         public const string SourceTimestampProperty = "SourceTimestamp";
         public const string ServerTimestampProperty = "ServerTimestamp";
-        public const string MonitorNameProperty = "MonitorName";
         public const string MonitoringModeProperty = "MonitoringMode";
         public const string DataChangeTriggerProperty = "DataChangeTrigger";
         public const string DeadbandTypeProperty = "DeadbandType";
@@ -34,6 +33,10 @@ namespace StatePipes.OpcUaBridge
         public const string SamplingIntervalProperty = "SamplingInterval";
         public const string QueueSizeProperty = "QueueSize";
         public const string PublishingIntervalProperty = "PublishingInterval";
+        public const string StateProperty = "State";
+        public const string RevisedSamplingIntervalProperty = "RevisedSamplingInterval";
+        public const string RevisedQueueSizeProperty = "RevisedQueueSize";
+        public const string RevisedPublishingIntervalProperty = "RevisedPublishingInterval";
 
         /// <summary>
         /// The messages the bridge itself handles or publishes, described from the real types. Enums are not
@@ -41,8 +44,7 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         private static readonly Type[] StatePipesMessageTypes =
         [
-            typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent),
-            typeof(DeleteMonitorCommand), typeof(MonitorStatusEvent)
+            typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent)
         ];
 
         public static TypeSerializationList Build(IEnumerable<OpcUaDataItem> items)
@@ -55,6 +57,8 @@ namespace StatePipes.OpcUaBridge
                 list.TypeSerializations.Add(BuildCommand(item));
                 list.TypeSerializations.Add(BuildEvent(item));
                 list.TypeSerializations.Add(BuildMonitorCommand(item, converter));
+                list.TypeSerializations.Add(BuildDeleteCommand(item));
+                list.TypeSerializations.Add(BuildMonitorStatusEvent(item, converter));
             }
             return list;
         }
@@ -69,7 +73,6 @@ namespace StatePipes.OpcUaBridge
             description.IsCommand = true;
             TypeSerialization serialization = new() { FullName = description.FullName };
             serialization.AddTypeDescription(description);
-            AddProperty(serialization, description, MonitorNameProperty, typeof(string));
             AddEnumProperty(serialization, description, MonitoringModeProperty, typeof(MonitoringModeKind), converter);
             AddEnumProperty(serialization, description, DataChangeTriggerProperty, typeof(DataChangeTriggerKind), converter);
             AddEnumProperty(serialization, description, DeadbandTypeProperty, typeof(DeadbandTypeKind), converter);
@@ -77,6 +80,31 @@ namespace StatePipes.OpcUaBridge
             AddProperty(serialization, description, SamplingIntervalProperty, typeof(double));
             AddProperty(serialization, description, QueueSizeProperty, typeof(uint));
             AddProperty(serialization, description, PublishingIntervalProperty, typeof(double));
+            return serialization;
+        }
+
+        private static TypeSerialization BuildDeleteCommand(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.DeleteCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            return serialization;
+        }
+
+        private static TypeSerialization BuildMonitorStatusEvent(OpcUaDataItem item, TypeSerializationConverter converter)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.MonitorStatusEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, NodeIdProperty, typeof(string));
+            AddEnumProperty(serialization, description, StateProperty, typeof(MonitorState), converter);
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            AddProperty(serialization, description, RevisedSamplingIntervalProperty, typeof(double));
+            AddProperty(serialization, description, RevisedQueueSizeProperty, typeof(uint));
+            AddProperty(serialization, description, RevisedPublishingIntervalProperty, typeof(double));
             return serialization;
         }
 

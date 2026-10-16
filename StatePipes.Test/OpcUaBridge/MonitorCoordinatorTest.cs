@@ -55,13 +55,13 @@ namespace StatePipes.Test.OpcUaBridge
 
     internal sealed class FakeMonitorOutput : IMonitorOutput
     {
-        public ConcurrentQueue<(MonitorStatusEvent Status, string ReplyToRaw)> Statuses { get; } = new();
+        public ConcurrentQueue<(MonitorStatus Status, MessageNames Names, string ReplyToRaw)> Statuses { get; } = new();
         public ConcurrentQueue<(OpcUaDataItem Item, DataValue Value, string ReplyToRaw)> Notifications { get; } = new();
         /// <summary>Response exchange GUIDs whose bus no longer exists.</summary>
         public ConcurrentDictionary<string, bool> Missing { get; } = new();
         public ConcurrentQueue<string> ExistenceChecks { get; } = new();
 
-        public void SendStatus(MonitorStatusEvent status, string replyToRaw) => Statuses.Enqueue((status, replyToRaw));
+        public void SendStatus(MonitorStatus status, MessageNames names, string replyToRaw) => Statuses.Enqueue((status, names, replyToRaw));
         public void SendNotification(OpcUaDataItem item, DataValue value, string replyToRaw) => Notifications.Enqueue((item, value, replyToRaw));
 
         public Task<bool> ReplyToExistsAsync(BusConfig replyTo, CancellationToken ct)
@@ -75,8 +75,10 @@ namespace StatePipes.Test.OpcUaBridge
     [TestCategory(TestCategories.Unit)]
     public class MonitorCoordinatorTest
     {
+        private const string Exchange = "Line1Plc";
         private const string Pressure = "ns=2;s=pressure";
         private const string Msg = "ns=2;s=msg";
+        private const string Sender = "Client1.commands";
         private static readonly OpcUaDataItem PressureItem = Item(Pressure, typeof(double));
         private static readonly OpcUaDataItem MsgItem = Item(Msg, typeof(string));
         private static readonly IReadOnlyList<OpcUaDataItem> Catalog = [PressureItem, MsgItem];
@@ -92,20 +94,15 @@ namespace StatePipes.Test.OpcUaBridge
         private static OpcUaDataItem Item(string nodeIdText, Type type)
         {
             var nodeId = NodeId.Parse(nodeIdText);
-            return new(nodeId, nodeIdText, OpcUaNaming.ToMessageNames("Line1Plc", nodeId), type);
+            return new(nodeId, nodeIdText, OpcUaNaming.ToMessageNames(Exchange, nodeId), type);
         }
 
         [TestInitialize]
         public void Initialize()
         {
             _directory = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "MonitorCoordinatorTest", Guid.NewGuid().ToString("N"))).FullName;
-            Start(TimeSpan.FromHours(1));
-        }
-
-        private void Start(TimeSpan? expiry)
-        {
-            _registry = MonitorRegistry.Load(new MonitorStore(Path.Combine(_directory, "monitors.json")), MonitorRegistryTest.Own, expiry, _time);
-            _coordinator = new MonitorCoordinator(_registry, _output, _time);
+            _registry = MonitorRegistry.Load(new MonitorStore(Path.Combine(_directory, "monitors.json")), MonitorRegistryTest.Own, TimeSpan.FromHours(1), _time);
+            _coordinator = new MonitorCoordinator(_registry, _output, _time, Exchange);
             _running = _coordinator.RunAsync(_cts.Token);
         }
 
@@ -127,15 +124,14 @@ namespace StatePipes.Test.OpcUaBridge
             }
         }
 
-        private MonitorStatusEvent NextStatus(out string replyToRaw)
+        private (MonitorStatus Status, MessageNames Names, string ReplyToRaw) NextEntry()
         {
-            (MonitorStatusEvent Status, string ReplyToRaw) entry = default;
+            (MonitorStatus, MessageNames, string) entry = default;
             WaitUntil(() => _output.Statuses.TryDequeue(out entry), "a status");
-            replyToRaw = entry.ReplyToRaw;
-            return entry.Status;
+            return entry;
         }
 
-        private MonitorStatusEvent NextStatus() => NextStatus(out _);
+        private MonitorStatus NextStatus() => NextEntry().Status;
 
         private void AssertNoMoreStatuses()
         {
@@ -150,16 +146,21 @@ namespace StatePipes.Test.OpcUaBridge
             return session;
         }
 
-        private void Monitor(MonitorDefinition definition, OpcUaDataItem item) => _coordinator.Monitor(definition.Key, item, definition.Parameters, definition.ReplyToRaw);
+        private static MonitorDefinition On(string nodeIdText, string sender = "Client1") => Definition(nodeIdText, sender: sender);
+
+        private void Monitor(MonitorDefinition definition, OpcUaDataItem item) =>
+            _coordinator.Monitor(definition.Key.SenderCommandExchange, item, definition.Parameters, definition.ReplyToRaw);
+
+        private void Delete(OpcUaDataItem item, string replyToRaw) => _coordinator.Delete(Sender, item, replyToRaw);
 
         [TestMethod]
-        public void Monitor_Connected_UpsertsAppliesAndRespondsActive()
+        public void Monitor_Connected_UpsertsAppliesAndRespondsActiveOnItemStatusEvent()
         {
             var session = StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
-            var status = NextStatus(out var replyTo);
-            Assert.AreEqual("a", status.MonitorName);
+            var (status, names, replyTo) = NextEntry();
+            Assert.AreEqual(PressureItem.MonitorStatusEventTypeFullName, names.MonitorStatusEventTypeFullName);
             Assert.AreEqual(Pressure, status.NodeId);
             Assert.AreEqual(MonitorState.Active, status.State);
             Assert.AreEqual(50.0, status.RevisedSamplingInterval);
@@ -173,11 +174,11 @@ namespace StatePipes.Test.OpcUaBridge
         [TestMethod]
         public void Monitor_Disconnected_StoredPendingResponse()
         {
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             var status = NextStatus();
             Assert.AreEqual(MonitorState.Pending, status.State);
-            Assert.AreEqual(StatusCodes.BadNotConnected, status.StatusCode);
+            Assert.AreEqual(StatusCodes.BadNotConnected, status.StatusCode.Code);
             Assert.IsNotNull(_registry.Get(definition.Key));
         }
 
@@ -185,35 +186,49 @@ namespace StatePipes.Test.OpcUaBridge
         public void Monitor_SessionFails_StoredFailedResponseWithCode()
         {
             var session = StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             session.Results[definition.Key] = MonitorApplyResult.Failed(StatusCodes.BadDeadbandFilterInvalid);
             Monitor(definition, PressureItem);
             var status = NextStatus();
             Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadDeadbandFilterInvalid, status.StatusCode);
+            Assert.AreEqual(StatusCodes.BadDeadbandFilterInvalid, status.StatusCode.Code);
             Assert.IsNotNull(_registry.Get(definition.Key));
         }
 
         [TestMethod]
-        public void Monitor_SameKeyNewReplyTo_NotificationsGoToNewReplyToOnly()
+        public void Monitor_SameItemNewReplyTo_NotificationsGoToNewReplyToOnly()
         {
             StartSession();
-            var first = Definition("a");
+            var first = On(Pressure);
             var second = first with { ReplyToRaw = first.ReplyToRaw.Replace("abc", "new") };
             Monitor(first, PressureItem);
             NextStatus();
             Monitor(second, PressureItem);
             NextStatus();
-            _coordinator.OnNotification(first.Key, Pressure, new DataValue(new Variant(1.5)));
-            Assert.HasCount(1, _output.Notifications);
+            Assert.HasCount(1, _registry.GetAll());
+            _coordinator.OnNotification(first.Key, new DataValue(new Variant(1.5)));
             Assert.AreEqual(second.ReplyToRaw, _output.Notifications.Single().ReplyToRaw);
+        }
+
+        [TestMethod]
+        public void SameItemTwoSenders_EachNotifiedAtOwnReplyTo()
+        {
+            StartSession();
+            var one = On(Pressure, "Client1");
+            var two = On(Pressure, "Client2");
+            Monitor(one, PressureItem); Monitor(two, PressureItem);
+            NextStatus(); NextStatus();
+            _coordinator.OnNotification(one.Key, new DataValue(new Variant(1.0)));
+            _coordinator.OnNotification(two.Key, new DataValue(new Variant(1.0)));
+            CollectionAssert.AreEquivalent(new[] { one.ReplyToRaw, two.ReplyToRaw }, _output.Notifications.Select(n => n.ReplyToRaw).ToArray());
+            Assert.AreNotEqual(one.ReplyToRaw, two.ReplyToRaw);
         }
 
         [TestMethod]
         public void Monitor_SuspendedKey_Reclaimed()
         {
             var session = StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
             _registry.Suspend(definition.Key);
@@ -227,36 +242,52 @@ namespace StatePipes.Test.OpcUaBridge
         public void Delete_Existing_RemovedRespondsDeleted()
         {
             var session = StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
             var deleteReplyTo = definition.ReplyToRaw.Replace("abc", "del");
-            _coordinator.Delete(definition.Key, deleteReplyTo);
-            var status = NextStatus(out var replyTo);
+            Delete(PressureItem, deleteReplyTo);
+            var (status, names, replyTo) = NextEntry();
             Assert.AreEqual(MonitorState.Deleted, status.State);
             Assert.AreEqual(Pressure, status.NodeId);
+            Assert.AreEqual(PressureItem.MonitorStatusEventTypeFullName, names.MonitorStatusEventTypeFullName);
             Assert.AreEqual(deleteReplyTo, replyTo);
             Assert.IsNull(_registry.Get(definition.Key));
             CollectionAssert.AreEqual(new[] { definition.Key }, session.Removed.ToArray());
         }
 
         [TestMethod]
-        public void Delete_Unknown_RespondsFailedBadNotFound()
+        public void Delete_NoMonitor_RespondsFailedBadNotFound()
         {
-            _coordinator.Delete(new MonitorKey("Client1.commands", "nope"), Definition("x").ReplyToRaw);
+            Delete(PressureItem, On(Pressure).ReplyToRaw);
             var status = NextStatus();
             Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadNotFound, status.StatusCode);
-            Assert.AreEqual("", status.NodeId);
+            Assert.AreEqual(StatusCodes.BadNotFound, status.StatusCode.Code);
+            Assert.AreEqual(Pressure, status.NodeId);
+        }
+
+        [TestMethod]
+        public void Delete_OneOfTwoItems_OtherKeepsNotifying()
+        {
+            var session = StartSession();
+            MonitorDefinition pressure = On(Pressure), msg = On(Msg);
+            Monitor(pressure, PressureItem); Monitor(msg, MsgItem);
+            NextStatus(); NextStatus();
+            Delete(PressureItem, pressure.ReplyToRaw);
+            NextStatus();
+            CollectionAssert.AreEqual(new[] { pressure.Key }, session.Removed.ToArray());
+            _coordinator.OnNotification(pressure.Key, new DataValue(new Variant(1.0)));
+            _coordinator.OnNotification(msg.Key, new DataValue(new Variant("x")));
+            Assert.AreEqual(MsgItem, _output.Notifications.Single().Item);
         }
 
         [TestMethod]
         public void Delete_WhileDisconnected_RemovedAndNotRebuilt()
         {
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
-            _coordinator.Delete(definition.Key, definition.ReplyToRaw);
+            Delete(PressureItem, definition.ReplyToRaw);
             NextStatus();
             var session = StartSession();
             WaitUntil(() => !session.AppliedAll.IsEmpty, "rebuild");
@@ -265,37 +296,66 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public void Delete_SessionThrowsUnexpected_StillRespondsDeleted()
+        {
+            var session = StartSession();
+            var definition = On(Pressure);
+            Monitor(definition, PressureItem);
+            NextStatus();
+            session.Throw = new InvalidOperationException("session is closing");
+            Delete(PressureItem, definition.ReplyToRaw);
+            Assert.AreEqual(MonitorState.Deleted, NextStatus().State);
+        }
+
+        [TestMethod]
         public void SessionStarted_RebuildsNonSuspendedAndSendsStatusToEach()
         {
-            MonitorDefinition a = Definition("a"), b = Definition("b", Msg), c = Definition("c");
+            MonitorDefinition a = On(Pressure), b = On(Msg), c = On(Pressure, "Client2");
             _registry.Upsert(a); _registry.Upsert(b); _registry.Upsert(c);
             _registry.Suspend(c.Key);
             var session = StartSession();
-            var statuses = new[] { NextStatus(), NextStatus() };
-            CollectionAssert.AreEquivalent(new[] { "a", "b" }, statuses.Select(s => s.MonitorName).ToArray());
-            Assert.IsTrue(statuses.All(s => s.State == MonitorState.Active));
+            var entries = new[] { NextEntry(), NextEntry() };
+            CollectionAssert.AreEquivalent(new[] { PressureItem.MonitorStatusEventTypeFullName, MsgItem.MonitorStatusEventTypeFullName },
+                entries.Select(e => e.Names.MonitorStatusEventTypeFullName).ToArray());
+            Assert.IsTrue(entries.All(e => e.Status.State == MonitorState.Active));
             CollectionAssert.AreEquivalent(new[] { a.Key, b.Key }, session.AppliedAll.Single().Select(d => d.Key).ToArray());
             AssertNoMoreStatuses();
         }
 
         [TestMethod]
-        public void SessionStarted_NodeMissingFromCatalog_FailedBadNodeIdUnknown()
+        public void SessionStarted_NodeMissingFromCatalog_StatusOnItsOwnEvent()
         {
-            var gone = Definition("gone", "ns=2;s=removed");
-            _registry.Upsert(gone);
-            var session = StartSession();
-            var status = NextStatus();
+            // The item was in the previous catalog under a collision-suffixed name, then vanished from the server.
+            var suffixed = new OpcUaDataItem(NodeId.Parse("ns=2;s=removed"), "ns=2;s=removed",
+                OpcUaNaming.ToMessageNames(Exchange, NodeId.Parse("ns=2;s=removed")) with { Name = "Get_ns2_s_removed_2" }, typeof(double));
+            _coordinator.SessionStarted(new FakeMonitorSession(), [.. Catalog, suffixed]);
+            var gone = On("ns=2;s=removed");
+            Monitor(gone, suffixed);
+            NextStatus();
+            var session = new FakeMonitorSession();
+            _coordinator.SessionStarted(session, Catalog);
+            var (status, names, _) = NextEntry();
             Assert.AreEqual(MonitorState.Failed, status.State);
-            Assert.AreEqual(StatusCodes.BadNodeIdUnknown, status.StatusCode);
+            Assert.AreEqual(StatusCodes.BadNodeIdUnknown, status.StatusCode.Code);
             Assert.AreEqual("ns=2;s=removed", status.NodeId);
+            Assert.AreEqual("Line1Plc.MonitorStatus_ns2_s_removed_2_Event", names.MonitorStatusEventTypeFullName);
             Assert.IsEmpty(session.AppliedAll.Single());
             Assert.IsNotNull(_registry.Get(gone.Key));
         }
 
         [TestMethod]
+        public void SessionStarted_StoredNodeNeverCataloged_StatusOnDerivedEvent()
+        {
+            _registry.Upsert(On("ns=2;s=removed"));
+            StartSession();
+            var (_, names, _) = NextEntry();
+            Assert.AreEqual("Line1Plc.MonitorStatus_ns2_s_removed_Event", names.MonitorStatusEventTypeFullName);
+        }
+
+        [TestMethod]
         public void SessionStarted_RemovesExpiredSuspended()
         {
-            var definition = Definition("a");
+            var definition = On(Pressure);
             _registry.Upsert(definition);
             _registry.Suspend(definition.Key);
             _time.Advance(TimeSpan.FromMinutes(61));
@@ -308,9 +368,8 @@ namespace StatePipes.Test.OpcUaBridge
         public void SessionStarted_ThenMonitorQueued_AppliedAfterRebuildOnNewSession()
         {
             var old = StartSession();
-            var definition = Definition("a");
             var fresh = StartSession();
-            Monitor(definition, PressureItem);
+            Monitor(On(Pressure), PressureItem);
             NextStatus();
             Assert.IsTrue(old.Disposed);
             Assert.IsEmpty(old.Applied);
@@ -322,7 +381,7 @@ namespace StatePipes.Test.OpcUaBridge
         {
             var session = StartSession();
             _coordinator.SessionLost();
-            Monitor(Definition("a"), PressureItem);
+            Monitor(On(Pressure), PressureItem);
             Assert.AreEqual(MonitorState.Pending, NextStatus().State);
             Assert.IsTrue(session.Disposed);
             Assert.IsEmpty(session.Applied);
@@ -332,8 +391,8 @@ namespace StatePipes.Test.OpcUaBridge
         public void ReplyToCheck_SharedMissingReplyTo_SuspendsEveryMonitorUsingIt()
         {
             var session = StartSession();
-            MonitorDefinition a = Definition("a"), b = Definition("b", Msg);
-            var live = Definition("c") with { ReplyToRaw = a.ReplyToRaw.Replace("abc", "live") };
+            MonitorDefinition a = On(Pressure), b = On(Msg);
+            var live = On(Pressure, "Client2") with { ReplyToRaw = a.ReplyToRaw.Replace("abc", "live") };
             Monitor(a, PressureItem); Monitor(b, MsgItem); Monitor(live, PressureItem);
             NextStatus(); NextStatus(); NextStatus();
             _output.Missing["abc"] = true;
@@ -345,10 +404,23 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public void ReplyToCheck_DisableThrowsUnexpected_StillSuspendsWholeGroup()
+        {
+            var session = StartSession();
+            MonitorDefinition a = On(Pressure), b = On(Msg);
+            Monitor(a, PressureItem); Monitor(b, MsgItem);
+            NextStatus(); NextStatus();
+            session.Throw = new InvalidOperationException("session is closing");
+            _output.Missing["abc"] = true;
+            _coordinator.CheckReplyTos();
+            WaitUntil(() => _registry.Get(a.Key)!.IsSuspended && _registry.Get(b.Key)!.IsSuspended, "suspension of both");
+        }
+
+        [TestMethod]
         public void ReplyToCheck_EveryThirtySeconds()
         {
             StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
             _output.Missing["abc"] = true;
@@ -363,7 +435,7 @@ namespace StatePipes.Test.OpcUaBridge
         public void Expiry_Hourly_RemovesExpiredWithoutRebuild()
         {
             var session = StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
             _registry.Suspend(definition.Key);
@@ -378,12 +450,12 @@ namespace StatePipes.Test.OpcUaBridge
         public void OnNotification_SuspendedOrUnknown_NotSent()
         {
             StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
             _registry.Suspend(definition.Key);
-            _coordinator.OnNotification(definition.Key, Pressure, new DataValue(new Variant(1.0)));
-            _coordinator.OnNotification(new MonitorKey("x", "y"), Pressure, new DataValue(new Variant(1.0)));
+            _coordinator.OnNotification(definition.Key, new DataValue(new Variant(1.0)));
+            _coordinator.OnNotification(new MonitorKey("x", Pressure), new DataValue(new Variant(1.0)));
             Assert.IsEmpty(_output.Notifications);
         }
 
@@ -391,68 +463,14 @@ namespace StatePipes.Test.OpcUaBridge
         public void OnNotification_Active_SendsGetEventToReplyTo()
         {
             StartSession();
-            var definition = Definition("a");
+            var definition = On(Pressure);
             Monitor(definition, PressureItem);
             NextStatus();
-            _coordinator.OnNotification(definition.Key, Pressure, new DataValue(new Variant(2.5)));
+            _coordinator.OnNotification(definition.Key, new DataValue(new Variant(2.5)));
             var (item, value, replyTo) = _output.Notifications.Single();
             Assert.AreEqual(PressureItem, item);
             Assert.AreEqual(2.5, value.WrappedValue.TryGetValue(out double d) ? d : double.NaN);
             Assert.AreEqual(definition.ReplyToRaw, replyTo);
-        }
-
-        [TestMethod]
-        public void Delete_SessionThrowsUnexpected_StillRespondsDeleted()
-        {
-            var session = StartSession();
-            var definition = Definition("a");
-            Monitor(definition, PressureItem);
-            NextStatus();
-            session.Throw = new InvalidOperationException("session is closing");
-            _coordinator.Delete(definition.Key, definition.ReplyToRaw);
-            Assert.AreEqual(MonitorState.Deleted, NextStatus().State);
-        }
-
-        [TestMethod]
-        public void ReplyToCheck_DisableThrowsUnexpected_StillSuspendsWholeGroup()
-        {
-            var session = StartSession();
-            MonitorDefinition a = Definition("a"), b = Definition("b", Msg);
-            Monitor(a, PressureItem); Monitor(b, MsgItem);
-            NextStatus(); NextStatus();
-            session.Throw = new InvalidOperationException("session is closing");
-            _output.Missing["abc"] = true;
-            _coordinator.CheckReplyTos();
-            WaitUntil(() => _registry.Get(a.Key)!.IsSuspended && _registry.Get(b.Key)!.IsSuspended, "suspension of both");
-        }
-
-        [TestMethod]
-        public void OnNotification_FromPreviousNode_Dropped()
-        {
-            StartSession();
-            Monitor(Definition("a"), PressureItem);
-            NextStatus();
-            var moved = Definition("a", Msg);
-            Monitor(moved, MsgItem);
-            NextStatus();
-            // A pressure notification still in flight while the old item is being deleted must not go out as msg.
-            _coordinator.OnNotification(moved.Key, Pressure, new DataValue(new Variant(1.0)));
-            Assert.IsEmpty(_output.Notifications);
-            _coordinator.OnNotification(moved.Key, Msg, new DataValue(new Variant("text")));
-            Assert.AreEqual(MsgItem, _output.Notifications.Single().Item);
-        }
-
-        [TestMethod]
-        public void Monitor_MovedToOtherNode_RespondsWithNewNode()
-        {
-            var session = StartSession();
-            Monitor(Definition("a"), PressureItem);
-            NextStatus();
-            var moved = Definition("a", Msg);
-            Monitor(moved, MsgItem);
-            Assert.AreEqual(Msg, NextStatus().NodeId);
-            Assert.AreEqual(Msg, _registry.Get(moved.Key)!.NodeIdText);
-            Assert.AreEqual(Msg, session.Applied.Last().NodeIdText);
         }
     }
 }

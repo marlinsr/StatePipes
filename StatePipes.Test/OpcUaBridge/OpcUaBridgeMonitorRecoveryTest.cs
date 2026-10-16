@@ -76,7 +76,9 @@ namespace StatePipes.Test.OpcUaBridge
         private string MonitorCommand => OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, _plc.Pressure).MonitorCommandTypeFullName;
         private string GetCommand => OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, _plc.Pressure).CommandTypeFullName;
         private string GetEvent => OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, _plc.Pressure).EventTypeFullName;
-        private static MonitorKey Key => new(Client.CommandExchangeName, "pressure");
+        private string DeleteCommand => OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, _plc.Pressure).DeleteCommandTypeFullName;
+        private string StatusEvent => OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, _plc.Pressure).MonitorStatusEventTypeFullName;
+        private MonitorKey Key => new(Client.CommandExchangeName, _plc.Pressure.ToString());
 
         private void SetPressure(double value)
         {
@@ -89,7 +91,6 @@ namespace StatePipes.Test.OpcUaBridge
 
         private static byte[] MonitorBody => Encoding.UTF8.GetBytes(new JObject
         {
-            ["MonitorName"] = "pressure",
             ["MonitoringMode"] = "Reporting",
             ["DataChangeTrigger"] = "StatusValue",
             ["DeadbandType"] = "None",
@@ -126,16 +127,18 @@ namespace StatePipes.Test.OpcUaBridge
             return bridge;
         }
 
-        private static MonitorStatusEvent TakeStatus(Bridge bridge, TimeSpan timeout)
+        private JObject TakeStatus(Bridge bridge, TimeSpan timeout)
         {
-            var name = typeof(MonitorStatusEvent).FullName!;
+            var name = StatusEvent;
             return Poll(() =>
             {
                 while (bridge.Channels.Notifications.Sent.TryDequeue(out var sent))
-                    if (sent.RoutingKey == name) return JsonUtility.GetObjectForJsonString<MonitorStatusEvent>(Encoding.UTF8.GetString(sent.Body));
+                    if (sent.RoutingKey == name) return JObject.Parse(Encoding.UTF8.GetString(sent.Body));
                 return null;
             }, timeout, "a monitor status");
         }
+
+        private static void AssertState(JObject status, MonitorState state) => Assert.AreEqual(state.ToString(), (string)status["State"]!, (string?)status["Status"]);
 
         private void AssertGetEventWithCurrentPressure(Bridge bridge)
         {
@@ -152,11 +155,11 @@ namespace StatePipes.Test.OpcUaBridge
             }, Timeout, $"a Get event with pressure {expected}");
         }
 
-        private MonitorStatusEvent CreateMonitor(Bridge bridge)
+        private JObject CreateMonitor(Bridge bridge)
         {
             Send(bridge, MonitorCommand, MonitorBody);
             var status = TakeStatus(bridge, Timeout);
-            Assert.AreEqual(MonitorState.Active, status.State, status.Status);
+            AssertState(status, MonitorState.Active);
             return status;
         }
 
@@ -165,10 +168,24 @@ namespace StatePipes.Test.OpcUaBridge
         {
             _bridge = StartBridge();
             var status = CreateMonitor(_bridge);
-            Assert.AreEqual(_plc.Pressure.ToString(), status.NodeId);
+            Assert.AreEqual(_plc.Pressure.ToString(), (string)status["NodeId"]!);
             AssertGetEventWithCurrentPressure(_bridge);
             SetPressure(_pressure + 1);
             AssertGetEventWithCurrentPressure(_bridge);
+        }
+
+        [TestMethod]
+        public void Delete_EndToEnd_StopsNotifications()
+        {
+            _bridge = StartBridge();
+            CreateMonitor(_bridge);
+            Send(_bridge, DeleteCommand, []);
+            AssertState(TakeStatus(_bridge, Timeout), MonitorState.Deleted);
+            Assert.IsNull(_bridge.Registry.Get(Key));
+            _bridge.Channels.Notifications.Sent.Clear();
+            SetPressure(_pressure + 1);
+            Thread.Sleep(1000);
+            Assert.IsFalse(_bridge.Channels.Notifications.Sent.Any(s => s.RoutingKey == GetEvent), "A deleted monitor still notified");
         }
 
         [TestMethod]
@@ -179,8 +196,8 @@ namespace StatePipes.Test.OpcUaBridge
             await _plc.RestartAsync();
             SetPressure(_pressure);
             var status = TakeStatus(_bridge, RecoveryTimeout);
-            Assert.AreEqual(MonitorState.Active, status.State, status.Status);
-            Assert.AreEqual("pressure", status.MonitorName);
+            AssertState(status, MonitorState.Active);
+            Assert.AreEqual(_plc.Pressure.ToString(), (string)status["NodeId"]!);
             SetPressure(_pressure + 1);
             AssertGetEventWithCurrentPressure(_bridge);
         }
@@ -193,8 +210,7 @@ namespace StatePipes.Test.OpcUaBridge
             await first.DisposeAsync();
 
             _bridge = new Bridge(_plc, StorePath);
-            var status = TakeStatus(_bridge, RecoveryTimeout);
-            Assert.AreEqual(MonitorState.Active, status.State, status.Status);
+            AssertState(TakeStatus(_bridge, RecoveryTimeout), MonitorState.Active);
             SetPressure(_pressure + 1);
             AssertGetEventWithCurrentPressure(_bridge);
         }

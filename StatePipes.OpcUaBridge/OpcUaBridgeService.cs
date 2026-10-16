@@ -27,7 +27,7 @@ namespace StatePipes.OpcUaBridge
     ///
     /// <para>Commands arrive on the transport's receive thread, which must not block, so Get commands are queued
     /// and a single reader serves them, batching whatever has queued up into one OPC UA Read. Monitor and Delete
-    /// commands are handed to <see cref="Monitors"/>.</para>
+    /// commands, one of each per data item, are handed to <see cref="Monitors"/>.</para>
     ///
     /// <para>Monitor responses -- statuses and data changes -- travel on a second channel. A client's response
     /// exchange is auto-delete, and RabbitMQ closes a channel that publishes to a missing exchange; on its own
@@ -43,13 +43,11 @@ namespace StatePipes.OpcUaBridge
         private static readonly string SelfDescriptionCommandName = typeof(GetSelfDescriptionCommand).FullName!;
         private static readonly string SelfDescriptionEventName = typeof(SelfDescriptionEvent).FullName!;
         private static readonly string HeartbeatEventName = typeof(HeartbeatEvent).FullName!;
-        private static readonly string DeleteMonitorCommandName = typeof(DeleteMonitorCommand).FullName!;
-        private static readonly string MonitorStatusEventName = typeof(MonitorStatusEvent).FullName!;
 
         private readonly BusConfig _busConfig;
         private readonly OpcUaClient _opcUa;
         private readonly ConnectionChannelFactory _channelFactory;
-        private readonly string _monitorCommandPrefix;
+        private readonly string _namespace;
         private readonly Guid _id = Guid.NewGuid();
         private readonly byte[] _ownReplyTo;
         private readonly Channel<PendingGet> _pendingGets = Channel.CreateUnbounded<PendingGet>(new UnboundedChannelOptions { SingleReader = true });
@@ -64,9 +62,9 @@ namespace StatePipes.OpcUaBridge
             _busConfig = busConfig;
             _opcUa = opcUa;
             _channelFactory = channelFactory ?? ((config, configure, ct) => SimpleConnectionChannelFactory.Create(config, null, configure, ct));
-            _monitorCommandPrefix = $"{OpcUaNaming.MessageNamespace(busConfig.ExchangeNamePrefix)}.{MessageNames.MonitorPrefix}";
+            _namespace = OpcUaNaming.MessageNamespace(busConfig.ExchangeNamePrefix);
             _ownReplyTo = Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject(busConfig, true));
-            Monitors = new MonitorCoordinator(registry, this, time ?? TimeProvider.System);
+            Monitors = new MonitorCoordinator(registry, this, time ?? TimeProvider.System, busConfig.ExchangeNamePrefix);
         }
 
         public MonitorCoordinator Monitors { get; }
@@ -74,10 +72,11 @@ namespace StatePipes.OpcUaBridge
         private sealed record PendingGet(OpcUaDataItem Item, BusConfig ReplyTo, byte[] ReplyToRaw);
 
         /// <summary>What the bridge currently exposes, swapped as a whole whenever the server is rediscovered.</summary>
-        private sealed class Catalog(Dictionary<string, OpcUaDataItem> byCommand, Dictionary<string, OpcUaDataItem> byMonitorCommand, byte[] selfDescriptionBody, bool discovered)
+        private sealed class Catalog(Dictionary<string, OpcUaDataItem> byCommand, Dictionary<string, OpcUaDataItem> byMonitorCommand, Dictionary<string, OpcUaDataItem> byDeleteCommand, byte[] selfDescriptionBody, bool discovered)
         {
             public Dictionary<string, OpcUaDataItem> ByCommand { get; } = byCommand;
             public Dictionary<string, OpcUaDataItem> ByMonitorCommand { get; } = byMonitorCommand;
+            public Dictionary<string, OpcUaDataItem> ByDeleteCommand { get; } = byDeleteCommand;
             public byte[] SelfDescriptionBody { get; } = selfDescriptionBody;
             /// <summary>False until the OPC UA server has been discovered once.</summary>
             public bool Discovered { get; } = discovered;
@@ -86,6 +85,7 @@ namespace StatePipes.OpcUaBridge
                 var selfDescription = new SelfDescriptionEvent(SelfDescriptionBuilder.Build(items));
                 return new(items.ToDictionary(item => item.CommandTypeFullName, StringComparer.Ordinal),
                     items.ToDictionary(item => item.MonitorCommandTypeFullName, StringComparer.Ordinal),
+                    items.ToDictionary(item => item.DeleteCommandTypeFullName, StringComparer.Ordinal),
                     Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject(selfDescription, true)), discovered);
             }
         }
@@ -95,7 +95,7 @@ namespace StatePipes.OpcUaBridge
             var catalog = Catalog.Create(items, discovered: true);
             _catalog = catalog;
             var size = catalog.SelfDescriptionBody.Length;
-            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get and Monitor commands on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
+            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get, Monitor and Delete commands on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
             var limit = _busConfig.TransportKind == TransportKind.Kafka ? KafkaDefaultMaxMessageBytes : RabbitMqDefaultMaxMessageBytes;
             if (size > limit)
                 Log?.LogError($"The self description is {size / 1024} KiB, over the {limit / 1024} KiB default {_busConfig.TransportKind} message limit, so clients may never receive it. Narrow the exposed nodes with OPCUA_NODE_FILTER or raise the broker's limit.");
@@ -170,16 +170,16 @@ namespace StatePipes.OpcUaBridge
                 {
                     if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) ConsumeMonitorCommand(body, monitored, replyTo, replyToRaw);
                 }
-                else if (routingKey == DeleteMonitorCommandName)
+                else if (catalog.ByDeleteCommand.TryGetValue(routingKey, out var deleted))
                 {
-                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) ConsumeDeleteMonitorCommand(body, replyTo, replyToRaw);
+                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) Monitors.Delete(replyTo.CommandExchangeName, deleted, Encoding.UTF8.GetString(replyToRaw.Span));
                 }
-                else if (routingKey.StartsWith(_monitorCommandPrefix, StringComparison.Ordinal) && routingKey.EndsWith(MessageNames.CommandSuffix, StringComparison.Ordinal))
+                else if (MessageNames.TryGetMonitorStatusEventFor(routingKey, _namespace, out var statusEvent))
                 {
-                    // A Monitor command for a node the catalog does not hold: not discovered yet, or gone.
+                    // A Monitor or Delete command for a node the catalog does not hold: not discovered yet, or gone.
                     if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out _)) return;
                     var status = catalog.Discovered ? StatusCodes.BadNodeIdUnknown : StatusCodes.BadWaitingForInitialData;
-                    SendStatus(FailedStatus(MonitorParameters.ReadMonitorName(body) ?? string.Empty, string.Empty, status), Encoding.UTF8.GetString(replyToRaw.Span));
+                    SendStatus(MonitorStatus.Failed(string.Empty, status), statusEvent, Encoding.UTF8.GetString(replyToRaw.Span));
                 }
                 else
                 {
@@ -196,20 +196,9 @@ namespace StatePipes.OpcUaBridge
         {
             var parsed = MonitorParameters.Parse(body);
             var replyToText = Encoding.UTF8.GetString(replyToRaw.Span);
-            if (parsed.Parameters == null) SendStatus(FailedStatus(parsed.MonitorName, item.NodeIdText, parsed.Status), replyToText);
-            else Monitors.Monitor(new MonitorKey(replyTo.CommandExchangeName, parsed.MonitorName), item, parsed.Parameters, replyToText);
+            if (parsed.Parameters == null) SendStatus(MonitorStatus.Failed(item.NodeIdText, parsed.Status), item.Names, replyToText);
+            else Monitors.Monitor(replyTo.CommandExchangeName, item, parsed.Parameters, replyToText);
         }
-
-        private void ConsumeDeleteMonitorCommand(byte[] body, BusConfig replyTo, ReadOnlyMemory<byte> replyToRaw)
-        {
-            var name = MonitorParameters.ReadMonitorName(body);
-            var replyToText = Encoding.UTF8.GetString(replyToRaw.Span);
-            if (string.IsNullOrEmpty(name)) SendStatus(FailedStatus(string.Empty, string.Empty, StatusCodes.BadInvalidArgument), replyToText);
-            else Monitors.Delete(new MonitorKey(replyTo.CommandExchangeName, name), replyToText);
-        }
-
-        private static MonitorStatusEvent FailedStatus(string monitorName, string nodeId, StatusCode statusCode) =>
-            new(monitorName, nodeId, MonitorState.Failed, statusCode.Code, statusCode.ToString(), 0, 0, 0);
 
         private async Task ServeGetsAsync(CancellationToken ct)
         {
@@ -266,11 +255,28 @@ namespace StatePipes.OpcUaBridge
             ? OpcUaValueMapper.ToJToken(value, item.ValueType)
             : StructureDecoder.ToJToken(value, item.Structure, item.IsArray);
 
-        public void SendStatus(MonitorStatusEvent status, string replyToRaw)
+        public void SendStatus(MonitorStatus status, MessageNames names, string replyToRaw) => SendStatus(status, names.MonitorStatusEventTypeFullName, replyToRaw);
+
+        /// <summary>Sends <paramref name="status"/> as the data item's MonitorStatus event, named <paramref name="statusEventFullName"/>.</summary>
+        private void SendStatus(MonitorStatus status, string statusEventFullName, string replyToRaw)
         {
             var raw = Encoding.UTF8.GetBytes(replyToRaw);
-            if (TryGetReplyTo(raw, out var replyTo))
-                SendMonitorResponse(Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject(status, true)), MonitorStatusEventName, replyTo, raw);
+            if (TryGetReplyTo(raw, out var replyTo)) SendMonitorResponse(CreateMonitorStatusBody(status), statusEventFullName, replyTo, raw);
+        }
+
+        internal static byte[] CreateMonitorStatusBody(MonitorStatus status)
+        {
+            JObject body = new()
+            {
+                [SelfDescriptionBuilder.NodeIdProperty] = status.NodeId,
+                [SelfDescriptionBuilder.StateProperty] = status.State.ToString(),
+                [SelfDescriptionBuilder.StatusCodeProperty] = status.StatusCode.Code,
+                [SelfDescriptionBuilder.StatusProperty] = status.StatusCode.ToString(),
+                [SelfDescriptionBuilder.RevisedSamplingIntervalProperty] = status.RevisedSamplingInterval,
+                [SelfDescriptionBuilder.RevisedQueueSizeProperty] = status.RevisedQueueSize,
+                [SelfDescriptionBuilder.RevisedPublishingIntervalProperty] = status.RevisedPublishingInterval
+            };
+            return Encoding.UTF8.GetBytes(body.ToString(Newtonsoft.Json.Formatting.None));
         }
 
         public void SendNotification(OpcUaDataItem item, DataValue value, string replyToRaw)

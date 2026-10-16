@@ -1,5 +1,6 @@
 using Opc.Ua;
 using StatePipes.OpcUaBridge.Messages;
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
@@ -13,37 +14,42 @@ namespace StatePipes.OpcUaBridge
     ///
     /// <para>Notifications are not queued: they arrive on the OPC UA stack's thread and go straight out to the
     /// monitor's current reply-to, unless it is suspended.</para>
+    ///
+    /// <para>Each status goes out as the MonitorStatus event of its data item, so the coordinator remembers the
+    /// names of every item it has seen: a stored monitor whose item has left the server is still answered under
+    /// the name its client knows, collision suffix included.</para>
     /// </summary>
-    internal sealed class MonitorCoordinator(MonitorRegistry registry, IMonitorOutput output, TimeProvider time)
+    internal sealed class MonitorCoordinator(MonitorRegistry registry, IMonitorOutput output, TimeProvider time, string exchangeName)
     {
         public static readonly TimeSpan ReplyToCheckInterval = TimeSpan.FromSeconds(30);
         public static readonly TimeSpan ExpiryCheckInterval = TimeSpan.FromHours(1);
 
         private readonly Channel<MonitorWork> _work = Channel.CreateUnbounded<MonitorWork>(new UnboundedChannelOptions { SingleReader = true });
+        private readonly ConcurrentDictionary<string, MessageNames> _namesSeen = new(StringComparer.Ordinal);
         private volatile IReadOnlyDictionary<string, OpcUaDataItem> _catalog = new Dictionary<string, OpcUaDataItem>();
         private IMonitorSession? _session;
 
         private abstract record MonitorWork;
-        private sealed record MonitorRequest(MonitorKey Key, OpcUaDataItem Item, MonitorParameters Parameters, string ReplyToRaw) : MonitorWork;
-        private sealed record DeleteRequest(MonitorKey Key, string ReplyToRaw) : MonitorWork;
+        private sealed record MonitorRequest(string Sender, OpcUaDataItem Item, MonitorParameters Parameters, string ReplyToRaw) : MonitorWork;
+        private sealed record DeleteRequest(string Sender, OpcUaDataItem Item, string ReplyToRaw) : MonitorWork;
         private sealed record SessionStart(IMonitorSession Session, IReadOnlyList<OpcUaDataItem> Catalog) : MonitorWork;
         private sealed record SessionEnd : MonitorWork;
         private sealed record ReplyToCheck : MonitorWork;
         private sealed record ExpiryCheck : MonitorWork;
 
-        public void Monitor(MonitorKey key, OpcUaDataItem item, MonitorParameters parameters, string replyToRaw) => Enqueue(new MonitorRequest(key, item, parameters, replyToRaw));
-        public void Delete(MonitorKey key, string replyToRaw) => Enqueue(new DeleteRequest(key, replyToRaw));
+        /// <summary>Creates or updates <paramref name="senderCommandExchange"/>'s monitor on <paramref name="item"/>.</summary>
+        public void Monitor(string senderCommandExchange, OpcUaDataItem item, MonitorParameters parameters, string replyToRaw) => Enqueue(new MonitorRequest(senderCommandExchange, item, parameters, replyToRaw));
+        public void Delete(string senderCommandExchange, OpcUaDataItem item, string replyToRaw) => Enqueue(new DeleteRequest(senderCommandExchange, item, replyToRaw));
         public void SessionStarted(IMonitorSession session, IReadOnlyList<OpcUaDataItem> catalog) => Enqueue(new SessionStart(session, catalog));
         public void SessionLost() => Enqueue(new SessionEnd());
         public void CheckReplyTos() => Enqueue(new ReplyToCheck());
 
         private void Enqueue(MonitorWork work) => _work.Writer.TryWrite(work);
 
-        public void OnNotification(MonitorKey key, string nodeIdText, DataValue value)
+        public void OnNotification(MonitorKey key, DataValue value)
         {
             var definition = registry.Get(key);
-            // A notification from a node the monitor has just moved away from is dropped, not relabelled.
-            if (definition == null || definition.IsSuspended || definition.NodeIdText != nodeIdText || !_catalog.TryGetValue(nodeIdText, out var item)) return;
+            if (definition == null || definition.IsSuspended || !_catalog.TryGetValue(key.NodeIdText, out var item)) return;
             output.SendNotification(item, value, definition.ReplyToRaw);
         }
 
@@ -91,10 +97,11 @@ namespace StatePipes.OpcUaBridge
 
         private async Task HandleMonitorAsync(MonitorRequest request, CancellationToken ct)
         {
-            MonitorDefinition definition = new(request.Key, request.Item.NodeIdText, request.Parameters, request.ReplyToRaw, null);
+            Remember(request.Item);
+            MonitorDefinition definition = new(new MonitorKey(request.Sender, request.Item.NodeIdText), request.Parameters, request.ReplyToRaw, null);
             registry.Upsert(definition);
             var result = await ApplyAsync(definition, ct);
-            SendStatus(definition, result.State, result);
+            SendStatus(definition.NodeIdText, result.State, result, definition.ReplyToRaw);
         }
 
         private async Task<MonitorApplyResult> ApplyAsync(MonitorDefinition definition, CancellationToken ct)
@@ -103,21 +110,22 @@ namespace StatePipes.OpcUaBridge
             try { return await _session.ApplyAsync(definition, ct); }
             catch (Exception ex) when (IsSessionFailure(ex, ct))
             {
-                Log?.LogError($"Could not apply monitor {definition.Key.MonitorName} on {definition.NodeIdText}: {ex.Message}");
+                Log?.LogError($"Could not apply monitor on {definition.NodeIdText} for {definition.Key.SenderCommandExchange}: {ex.Message}");
                 return MonitorApplyResult.Pending;
             }
         }
 
         private async Task HandleDeleteAsync(DeleteRequest request, CancellationToken ct)
         {
-            var definition = registry.Get(request.Key);
-            if (definition == null || !registry.Remove(request.Key))
+            Remember(request.Item);
+            var key = new MonitorKey(request.Sender, request.Item.NodeIdText);
+            if (!registry.Remove(key))
             {
-                output.SendStatus(Status(request.Key.MonitorName, string.Empty, MonitorState.Failed, MonitorApplyResult.Failed(StatusCodes.BadNotFound)), request.ReplyToRaw);
+                SendStatus(key.NodeIdText, MonitorState.Failed, MonitorApplyResult.Failed(StatusCodes.BadNotFound), request.ReplyToRaw);
                 return;
             }
-            await RemoveFromSessionAsync(request.Key, ct);
-            output.SendStatus(Status(request.Key.MonitorName, definition.NodeIdText, MonitorState.Deleted, new MonitorApplyResult(MonitorState.Deleted, StatusCodes.Good, 0, 0, 0)), request.ReplyToRaw);
+            await RemoveFromSessionAsync(key, ct);
+            SendStatus(key.NodeIdText, MonitorState.Deleted, new MonitorApplyResult(MonitorState.Deleted, StatusCodes.Good, 0, 0, 0), request.ReplyToRaw);
         }
 
         /// <summary>
@@ -128,6 +136,7 @@ namespace StatePipes.OpcUaBridge
         {
             await EndSessionAsync();
             _session = start.Session;
+            foreach (var item in start.Catalog) Remember(item);
             var catalog = start.Catalog.ToDictionary(item => item.NodeIdText, StringComparer.Ordinal);
             _catalog = catalog;
             registry.RemoveExpired();
@@ -144,13 +153,13 @@ namespace StatePipes.OpcUaBridge
             Log?.LogInfo($"Rebuilt {results.Count(r => r.Value.State == MonitorState.Active)} of {live.Count} monitors on the new OPC UA session");
             foreach (var definition in unknown)
             {
-                Log?.LogWarning($"Monitor {definition.Key.MonitorName} of {definition.Key.SenderCommandExchange}: {definition.NodeIdText} is no longer on the server");
-                SendStatus(definition, MonitorState.Failed, MonitorApplyResult.Failed(StatusCodes.BadNodeIdUnknown));
+                Log?.LogWarning($"Monitor of {definition.Key.SenderCommandExchange}: {definition.NodeIdText} is no longer on the server");
+                SendStatus(definition.NodeIdText, MonitorState.Failed, MonitorApplyResult.Failed(StatusCodes.BadNodeIdUnknown), definition.ReplyToRaw);
             }
             foreach (var definition in known)
             {
                 var result = results.GetValueOrDefault(definition.Key, MonitorApplyResult.Pending);
-                SendStatus(definition, result.State, result);
+                SendStatus(definition.NodeIdText, result.State, result, definition.ReplyToRaw);
             }
         }
 
@@ -187,7 +196,7 @@ namespace StatePipes.OpcUaBridge
                     if (_session != null)
                     {
                         try { await _session.DisableAsync(definition.Key, ct); }
-                        catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not disable monitor {definition.Key.MonitorName}: {ex.Message}"); }
+                        catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not disable monitor on {definition.NodeIdText}: {ex.Message}"); }
                     }
                     registry.Suspend(definition.Key);
                 }
@@ -203,7 +212,7 @@ namespace StatePipes.OpcUaBridge
         {
             if (_session == null) return;
             try { await _session.RemoveAsync(key, ct); }
-            catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not remove monitor {key.MonitorName}: {ex.Message}"); }
+            catch (Exception ex) when (IsSessionFailure(ex, ct)) { Log?.LogVerbose($"Could not remove monitor on {key.NodeIdText}: {ex.Message}"); }
         }
 
         /// <summary>
@@ -212,10 +221,18 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         private static bool IsSessionFailure(Exception ex, CancellationToken ct) => ex is not OperationCanceledException || !ct.IsCancellationRequested;
 
-        private void SendStatus(MonitorDefinition definition, MonitorState state, MonitorApplyResult result) =>
-            output.SendStatus(Status(definition.Key.MonitorName, definition.NodeIdText, state, result), definition.ReplyToRaw);
+        private void Remember(OpcUaDataItem item) => _namesSeen[item.NodeIdText] = item.Names;
 
-        private static MonitorStatusEvent Status(string name, string nodeId, MonitorState state, MonitorApplyResult result) =>
-            new(name, nodeId, state, result.StatusCode.Code, result.StatusCode.ToString(), result.RevisedSamplingInterval, result.RevisedQueueSize, result.RevisedPublishingInterval);
+        /// <summary>The item's names as clients know them, or as the bridge would name a node it has never listed.</summary>
+        private MessageNames NamesFor(string nodeIdText)
+        {
+            if (_namesSeen.TryGetValue(nodeIdText, out var names)) return names;
+            try { return OpcUaNaming.ToMessageNames(exchangeName, NodeId.Parse(nodeIdText)); }
+            catch (ServiceResultException) { return OpcUaNaming.ToMessageNames(exchangeName, new NodeId(nodeIdText, 0)); }
+        }
+
+        private void SendStatus(string nodeIdText, MonitorState state, MonitorApplyResult result, string replyToRaw) =>
+            output.SendStatus(new MonitorStatus(nodeIdText, state, result.StatusCode, result.RevisedSamplingInterval, result.RevisedQueueSize, result.RevisedPublishingInterval),
+                NamesFor(nodeIdText), replyToRaw);
     }
 }

@@ -5,22 +5,49 @@ using System.Text;
 namespace StatePipes.OpcUaBridge
 {
     /// <summary>
-    /// The namespace and name shared by a node's Get command and Get event. The command is
-    /// <c>{Namespace}.{Name}_Command</c> and the event <c>{Namespace}.{Name}_Event</c>. The Monitor command
-    /// swaps the name's <c>Get_</c> prefix for <c>Monitor_</c>, so it carries any collision suffix too.
+    /// The namespace and name base shared by every message of one node: the Get command
+    /// <c>{Namespace}.{Name}_Command</c> and Get event <c>{Namespace}.{Name}_Event</c>, and the Monitor, Delete and
+    /// MonitorStatus messages, which swap the name's <c>Get_</c> prefix for their own and so carry any collision
+    /// suffix too.
     /// </summary>
     internal sealed record MessageNames(string Namespace, string Name)
     {
         public const string GetPrefix = "Get_";
         public const string MonitorPrefix = "Monitor_";
+        public const string DeletePrefix = "Delete_";
+        public const string MonitorStatusPrefix = "MonitorStatus_";
         public const string CommandSuffix = "_Command";
         public const string EventSuffix = "_Event";
+        /// <summary>How much longer than <c>Get_..._Command</c> the longest name, <c>MonitorStatus_..._Event</c>, is.</summary>
+        public const int LongestNameExtra = 8;
         public string CommandTypeName => Name + CommandSuffix;
         public string EventTypeName => Name + EventSuffix;
-        public string MonitorCommandTypeName => MonitorPrefix + Name[GetPrefix.Length..] + CommandSuffix;
+        public string MonitorCommandTypeName => MonitorPrefix + Base + CommandSuffix;
+        public string DeleteCommandTypeName => DeletePrefix + Base + CommandSuffix;
+        public string MonitorStatusEventTypeName => MonitorStatusPrefix + Base + EventSuffix;
         public string CommandTypeFullName => $"{Namespace}.{CommandTypeName}";
         public string EventTypeFullName => $"{Namespace}.{EventTypeName}";
         public string MonitorCommandTypeFullName => $"{Namespace}.{MonitorCommandTypeName}";
+        public string DeleteCommandTypeFullName => $"{Namespace}.{DeleteCommandTypeName}";
+        public string MonitorStatusEventTypeFullName => $"{Namespace}.{MonitorStatusEventTypeName}";
+        private string Base => Name[GetPrefix.Length..];
+
+        /// <summary>
+        /// The MonitorStatus event that answers a Monitor or Delete command, worked out from the command's full name
+        /// alone, so a command for a node the bridge does not know can still be answered where its sender listens.
+        /// </summary>
+        public static bool TryGetMonitorStatusEventFor(string commandFullName, string @namespace, out string statusEventFullName)
+        {
+            statusEventFullName = string.Empty;
+            var namespacePrefix = @namespace + ".";
+            if (!commandFullName.StartsWith(namespacePrefix, StringComparison.Ordinal) || !commandFullName.EndsWith(CommandSuffix, StringComparison.Ordinal)) return false;
+            var name = commandFullName[namespacePrefix.Length..^CommandSuffix.Length];
+            string? baseName = name.StartsWith(MonitorPrefix, StringComparison.Ordinal) ? name[MonitorPrefix.Length..]
+                : name.StartsWith(DeletePrefix, StringComparison.Ordinal) ? name[DeletePrefix.Length..] : null;
+            if (string.IsNullOrEmpty(baseName)) return false;
+            statusEventFullName = $"{namespacePrefix}{MonitorStatusPrefix}{baseName}{EventSuffix}";
+            return true;
+        }
     }
 
     /// <summary>
@@ -58,9 +85,9 @@ namespace StatePipes.OpcUaBridge
             var identifier = IdentifierText(nodeId);
             var @namespace = MessageNamespace(exchangeName);
             // Names are pure ASCII, so characters are bytes. Leave room for the separating dot, the longer
-            // suffix, a possible collision suffix and the Monitor command's longer prefix.
+            // suffix, a possible collision suffix and the longest per-item message name (MonitorStatus_..._Event).
             var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve
-                - (MessageNames.MonitorPrefix.Length - MessageNames.GetPrefix.Length);
+                - MessageNames.LongestNameExtra;
             var name = Fit($"{MessageNames.GetPrefix}ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(identifier)}", maxNameLength, nodeId.ToString());
             return new MessageNames(@namespace, name);
         }

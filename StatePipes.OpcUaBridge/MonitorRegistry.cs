@@ -37,7 +37,7 @@ namespace StatePipes.OpcUaBridge
                 string reason = "its reply-to is not a BusConfig";
                 if (replyTo == null || !ReplyToGuard.Allows(own, replyTo, out reason))
                 {
-                    Log?.LogWarning($"Dropping monitor {definition.Key.MonitorName} of {definition.Key.SenderCommandExchange} from {store.Path}: {reason}");
+                    Log?.LogWarning($"Dropping monitor on {definition.NodeIdText} of {definition.Key.SenderCommandExchange} from {store.Path}: {reason}");
                     dropped = true;
                     continue;
                 }

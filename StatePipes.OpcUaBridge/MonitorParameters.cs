@@ -8,16 +8,12 @@ namespace StatePipes.OpcUaBridge
 {
     /// <summary>A Monitor command's body, read without knowing which data item it is for.</summary>
     /// <param name="Parameters">Null when the body is not a valid Monitor command; <paramref name="Status"/> says why.</param>
-    internal sealed record ParsedMonitorCommand(string MonitorName, MonitorParameters? Parameters, StatusCode Status);
+    internal sealed record ParsedMonitorCommand(MonitorParameters? Parameters, StatusCode Status);
 
-    /// <summary>
-    /// How a client asked for a data item to be monitored: everything a Monitor command carries besides its name.
-    /// </summary>
+    /// <summary>How a client asked for a data item to be monitored: everything a Monitor command carries.</summary>
     internal sealed record MonitorParameters(MonitoringModeKind MonitoringMode, DataChangeTriggerKind DataChangeTrigger, DeadbandTypeKind DeadbandType,
         double DeadbandValue, double SamplingInterval, uint QueueSize, double PublishingInterval)
     {
-        public const int MaxMonitorNameLength = 256;
-
         /// <summary>
         /// Reads and validates a Monitor command body. Never throws: anything that is not a valid command comes
         /// back as <see cref="StatusCodes.BadInvalidArgument"/>. Enums may arrive as names or numbers, since
@@ -27,8 +23,7 @@ namespace StatePipes.OpcUaBridge
         public static ParsedMonitorCommand Parse(byte[] body)
         {
             var json = TryParseObject(body);
-            var name = ReadName(json) ?? string.Empty;
-            if (json == null || name.Length == 0 || name.Length > MaxMonitorNameLength) return Invalid(name);
+            if (json == null) return Invalid;
             if (!TryReadEnum(json, MonitoringModeProperty, out MonitoringModeKind mode)
                 || !TryReadEnum(json, DataChangeTriggerProperty, out DataChangeTriggerKind trigger)
                 || !TryReadEnum(json, DeadbandTypeProperty, out DeadbandTypeKind deadbandType)
@@ -36,26 +31,21 @@ namespace StatePipes.OpcUaBridge
                 || !TryReadNumber(json, SamplingIntervalProperty, out double samplingInterval)
                 || !TryReadNumber(json, QueueSizeProperty, out double queueSize)
                 || !TryReadNumber(json, PublishingIntervalProperty, out double publishingInterval))
-                return Invalid(name);
+                return Invalid;
             if (deadbandType == DeadbandTypeKind.None) deadbandValue = 0;
             if (samplingInterval < 0 || publishingInterval <= 0 || queueSize < 1 || queueSize > uint.MaxValue || queueSize != Math.Floor(queueSize)
                 || deadbandValue < 0 || (deadbandType == DeadbandTypeKind.Percent && deadbandValue > 100))
-                return Invalid(name);
-            return new(name, new MonitorParameters(mode, trigger, deadbandType, deadbandValue, samplingInterval, (uint)queueSize, publishingInterval), StatusCodes.Good);
+                return Invalid;
+            return new(new MonitorParameters(mode, trigger, deadbandType, deadbandValue, samplingInterval, (uint)queueSize, publishingInterval), StatusCodes.Good);
         }
 
-        /// <summary>The monitor name alone, so a command that cannot be served can still be answered by name.</summary>
-        public static string? ReadMonitorName(byte[] body) => ReadName(TryParseObject(body));
-
-        private static ParsedMonitorCommand Invalid(string name) => new(name, null, StatusCodes.BadInvalidArgument);
+        private static ParsedMonitorCommand Invalid => new(null, StatusCodes.BadInvalidArgument);
 
         private static JObject? TryParseObject(byte[] body)
         {
             try { return JObject.Parse(Encoding.UTF8.GetString(body)); }
             catch (Exception) { return null; }
         }
-
-        private static string? ReadName(JObject? json) => json?[MonitorNameProperty] is JValue { Type: JTokenType.String } value ? (string?)value : null;
 
         private static bool TryReadEnum<TEnum>(JObject json, string property, out TEnum value) where TEnum : struct, Enum
         {

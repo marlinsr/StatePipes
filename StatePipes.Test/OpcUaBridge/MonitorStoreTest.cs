@@ -21,8 +21,9 @@ namespace StatePipes.Test.OpcUaBridge
             Directory.Delete(_directory, true);
         }
 
-        internal static MonitorDefinition Definition(string name, string nodeId = "ns=2;s=pressure", DateTime? suspendedSince = null, string sender = "Client1") =>
-            new(new MonitorKey($"{sender}.commands", name), nodeId,
+        /// <summary>A monitor on <paramref name="node"/>: a full NodeId, or a string identifier in namespace 2.</summary>
+        internal static MonitorDefinition Definition(string node = "pressure", DateTime? suspendedSince = null, string sender = "Client1") =>
+            new(new MonitorKey($"{sender}.commands", node.StartsWith("ns=") ? node : $"ns=2;s={node}"),
                 new MonitorParameters(MonitoringModeKind.Reporting, DataChangeTriggerKind.StatusValue, DeadbandTypeKind.Absolute, 0.5, 100, 2, 1000),
                 $"{{\"BrokerUri\":\"amqps://broker\",\"ExchangeNamePrefix\":\"{sender}\",\"ClientCertPath\":\"c.p12\",\"ClientCertPasswordPath\":\"p.txt\",\"ResponseExchangeGuid\":\"abc\",\"ExchangeNamePostfix\":\"\"}}",
                 suspendedSince);
@@ -31,7 +32,7 @@ namespace StatePipes.Test.OpcUaBridge
         public void SaveThenLoad_RoundTripsEveryField()
         {
             MonitorStore store = new(Path);
-            MonitorDefinition[] saved = [Definition("a"), Definition("b", "ns=2;s=msg", new DateTime(2026, 10, 15, 8, 30, 0, DateTimeKind.Utc))];
+            MonitorDefinition[] saved = [Definition("a"), Definition("ns=2;s=msg", new DateTime(2026, 10, 15, 8, 30, 0, DateTimeKind.Utc))];
             Assert.IsTrue(store.Save(saved));
             var loaded = new MonitorStore(Path).Load();
             CollectionAssert.AreEqual(saved, loaded.ToArray());
@@ -42,12 +43,12 @@ namespace StatePipes.Test.OpcUaBridge
         [TestMethod]
         public void Save_WritesSpecFormat()
         {
-            new MonitorStore(Path).Save([Definition("a")]);
+            new MonitorStore(Path).Save([Definition()]);
             var json = JObject.Parse(File.ReadAllText(Path));
-            Assert.AreEqual(1, (int)json["version"]!);
+            Assert.AreEqual(2, (int)json["version"]!);
             var monitor = json["monitors"]![0]!;
             Assert.AreEqual("Client1.commands", (string)monitor["senderCommandExchange"]!);
-            Assert.AreEqual("a", (string)monitor["monitorName"]!);
+            Assert.IsNull(monitor["monitorName"]);
             Assert.AreEqual("ns=2;s=pressure", (string)monitor["nodeId"]!);
             Assert.AreEqual("Reporting", (string)monitor["monitoringMode"]!);
             Assert.AreEqual("StatusValue", (string)monitor["dataChangeTrigger"]!);
@@ -71,7 +72,11 @@ namespace StatePipes.Test.OpcUaBridge
         public void Load_CorruptFile_RenamedAndEmpty() => AssertRenamedAsCorrupt("{oops");
 
         [TestMethod]
-        public void Load_UnknownVersion_TreatedAsCorrupt() => AssertRenamedAsCorrupt("{\"version\":2,\"monitors\":[]}");
+        public void Load_UnknownVersion_TreatedAsCorrupt() => AssertRenamedAsCorrupt("{\"version\":3,\"monitors\":[]}");
+
+        [TestMethod]
+        public void Load_VersionOne_TreatedAsCorrupt() => AssertRenamedAsCorrupt(
+            "{\"version\":1,\"monitors\":[{\"senderCommandExchange\":\"C.commands\",\"monitorName\":\"m\",\"nodeId\":\"ns=2;s=x\"}]}");
 
         private void AssertRenamedAsCorrupt(string content)
         {

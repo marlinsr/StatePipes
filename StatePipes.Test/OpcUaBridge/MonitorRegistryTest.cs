@@ -37,23 +37,32 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
-        public void Upsert_SameKeyOtherNode_ReplacesDefinition()
+        public void Upsert_SameItemSameSender_Replaces()
         {
             var registry = Load();
             var first = Definition("a");
             registry.Upsert(first);
-            var previous = registry.Upsert(Definition("a", "ns=2;s=msg"));
-            Assert.AreEqual(first, previous);
-            Assert.AreEqual("ns=2;s=msg", registry.Get(first.Key)!.NodeIdText);
+            var second = first with { Parameters = first.Parameters with { QueueSize = 99 }, ReplyToRaw = first.ReplyToRaw.Replace("abc", "new") };
+            Assert.AreEqual(first, registry.Upsert(second));
+            Assert.AreEqual(second, registry.Get(first.Key));
             Assert.HasCount(1, registry.GetAll());
         }
 
         [TestMethod]
-        public void Upsert_SameNameOtherSender_SeparateMonitors()
+        public void Upsert_SameItemOtherSender_SeparateMonitors()
         {
             var registry = Load();
             registry.Upsert(Definition("a", sender: "Client1"));
             registry.Upsert(Definition("a", sender: "Client2"));
+            Assert.HasCount(2, registry.GetAll());
+        }
+
+        [TestMethod]
+        public void Upsert_OtherItemSameSender_SeparateMonitors()
+        {
+            var registry = Load();
+            registry.Upsert(Definition("a"));
+            registry.Upsert(Definition("b"));
             Assert.HasCount(2, registry.GetAll());
         }
 
