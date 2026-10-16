@@ -17,7 +17,7 @@ namespace StatePipes.OpcUaBridge
     /// <see cref="BridgeSettings.NodeFilter"/> narrows the set further on servers too large to describe in one
     /// self-description message.</para>
     /// </summary>
-    internal sealed class OpcUaClient : IAsyncDisposable
+    internal sealed class OpcUaClient : ISetSession, IAsyncDisposable
     {
         internal const uint SessionTimeoutMilliseconds = 60_000;
         private const int BrowseBatchSize = 100;
@@ -73,7 +73,7 @@ namespace StatePipes.OpcUaBridge
             var readable = await ReadVariableAttributesAsync(session, variables, ct);
             var names = OpcUaNaming.AssignUniqueNames(_settings.BusConfig.ExchangeNamePrefix, readable.Keys, message => Log?.LogWarning(message));
             return [.. readable
-                .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value.ValueType, kv.Value.Structure, kv.Value.IsArray))
+                .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value.ValueType, kv.Value.Structure, kv.Value.IsArray, kv.Value.BuiltInType, kv.Value.IsWritable))
                 .OrderBy(item => item.CommandTypeFullName, StringComparer.Ordinal)];
         }
 
@@ -85,6 +85,17 @@ namespace StatePipes.OpcUaBridge
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, toRead, ct);
             var results = response.Results.ToList();
             ClientBase.ValidateResponse(results, toRead);
+            return results;
+        }
+
+        public async Task<IReadOnlyList<StatusCode>> WriteValuesAsync(IReadOnlyList<(NodeId NodeId, Variant Value)> values, CancellationToken ct)
+        {
+            var session = _session;
+            if (session == null || !IsConnected) return [.. values.Select(_ => (StatusCode)StatusCodes.BadNotConnected)];
+            List<WriteValue> toWrite = [.. values.Select(v => new WriteValue { NodeId = v.NodeId, AttributeId = Attributes.Value, Value = new DataValue(v.Value) })];
+            var response = await session.WriteAsync(null, toWrite, ct);
+            var results = response.Results.ToList();
+            ClientBase.ValidateResponse(results, toWrite);
             return results;
         }
 
@@ -210,11 +221,12 @@ namespace StatePipes.OpcUaBridge
         /// <summary>
         /// Reads access level, data type and value rank for each variable, keeping only those this session may
         /// read and pairing each with the CLR type its value will be published as, or, for a structure the
-        /// bridge can decode, with the structure's layout.
+        /// bridge can decode, with the structure's layout; and deciding which of them get a Set command.
         /// </summary>
-        private async Task<Dictionary<NodeId, (Type ValueType, StructureLayout? Structure, bool IsArray)>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, CancellationToken ct)
+        private async Task<Dictionary<NodeId, VariableAttributes>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, CancellationToken ct)
         {
-            Dictionary<NodeId, (Type, StructureLayout?, bool)> readable = [];
+            Dictionary<NodeId, VariableAttributes> readable = [];
+            Dictionary<string, int> unwritable = new(StringComparer.Ordinal);
             Dictionary<NodeId, DataTypeInfo?> dataTypes = [];
             StructureLayoutBuilder layouts = new(_settings.BusConfig.ExchangeNamePrefix, async (dataTypeId, token) =>
             {
@@ -239,10 +251,30 @@ namespace StatePipes.OpcUaBridge
                     var rank = valueRank.WrappedValue.TryGetValue(out int r) ? r : ValueRanks.Any;
                     var valueType = OpcUaValueMapper.MapToClrType(builtInType, rank);
                     var structure = await BuildStructureLayoutAsync(layouts, chunk[i], dataTypeId, builtInType, rank, ct);
-                    readable[chunk[i]] = (valueType, structure, rank == ValueRanks.OneDimension);
+                    var isWritable = (level & AccessLevels.CurrentWrite) != 0 && (_settings.WriteFilter?.IsMatch(chunk[i].ToString()) ?? true);
+                    if (isWritable && UnwritableReason(builtInType, rank, structure) is { } reason)
+                    {
+                        isWritable = false;
+                        unwritable[reason] = unwritable.GetValueOrDefault(reason) + 1;
+                        Log?.LogVerbose($"{chunk[i]} is writable but has no Set command: {reason}");
+                    }
+                    readable[chunk[i]] = new(valueType, structure, rank == ValueRanks.OneDimension, builtInType, isWritable);
                 }
             }
+            if (unwritable.Count > 0)
+                Log?.LogInfo($"{unwritable.Values.Sum()} writable items have no Set command ({string.Join(", ", unwritable.Select(kv => $"{kv.Key}: {kv.Value}"))})");
             return readable;
+        }
+
+        private sealed record VariableAttributes(Type ValueType, StructureLayout? Structure, bool IsArray, BuiltInType BuiltInType, bool IsWritable);
+
+        /// <summary>Why a variable the session may write still gets no Set command, or null when it gets one.</summary>
+        internal static string? UnwritableReason(BuiltInType builtInType, int valueRank, StructureLayout? structure)
+        {
+            if (valueRank != ValueRanks.Scalar && valueRank != ValueRanks.OneDimension) return "matrix or unfixed rank";
+            if (builtInType is BuiltInType.Number or BuiltInType.Integer or BuiltInType.UInteger) return "abstract type";
+            if (structure != null) return StructureEncoder.CanEncode(structure) ? null : "no binary encoding";
+            return OpcUaValueEncoder.IsSupported(builtInType) ? null : "string fallback";
         }
 
         /// <summary>
