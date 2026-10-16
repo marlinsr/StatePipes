@@ -6,8 +6,8 @@ namespace StatePipes.OpcUaBridge
 {
     /// <summary>
     /// The namespace and name base shared by every message of one node: the Get command
-    /// <c>{Namespace}.{Name}_Command</c> and Get event <c>{Namespace}.{Name}_Event</c>, and the Monitor, Delete and
-    /// MonitorStatus messages, which swap the name's <c>Get_</c> prefix for their own and so carry any collision
+    /// <c>{Namespace}.{Name}_Command</c> and Get event <c>{Namespace}.{Name}_Event</c>, and the Monitor, Delete,
+    /// MonitorStatus, Set and SetStatus messages, which swap the name's <c>Get_</c> prefix for their own and so carry any collision
     /// suffix too.
     /// </summary>
     internal sealed record MessageNames(string Namespace, string Name)
@@ -16,6 +16,8 @@ namespace StatePipes.OpcUaBridge
         public const string MonitorPrefix = "Monitor_";
         public const string DeletePrefix = "Delete_";
         public const string MonitorStatusPrefix = "MonitorStatus_";
+        public const string SetPrefix = "Set_";
+        public const string SetStatusPrefix = "SetStatus_";
         public const string CommandSuffix = "_Command";
         public const string EventSuffix = "_Event";
         /// <summary>How much longer than <c>Get_..._Command</c> the longest name, <c>MonitorStatus_..._Event</c>, is.</summary>
@@ -25,11 +27,15 @@ namespace StatePipes.OpcUaBridge
         public string MonitorCommandTypeName => MonitorPrefix + Base + CommandSuffix;
         public string DeleteCommandTypeName => DeletePrefix + Base + CommandSuffix;
         public string MonitorStatusEventTypeName => MonitorStatusPrefix + Base + EventSuffix;
+        public string SetCommandTypeName => SetPrefix + Base + CommandSuffix;
+        public string SetStatusEventTypeName => SetStatusPrefix + Base + EventSuffix;
         public string CommandTypeFullName => $"{Namespace}.{CommandTypeName}";
         public string EventTypeFullName => $"{Namespace}.{EventTypeName}";
         public string MonitorCommandTypeFullName => $"{Namespace}.{MonitorCommandTypeName}";
         public string DeleteCommandTypeFullName => $"{Namespace}.{DeleteCommandTypeName}";
         public string MonitorStatusEventTypeFullName => $"{Namespace}.{MonitorStatusEventTypeName}";
+        public string SetCommandTypeFullName => $"{Namespace}.{SetCommandTypeName}";
+        public string SetStatusEventTypeFullName => $"{Namespace}.{SetStatusEventTypeName}";
         private string Base => Name[GetPrefix.Length..];
 
         /// <summary>
@@ -52,6 +58,18 @@ namespace StatePipes.OpcUaBridge
             string? baseName = name.StartsWith(MonitorPrefix, StringComparison.Ordinal) ? name[MonitorPrefix.Length..]
                 : name.StartsWith(DeletePrefix, StringComparison.Ordinal) ? name[DeletePrefix.Length..] : null;
             return string.IsNullOrEmpty(baseName) ? null : new MessageNames(@namespace, GetPrefix + baseName);
+        }
+
+        /// <summary>
+        /// The names of the node a Set command's full name belongs to, or null for any other name. Kept apart from
+        /// <see cref="FromCommandFullName"/>, whose answers are MonitorStatus events.
+        /// </summary>
+        public static MessageNames? FromSetCommandFullName(string commandFullName, string @namespace)
+        {
+            var prefix = @namespace + "." + SetPrefix;
+            if (!commandFullName.StartsWith(prefix, StringComparison.Ordinal) || !commandFullName.EndsWith(CommandSuffix, StringComparison.Ordinal)) return null;
+            var baseName = commandFullName[prefix.Length..^CommandSuffix.Length];
+            return baseName.Length == 0 ? null : new MessageNames(@namespace, GetPrefix + baseName);
         }
     }
 

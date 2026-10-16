@@ -40,7 +40,7 @@ namespace StatePipes.OpcUaBridge
                 return null;
             }
             var (@namespace, name) = OpcUaNaming.ToStructureTypeNames(exchangeName, dataTypeId);
-            StructureLayout layout = new(dataTypeId, @namespace, name);
+            StructureLayout layout = new(dataTypeId, @namespace, name, definition.DefaultEncodingId.IsNull ? null : definition.DefaultEncodingId);
             _layouts[dataTypeId] = layout;
             started.Add(dataTypeId);
             HashSet<string> fieldNames = new(StringComparer.Ordinal);

@@ -16,22 +16,22 @@ namespace StatePipes.Test.OpcUaBridge
     [TestCategory(TestCategories.Unit)]
     public class OpcUaStructureTest
     {
-        private const string Exchange = "Line1Plc";
-        private static readonly NodeId DensityTypeId = new("DensityDataType", 2);
-        private static readonly NodeId TankTypeId = new("TankDataType", 2);
-        private static readonly NodeId TreeTypeId = new("TreeDataType", 2);
+        internal const string Exchange = "Line1Plc";
+        internal static readonly NodeId DensityTypeId = new("DensityDataType", 2);
+        internal static readonly NodeId TankTypeId = new("TankDataType", 2);
+        internal static readonly NodeId TreeTypeId = new("TreeDataType", 2);
 
-        private static readonly StructureDefinition DensityDefinition = Definition(
+        internal static readonly StructureDefinition DensityDefinition = Encoded("DensityDataType",
             Field("Volume", DataTypeIds.Double),
             Field("Mass", DataTypeIds.Double));
 
-        private static readonly StructureDefinition TankDefinition = Definition(
+        internal static readonly StructureDefinition TankDefinition = Encoded("TankDataType",
             Field("Name", DataTypeIds.String),
             Field("Density", DensityTypeId),
             Field("History", DensityTypeId, ValueRanks.OneDimension),
             Field("Readings", DataTypeIds.Double, ValueRanks.OneDimension));
 
-        private static readonly StructureDefinition TreeDefinition = Definition(
+        internal static readonly StructureDefinition TreeDefinition = Encoded("TreeDataType",
             Field("Label", DataTypeIds.String),
             Field("Children", TreeTypeId, ValueRanks.OneDimension));
 
@@ -52,6 +52,19 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.IsTrue(tank.Fields[2].IsArray);
             Assert.AreEqual(typeof(double), tank.Fields[3].ClrType);
             Assert.IsTrue(tank.Fields[3].IsArray);
+        }
+
+        [TestMethod]
+        public async Task BuildLayout_RecordsDefaultEncodingId()
+        {
+            var plain = new NodeId("Plain", 2);
+            var builder = CreateBuilder(new() { [plain] = Structure(Definition(Field("A", DataTypeIds.Double))) });
+
+            var density = await builder.BuildAsync(DensityTypeId, CancellationToken.None);
+            var withoutEncoding = await builder.BuildAsync(plain, CancellationToken.None);
+
+            Assert.AreEqual(new NodeId("DensityDataType_Encoding_DefaultBinary", 2), density!.BinaryEncodingId);
+            Assert.IsNull(withoutEncoding!.BinaryEncodingId);
         }
 
         [TestMethod]
@@ -226,7 +239,7 @@ namespace StatePipes.Test.OpcUaBridge
             return encoder.CloseAndReturnBuffer() ?? [];
         }
 
-        private static StructureLayoutBuilder CreateBuilder(Dictionary<NodeId, DataTypeInfo>? extra = null)
+        internal static StructureLayoutBuilder CreateBuilder(Dictionary<NodeId, DataTypeInfo>? extra = null)
         {
             Dictionary<NodeId, DataTypeInfo> types = new()
             {
@@ -243,16 +256,24 @@ namespace StatePipes.Test.OpcUaBridge
             return new StructureLayoutBuilder(Exchange, (id, _) => Task.FromResult(types.GetValueOrDefault(id)));
         }
 
-        private static DataTypeInfo Structure(StructureDefinition definition) => new(BuiltInType.ExtensionObject, false, definition);
+        internal static DataTypeInfo Structure(StructureDefinition definition) => new(BuiltInType.ExtensionObject, false, definition);
 
-        private static StructureDefinition Definition(params StructureField[] fields) => new()
+        internal static StructureDefinition Definition(params StructureField[] fields) => new()
         {
             BaseDataType = DataTypeIds.Structure,
             StructureType = StructureType.Structure,
             Fields = [.. fields]
         };
 
-        private static StructureField Field(string name, NodeId dataType, int valueRank = ValueRanks.Scalar) =>
+        /// <summary>A definition with a default binary encoding, named as OpcUaServer names its encodings.</summary>
+        internal static StructureDefinition Encoded(string typeName, params StructureField[] fields)
+        {
+            var definition = Definition(fields);
+            definition.DefaultEncodingId = new NodeId($"{typeName}_Encoding_DefaultBinary", 2);
+            return definition;
+        }
+
+        internal static StructureField Field(string name, NodeId dataType, int valueRank = ValueRanks.Scalar) =>
             new() { Name = name, DataType = dataType, ValueRank = valueRank };
     }
 }

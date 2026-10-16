@@ -43,6 +43,38 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public void ToMessageNames_SetNames_ShareBaseAndSuffix()
+        {
+            var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Tank.Level", 2));
+            Assert.AreEqual("Line1Plc.Set_ns2_s_Tank_Level_Command", names.SetCommandTypeFullName);
+            Assert.AreEqual("Line1Plc.SetStatus_ns2_s_Tank_Level_Event", names.SetStatusEventTypeFullName);
+            var suffixed = names with { Name = "Get_ns2_s_X_2" };
+            Assert.AreEqual("Line1Plc.Set_ns2_s_X_2_Command", suffixed.SetCommandTypeFullName);
+            Assert.AreEqual("Line1Plc.SetStatus_ns2_s_X_2_Event", suffixed.SetStatusEventTypeFullName);
+        }
+
+        [TestMethod]
+        public void ToMessageNames_VeryLongIdentifier_SetStatusFitsRoutingKey()
+        {
+            var path = string.Join('.', Enumerable.Repeat("Segment", 40));
+            var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId(path, 2));
+            Assert.IsLessThanOrEqualTo(255, (names with { Name = names.Name + "_999" }).SetStatusEventTypeFullName.Length);
+        }
+
+        [TestMethod]
+        public void FromSetCommandFullName_RecognisesSetOnly()
+        {
+            var names = OpcUaNaming.ToMessageNames(Exchange, new NodeId("Tank.Level", 2));
+            var parsed = MessageNames.FromSetCommandFullName(names.SetCommandTypeFullName, Exchange);
+            Assert.AreEqual(names, parsed);
+            Assert.IsNull(MessageNames.FromSetCommandFullName(names.MonitorCommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromSetCommandFullName(names.DeleteCommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromSetCommandFullName(names.CommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromSetCommandFullName("Other.Set_ns2_s_X_Command", Exchange));
+            Assert.IsNull(MessageNames.FromCommandFullName(names.SetCommandTypeFullName, Exchange));
+        }
+
+        [TestMethod]
         public void AssignUniqueNames_SameIdentifierDifferentIdType_NoCollision()
         {
             List<string> collisions = [];

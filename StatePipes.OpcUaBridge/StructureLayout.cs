@@ -10,13 +10,15 @@ namespace StatePipes.OpcUaBridge
     /// <para>Fields are added after the layout is registered, so a structure that holds an array of itself
     /// points back at its own layout.</para>
     /// </summary>
-    internal sealed class StructureLayout(NodeId dataTypeId, string @namespace, string name)
+    /// <param name="binaryEncodingId">The DataType's default binary encoding, which a written value is tagged with; null when the server names none.</param>
+    internal sealed class StructureLayout(NodeId dataTypeId, string @namespace, string name, NodeId? binaryEncodingId = null)
     {
         private readonly List<StructureFieldLayout> _fields = [];
 
         public NodeId DataTypeId { get; } = dataTypeId;
         public string Namespace { get; } = @namespace;
         public string Name { get; } = name;
+        public NodeId? BinaryEncodingId { get; } = binaryEncodingId;
         public string FullName => $"{Namespace}.{Name}";
         public IReadOnlyList<StructureFieldLayout> Fields => _fields;
 

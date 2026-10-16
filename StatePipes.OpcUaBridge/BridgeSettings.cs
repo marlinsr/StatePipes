@@ -27,6 +27,8 @@ namespace StatePipes.OpcUaBridge
         public bool IncludeNamespaceZero { get; init; }
         /// <summary>When set, only nodes whose NodeId text (e.g. <c>ns=2;s=Line1.Temperature</c>) matches are exposed.</summary>
         public Regex? NodeFilter { get; init; }
+        /// <summary>When set, only writable nodes whose NodeId text matches get a Set command.</summary>
+        public Regex? WriteFilter { get; init; }
         public TimeSpan ReconnectDelay { get; init; } = TimeSpan.FromSeconds(5);
         /// <summary>
         /// Where monitors are persisted: by default StatePipes' own Config directory
@@ -56,6 +58,7 @@ namespace StatePipes.OpcUaBridge
                 ApplicationName = NullIfEmpty(Get("OPCUA_APPLICATION_NAME")) ?? "StatePipes.OpcUaBridge",
                 IncludeNamespaceZero = GetBool("OPCUA_INCLUDE_NS0", false),
                 NodeFilter = string.IsNullOrEmpty(Get("OPCUA_NODE_FILTER")) ? null : new Regex(Get("OPCUA_NODE_FILTER"), RegexOptions.Compiled | RegexOptions.CultureInvariant),
+                WriteFilter = string.IsNullOrEmpty(Get("OPCUA_WRITE_FILTER")) ? null : new Regex(Get("OPCUA_WRITE_FILTER"), RegexOptions.Compiled | RegexOptions.CultureInvariant),
                 ReconnectDelay = TimeSpan.FromSeconds(GetInt("OPCUA_RECONNECT_SECONDS", 5)),
                 MonitorStorePath = NullIfEmpty(Get("MONITOR_STORE_PATH")) ?? DefaultMonitorStorePath,
                 MonitorSuspendedExpiry = GetInt("MONITOR_SUSPENDED_EXPIRY_HOURS", 0) is > 0 and var hours ? TimeSpan.FromHours(hours) : null,
