@@ -27,14 +27,15 @@ namespace StatePipes.OpcUaBridge
     ///
     /// <para>Commands arrive on the transport's receive thread, which must not block, so Get commands are queued
     /// and a single reader serves them, batching whatever has queued up into one OPC UA Read. Monitor and Delete
-    /// commands, one of each per data item, are handed to <see cref="Monitors"/>.</para>
+    /// commands, one of each per data item, are handed to <see cref="Monitors"/>, and Set commands, for the
+    /// items the session may write, to a <see cref="SetWriter"/>.</para>
     ///
     /// <para>Monitor responses -- statuses and data changes -- travel on a second channel. A client's response
     /// exchange is auto-delete, and RabbitMQ closes a channel that publishes to a missing exchange; on its own
     /// channel that only interrupts other monitor traffic, never commands or heartbeats, and it prompts a check
     /// that suspends the monitors whose reply-to has gone.</para>
     /// </summary>
-    internal sealed class OpcUaBridgeService : IMonitorOutput, IDisposable
+    internal sealed class OpcUaBridgeService : IMonitorOutput, ISetOutput, IDisposable
     {
         private const int MaxReadBatch = 500;
         // Brokers' default caps on a single message: RabbitMQ 4 max_message_size and Kafka message.max.bytes.
@@ -50,6 +51,7 @@ namespace StatePipes.OpcUaBridge
         private readonly string _namespace;
         private readonly Guid _id = Guid.NewGuid();
         private readonly byte[] _ownReplyTo;
+        private readonly SetWriter _setWriter;
         private readonly Channel<PendingGet> _pendingGets = Channel.CreateUnbounded<PendingGet>(new UnboundedChannelOptions { SingleReader = true });
         private ISimpleConnectionChannel? _connectionChannel;
         private ISimpleConnectionChannel? _notificationChannel;
@@ -57,8 +59,10 @@ namespace StatePipes.OpcUaBridge
         private long _heartbeatCounter;
         private int _replyToCheckRequested;
 
-        public OpcUaBridgeService(BusConfig busConfig, OpcUaClient opcUa, MonitorRegistry registry, TimeProvider? time = null, ConnectionChannelFactory? channelFactory = null)
+        /// <param name="setSession">Where Sets are written; the OPC UA client unless a test substitutes its own.</param>
+        public OpcUaBridgeService(BusConfig busConfig, OpcUaClient opcUa, MonitorRegistry registry, TimeProvider? time = null, ConnectionChannelFactory? channelFactory = null, ISetSession? setSession = null)
         {
+            _setWriter = new SetWriter(setSession ?? opcUa, this);
             _busConfig = busConfig;
             _opcUa = opcUa;
             _channelFactory = channelFactory ?? ((config, configure, ct) => SimpleConnectionChannelFactory.Create(config, null, configure, ct));
@@ -72,11 +76,14 @@ namespace StatePipes.OpcUaBridge
         private sealed record PendingGet(OpcUaDataItem Item, BusConfig ReplyTo, byte[] ReplyToRaw);
 
         /// <summary>What the bridge currently exposes, swapped as a whole whenever the server is rediscovered.</summary>
-        private sealed class Catalog(Dictionary<string, OpcUaDataItem> byCommand, Dictionary<string, OpcUaDataItem> byMonitorCommand, Dictionary<string, OpcUaDataItem> byDeleteCommand, byte[] selfDescriptionBody, bool discovered)
+        private sealed class Catalog(Dictionary<string, OpcUaDataItem> byCommand, Dictionary<string, OpcUaDataItem> byMonitorCommand, Dictionary<string, OpcUaDataItem> byDeleteCommand,
+            Dictionary<string, OpcUaDataItem> bySetCommand, byte[] selfDescriptionBody, bool discovered)
         {
             public Dictionary<string, OpcUaDataItem> ByCommand { get; } = byCommand;
             public Dictionary<string, OpcUaDataItem> ByMonitorCommand { get; } = byMonitorCommand;
             public Dictionary<string, OpcUaDataItem> ByDeleteCommand { get; } = byDeleteCommand;
+            /// <summary>The writable items only.</summary>
+            public Dictionary<string, OpcUaDataItem> BySetCommand { get; } = bySetCommand;
             public byte[] SelfDescriptionBody { get; } = selfDescriptionBody;
             /// <summary>False until the OPC UA server has been discovered once.</summary>
             public bool Discovered { get; } = discovered;
@@ -86,6 +93,7 @@ namespace StatePipes.OpcUaBridge
                 return new(items.ToDictionary(item => item.CommandTypeFullName, StringComparer.Ordinal),
                     items.ToDictionary(item => item.MonitorCommandTypeFullName, StringComparer.Ordinal),
                     items.ToDictionary(item => item.DeleteCommandTypeFullName, StringComparer.Ordinal),
+                    items.Where(item => item.IsWritable).ToDictionary(item => item.SetCommandTypeFullName, StringComparer.Ordinal),
                     Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject(selfDescription, true)), discovered);
             }
         }
@@ -95,13 +103,13 @@ namespace StatePipes.OpcUaBridge
             var catalog = Catalog.Create(items, discovered: true);
             _catalog = catalog;
             var size = catalog.SelfDescriptionBody.Length;
-            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get, Monitor and Delete commands on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
+            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get, Monitor and Delete commands, {catalog.BySetCommand.Count} of them also as Set commands, on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
             var limit = _busConfig.TransportKind == TransportKind.Kafka ? KafkaDefaultMaxMessageBytes : RabbitMqDefaultMaxMessageBytes;
             if (size > limit)
                 Log?.LogError($"The self description is {size / 1024} KiB, over the {limit / 1024} KiB default {_busConfig.TransportKind} message limit, so clients may never receive it. Narrow the exposed nodes with OPCUA_NODE_FILTER or raise the broker's limit.");
         }
 
-        public Task RunAsync(CancellationToken ct) => Task.WhenAll(MaintainBrokerConnectionAsync(ct), PublishHeartbeatsAsync(ct), ServeGetsAsync(ct), Monitors.RunAsync(ct));
+        public Task RunAsync(CancellationToken ct) => Task.WhenAll(MaintainBrokerConnectionAsync(ct), PublishHeartbeatsAsync(ct), ServeGetsAsync(ct), Monitors.RunAsync(ct), _setWriter.RunAsync(ct));
 
         private async Task MaintainBrokerConnectionAsync(CancellationToken ct)
         {
@@ -173,6 +181,19 @@ namespace StatePipes.OpcUaBridge
                 else if (catalog.ByDeleteCommand.TryGetValue(routingKey, out var deleted))
                 {
                     if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) Monitors.Delete(replyTo.CommandExchangeName, deleted, Encoding.UTF8.GetString(replyToRaw.Span));
+                }
+                else if (catalog.BySetCommand.TryGetValue(routingKey, out var settable))
+                {
+                    // The Set is written later, after the transport may have reused its buffers.
+                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) _setWriter.Enqueue(settable, [.. body], replyTo, replyToRaw.ToArray());
+                }
+                else if (MessageNames.FromSetCommandFullName(routingKey, _namespace) is { } setNames)
+                {
+                    // A Set for a node without one: not discovered yet, gone, or not writable.
+                    if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) return;
+                    var readable = catalog.ByCommand.GetValueOrDefault(setNames.CommandTypeFullName);
+                    var status = !catalog.Discovered ? StatusCodes.BadWaitingForInitialData : readable != null ? StatusCodes.BadNotWritable : StatusCodes.BadNodeIdUnknown;
+                    SendSetStatus(setNames, readable?.NodeIdText ?? string.Empty, status, replyTo, replyToRaw.ToArray());
                 }
                 else if (MessageNames.FromCommandFullName(routingKey, _namespace) is { } names)
                 {
@@ -282,6 +303,24 @@ namespace StatePipes.OpcUaBridge
             return Encoding.UTF8.GetBytes(body.ToString(Newtonsoft.Json.Formatting.None));
         }
 
+        public void SendSetStatus(OpcUaDataItem item, StatusCode statusCode, BusConfig replyTo, byte[] replyToRaw) =>
+            SendSetStatus(item.Names, item.NodeIdText, statusCode, replyTo, replyToRaw);
+
+        /// <summary>Answers a Set like a Get: once, on the main channel, to the sender's response exchange.</summary>
+        private void SendSetStatus(MessageNames names, string nodeId, StatusCode statusCode, BusConfig replyTo, byte[] replyToRaw) =>
+            SendResponse(_connectionChannel, CreateSetStatusBody(nodeId, statusCode), names.SetStatusEventTypeFullName, replyTo, replyToRaw);
+
+        internal static byte[] CreateSetStatusBody(string nodeId, StatusCode statusCode)
+        {
+            JObject body = new()
+            {
+                [SelfDescriptionBuilder.NodeIdProperty] = nodeId,
+                [SelfDescriptionBuilder.StatusCodeProperty] = statusCode.Code,
+                [SelfDescriptionBuilder.StatusProperty] = statusCode.ToString()
+            };
+            return Encoding.UTF8.GetBytes(body.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
         public void SendNotification(OpcUaDataItem item, DataValue value, string replyToRaw)
         {
             var raw = Encoding.UTF8.GetBytes(replyToRaw);
@@ -353,6 +392,7 @@ namespace StatePipes.OpcUaBridge
         public void Dispose()
         {
             _pendingGets.Writer.TryComplete();
+            _setWriter.Complete();
             _connectionChannel?.Dispose();
             _connectionChannel = null;
             _notificationChannel?.Dispose();

@@ -185,6 +185,37 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.AreEqual(JTokenType.Null, OpcUaValueMapper.ToJToken(null, typeof(double)).Type);
         }
 
+        [TestMethod]
+        public void SelfDescription_SetMessagesOnlyForWritableItems()
+        {
+            var writable = CreateItem("Line1.Setpoint", typeof(double)) with { BuiltInType = BuiltInType.Double, IsWritable = true };
+            var readOnly = CreateItem("Line1.Temperature", typeof(double)) with { BuiltInType = BuiltInType.Double };
+
+            var names = SelfDescriptionBuilder.Build([writable, readOnly]).TypeSerializations.Select(t => t.FullName).ToList();
+
+            CollectionAssert.Contains(names, writable.SetCommandTypeFullName);
+            CollectionAssert.Contains(names, writable.SetStatusEventTypeFullName);
+            Assert.IsFalse(names.Any(n => n.Contains("Set_ns2_s_Line1_Temperature") || n.Contains("SetStatus_ns2_s_Line1_Temperature")));
+            var setCommand = SelfDescriptionBuilder.Build([writable]).TypeSerializations.Single(t => t.FullName == writable.SetCommandTypeFullName).GetTopLevelDescription();
+            Assert.IsTrue(setCommand.IsCommand);
+            var value = setCommand.Properties.Single();
+            Assert.AreEqual("Value", value.Name);
+            Assert.IsFalse(value.IsNullable);
+        }
+
+        [TestMethod]
+        public void SelfDescription_SizePerWritableItem()
+        {
+            static int Size(IEnumerable<OpcUaDataItem> items) => JsonUtility.GetJsonStringForObject(new SelfDescriptionEvent(SelfDescriptionBuilder.Build(items)), true).Length;
+            var readOnly = Enumerable.Range(0, 100).Select(i => CreateItem($"Line1.Value{i}", typeof(double)) with { BuiltInType = BuiltInType.Double }).ToList();
+            var writable = readOnly.Select(item => item with { IsWritable = true }).ToList();
+
+            var perItem = (Size(writable) - Size(readOnly)) / 100;
+
+            Console.WriteLine($"A writable Double item adds {perItem} bytes to the self description");
+            Assert.IsLessThan(6 * 1024, perItem);
+        }
+
         /// <summary>
         /// The self description must be usable the way StatePipes.Explorer uses it: round-trip it through JSON,
         /// emit real types from it, build example commands, and deserialize a Get event body into the emitted type.

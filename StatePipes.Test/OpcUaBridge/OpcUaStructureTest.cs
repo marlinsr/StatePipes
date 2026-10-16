@@ -190,6 +190,30 @@ namespace StatePipes.Test.OpcUaBridge
             Deserialize(body, emitted[density.EventTypeFullName]);
         }
 
+        [TestMethod]
+        public async Task SelfDescription_SetCommands_SerializeIntoBodiesTheEncodersAccept()
+        {
+            var builder = CreateBuilder();
+            var densityLayout = (await builder.BuildAsync(DensityTypeId, CancellationToken.None))!;
+            var tankLayout = (await builder.BuildAsync(TankTypeId, CancellationToken.None))!;
+            var tank = CreateItem("Tank", tankLayout, isArray: false) with { IsWritable = true, BuiltInType = BuiltInType.ExtensionObject };
+            var densities = CreateItem("Densities", densityLayout, isArray: true) with { IsWritable = true, BuiltInType = BuiltInType.ExtensionObject };
+            NodeId levelId = new("Level", 2);
+            OpcUaDataItem level = new(levelId, levelId.ToString(), OpcUaNaming.ToMessageNames(Exchange, levelId), typeof(double), null, false, BuiltInType.Double, true);
+            var emitted = EmitLikeExplorer([tank, densities, level]);
+
+            // A client builds the command from the emitted type and sends its JSON: the bridge must accept it.
+            JToken SentValue(OpcUaDataItem item, string json)
+            {
+                var command = JsonUtility.GetObjectFromJson(json, emitted[item.SetCommandTypeFullName])!;
+                return JObject.Parse(JsonUtility.GetJsonStringForObject(command, true))["Value"]!;
+            }
+            Assert.AreEqual(StatusCodes.Good, StructureEncoder.TryEncode(SentValue(tank, """{"Value":{"Name":"T1","Density":{"Volume":1.0,"Mass":2.0},"History":[],"Readings":[1.5]}}"""), tankLayout, false, out _).Code);
+            Assert.AreEqual(StatusCodes.Good, StructureEncoder.TryEncode(SentValue(densities, """{"Value":[{"Volume":1.0,"Mass":2.0}]}"""), densityLayout, true, out _).Code);
+            Assert.AreEqual(StatusCodes.Good, OpcUaValueEncoder.TryEncode(SentValue(level, """{"Value":4.5}"""), BuiltInType.Double, false, out _).Code);
+            Assert.IsTrue(emitted.ContainsKey(level.SetStatusEventTypeFullName));
+        }
+
         private static Dictionary<string, Type> EmitLikeExplorer(IEnumerable<OpcUaDataItem> items)
         {
             var json = JsonUtility.GetJsonStringForObject(new SelfDescriptionEvent(SelfDescriptionBuilder.Build(items)), true);

@@ -59,6 +59,9 @@ namespace StatePipes.OpcUaBridge
                 list.TypeSerializations.Add(BuildMonitorCommand(item, converter));
                 list.TypeSerializations.Add(BuildDeleteCommand(item));
                 list.TypeSerializations.Add(BuildMonitorStatusEvent(item, converter));
+                if (!item.IsWritable) continue;
+                list.TypeSerializations.Add(BuildSetCommand(item));
+                list.TypeSerializations.Add(BuildSetStatusEvent(item));
             }
             return list;
         }
@@ -80,6 +83,32 @@ namespace StatePipes.OpcUaBridge
             AddProperty(serialization, description, SamplingIntervalProperty, typeof(double));
             AddProperty(serialization, description, QueueSizeProperty, typeof(uint));
             AddProperty(serialization, description, PublishingIntervalProperty, typeof(double));
+            return serialization;
+        }
+
+        /// <summary>
+        /// The Set command's Value is typed as the Get event's, but not nullable: a Set always says what to write.
+        /// </summary>
+        private static TypeSerialization BuildSetCommand(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.SetCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            if (item.Structure == null) AddProperty(serialization, description, ValueProperty, item.ValueType);
+            else AddStructureProperty(serialization, description, ValueProperty, item.Structure, item.IsArray);
+            return serialization;
+        }
+
+        private static TypeSerialization BuildSetStatusEvent(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.SetStatusEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, NodeIdProperty, typeof(string));
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
             return serialization;
         }
 
