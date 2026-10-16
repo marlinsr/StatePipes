@@ -2,17 +2,19 @@
 
 A docker container that presents an OPC UA server as a StatePipes service on a RabbitMQ or Kafka broker.
 
-On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**, a **Monitor command**, a **Delete command** and a **MonitorStatus event**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
+On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**, a **Monitor command**, a **Delete command** and a **MonitorStatus event**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. Each variable the session may also write gets a **Set command** and a **SetStatus event**: a Set command writes its value, and the SetStatus event tells the sender whether the write succeeded. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
 
 ## Naming
 
-Every message of a data item is in the namespace given by the bridge's `EXCHANGE`, so StatePipes.Explorer shows them together. The type name is the whole NodeId: its namespace index, the letter of its identifier type (`i`, `s`, `g` or `b`, as in NodeId notation) and its identifier, with dots replaced by underscores, prefixed with `Get_`, `Monitor_`, `Delete_` or `MonitorStatus_` and suffixed with `_Command` or `_Event`. With `EXCHANGE=Line1Plc`:
+Every message of a data item is in the namespace given by the bridge's `EXCHANGE`, so StatePipes.Explorer shows them together. The type name is the whole NodeId: its namespace index, the letter of its identifier type (`i`, `s`, `g` or `b`, as in NodeId notation) and its identifier, with dots replaced by underscores, prefixed with `Get_`, `Monitor_`, `Delete_`, `MonitorStatus_`, `Set_` or `SetStatus_` and suffixed with `_Command` or `_Event`. With `EXCHANGE=Line1Plc`:
 
 | OPC UA node | Get command / event | Monitor command | Delete command | MonitorStatus event |
 |---|---|---|---|---|
 | `ns=2;s=Machine.Motor.Speed` | `Get_ns2_s_Machine_Motor_Speed_Command` / `_Event` | `Monitor_ns2_s_Machine_Motor_Speed_Command` | `Delete_ns2_s_Machine_Motor_Speed_Command` | `MonitorStatus_ns2_s_Machine_Motor_Speed_Event` |
 | `ns=2;s=Speed` | `Get_ns2_s_Speed_Command` / `_Event` | `Monitor_ns2_s_Speed_Command` | `Delete_ns2_s_Speed_Command` | `MonitorStatus_ns2_s_Speed_Event` |
 | `ns=3;i=1001` | `Get_ns3_i_1001_Command` / `_Event` | `Monitor_ns3_i_1001_Command` | `Delete_ns3_i_1001_Command` | `MonitorStatus_ns3_i_1001_Event` |
+
+A writable variable's Set command and SetStatus event follow the same pattern: `Set_ns2_s_Machine_Motor_Speed_Command` and `SetStatus_ns2_s_Machine_Motor_Speed_Event`.
 
 - Any other character that can't appear in a type name becomes `_`, in the type name and in each segment of the exchange name.
 - If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged. The item's other messages get the same suffix.
@@ -97,6 +99,49 @@ Every Monitor and Delete command is answered with the variable's MonitorStatus e
 | `BadNotConnected` | `Pending`: saved, and applied when the server is back. |
 | `BadDeadbandFilterInvalid` / `BadFilterNotAllowed` | The server refused the deadband, for example `Percent` on a variable that is not an AnalogItem. The monitor is kept and retried on every reconnect. |
 
+## Set
+
+A variable gets a Set command when the session's user may write it (its `UserAccessLevel` has `CurrentWrite`), it matches `OPCUA_WRITE_FILTER` if that is set, and its value can be written back from JSON:
+
+- a scalar or one-dimensional array of Boolean, the integer types, Float, Double, String, DateTime, Guid, ByteString, StatusCode or an enumeration; or
+- a structure the bridge can decode, or a one-dimensional array of one, when the structure and every structure inside it name a default binary encoding and every other field is one of the types above.
+
+Matrices, variables whose rank isn't fixed, the abstract types Number, Integer and UInteger, and values published as a string (NodeId, LocalizedText, QualifiedName, structures the bridge can't decode, ...) get no Set command. Discovery logs how many writable variables were left out and why, e.g. `3 writable items have no Set command (matrix or unfixed rank: 1, abstract type: 1, string fallback: 1)`, and each one at verbose level.
+
+The Set command has one property, `Value`, typed exactly like the Get event's `Value`:
+
+```json
+{ "Value": 1450.5 }
+```
+
+- **Strict conversion.** The value is written as the variable's exact built-in type (an Int16 variable gets an Int16). JSON of the wrong kind (`"5"` or `3.7` for an Int16) is refused with `BadTypeMismatch`, and a number the type can't hold (`70000` for an Int16) with `BadOutOfRange`; nothing is rounded or wrapped. A DateTime without an offset is taken as UTC.
+- **Structures.** Every field is required, except String, ByteString and array fields, which are written as null when left out. That is how the Get event leaves out null fields, so a Get event's `Value` can be sent back unchanged. A property the structure doesn't have is refused with `BadTypeMismatch`.
+- **Arrays** are written whole; there is no way to set a single element.
+- **Order.** Sets to one variable are written in the order they arrive, and their SetStatus events come back in that order. Sets to different variables that arrive together are batched into one OPC UA Write.
+- **No retries.** A Set is written once or not at all. When the OPC UA server is unreachable it fails at once with `BadNotConnected`; nothing waits for the server to come back.
+
+### Set status
+
+Every Set command is answered with the variable's SetStatus event, sent to you as a response:
+
+```json
+{ "NodeId": "ns=2;s=Machine.Motor.Speed", "StatusCode": 0, "Status": "Good" }
+```
+
+| Status | Meaning |
+|---|---|
+| `Good` | The server accepted the value. |
+| `BadTypeMismatch` | `Value` is missing, or of the wrong kind, or a structure field is missing or unknown. Nothing was written. |
+| `BadOutOfRange` | A number doesn't fit the variable's type, or the server refused the value as out of range. |
+| `BadNotWritable` | The variable is readable but has no Set command. |
+| `BadNodeIdUnknown` | The variable is not on the server, or no longer is. `NodeId` is empty. |
+| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Send the command again. `NodeId` is empty. |
+| `BadNotConnected` | The OPC UA server is unreachable. Nothing was written. |
+| `BadTimeout`, `BadCommunicationError` | **The outcome is unknown**: the write may have reached the server before the connection failed. Send a Get to find out. |
+| any other | The server's own reason, e.g. `BadUserAccessDenied`. |
+
+A Set whose reply-to is on another broker or uses other credentials than the bridge is dropped unanswered, and nothing is written.
+
 ## Configuration
 
 Each setting is read from an environment variable. The equivalent `--NAME=value` command line argument works too.
@@ -125,6 +170,7 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 | `OPCUA_APPLICATION_NAME` | `StatePipes.OpcUaBridge` | Application and session name shown to the server. |
 | `OPCUA_INCLUDE_NS0` | `false` | Also expose namespace 0 and the `http://opcfoundation.org/UA/Diagnostics` namespace (the server's own diagnostics). |
 | `OPCUA_NODE_FILTER` | | Regex matched against the NodeId text. When set, only matching nodes are exposed. |
+| `OPCUA_WRITE_FILTER` | | Regex matched against the NodeId text. When set, only matching writable nodes get a Set command; the others stay readable. |
 | `OPCUA_RECONNECT_SECONDS` | `5` | Delay before reconnecting after the session is lost. |
 
 ### Monitors
@@ -140,7 +186,7 @@ Discovery browses down from the Objects folder. It runs again after every reconn
 
 ### Large servers
 
-The self description lists all five messages of every variable in **one message**, at roughly 10.7 KB per variable (about 3.3 KB of it for the Get command and event). Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 1,500 variables on RabbitMQ and about 95 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) or raise the broker's limit.
+The self description lists all five messages of every variable in **one message**, at roughly 10.7 KB per variable (about 3.3 KB of it for the Get command and event). A writable variable's Set command and SetStatus event add about 2.6 KB more for a plain value, and more for a structure, whose description each message repeats. Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 1,500 variables on RabbitMQ and about 95 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) and the writable ones with `OPCUA_WRITE_FILTER`, or raise the broker's limit.
 
 ## Running
 
@@ -161,11 +207,12 @@ docker run -d --name opcuabridge \
 
 The CA certificates let the container trust the broker's TLS certificate, the same way StatePipes.Explorer's container does.
 
-To try it without a PLC, use Microsoft's simulator: `docker run -d -p 50000:50000 mcr.microsoft.com/iotedge/opc-plc --pn=50000 --autoaccept`. Its telemetry nodes are in `ns=3`.
+To try it without a PLC, use the `OpcUaServer` project in this repository (its `Setpoints` nodes are for trying out Set; see its README), or Microsoft's simulator: `docker run -d -p 50000:50000 mcr.microsoft.com/iotedge/opc-plc --pn=50000 --autoaccept`. Its telemetry nodes are in `ns=3`.
 
 ## Design notes
 
 - The bridge doesn't host a `StatePipesService`. Its Get commands only exist at runtime, and a compiled service dispatches on compiled message types. Instead it speaks the StatePipes wire format directly over BrokerProxy's RabbitMQ/Kafka channels, which it compiles as linked source.
 - Get commands are queued off the broker's receive thread. A single reader then batches whatever has queued up into one OPC UA Read.
+- Set commands are queued and batched the same way into one OPC UA Write, except that a batch never holds two Sets for the same variable, because OPC UA doesn't promise to apply one Write's values in order.
 - Every monitor change (commands, rebuilds, suspension, expiry) goes through one queue with a single reader, so a command never races a rebuild.
 - Monitor responses use a second broker channel. RabbitMQ closes a channel that publishes to a missing exchange; on its own channel that never interrupts commands or heartbeats, and it triggers an immediate reply-to check.
