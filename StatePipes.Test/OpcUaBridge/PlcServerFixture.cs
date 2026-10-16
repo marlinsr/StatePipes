@@ -28,6 +28,8 @@ namespace StatePipes.Test.OpcUaBridge
         public ushort NamespaceIndex => NodeManager.NamespaceIndex;
         public NodeId Pressure => new("pressure", NamespaceIndex);
         public NodeId Msg => new("msg", NamespaceIndex);
+        /// <summary>A node in the Setpoints folder, which nothing but a test changes.</summary>
+        public NodeId Setpoint(string name) => new($"Setpoints.{name}", NamespaceIndex);
 
         public static async Task<PlcServerFixture> StartAsync(int port)
         {

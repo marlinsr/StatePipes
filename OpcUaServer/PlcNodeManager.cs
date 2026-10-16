@@ -120,6 +120,8 @@ public class PlcNodeManager : CustomNodeManager2
             root.AddChild(_tank);
             AddPredefinedNode(SystemContext, _tank);
 
+            CreateSetpoints(root, densityTypeId, tankType.DataType.NodeId);
+
             var calcMethod = new MethodState(root);
             calcMethod.Create(
                 SystemContext,
@@ -157,6 +159,68 @@ public class PlcNodeManager : CustomNodeManager2
             AddPredefinedNode(SystemContext, calcMethod);
         }
     }
+
+    // Writable nodes the simulation loop never touches, one per kind of value a client can write, plus nodes
+    // that must not be writable (read-only, matrix, abstract type, a type with no natural form).
+    private void CreateSetpoints(FolderState root, NodeId densityTypeId, NodeId tankTypeId)
+    {
+        var folder = new FolderState(root) { ReferenceTypeId = ReferenceTypeIds.Organizes };
+        folder.Create(
+            SystemContext,
+            new NodeId("Setpoints", NamespaceIndex),
+            new QualifiedName("Setpoints", NamespaceIndex),
+            new LocalizedText("Setpoints"),
+            false);
+        root.AddChild(folder);
+
+        var density = new DensityData { Volume = 1.0, Mass = 2.0 };
+        AddSetpoint(folder, "Double", DataTypeIds.Double, ValueRanks.Scalar, new Variant(0.0));
+        AddSetpoint(folder, "Int16", DataTypeIds.Int16, ValueRanks.Scalar, new Variant((short)0));
+        AddSetpoint(folder, "Boolean", DataTypeIds.Boolean, ValueRanks.Scalar, new Variant(false));
+        AddSetpoint(folder, "String", DataTypeIds.String, ValueRanks.Scalar, new Variant(string.Empty));
+        AddSetpoint(folder, "DateTime", DataTypeIds.DateTime, ValueRanks.Scalar, new Variant(new DateTimeUtc(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))));
+        AddSetpoint(folder, "DoubleArray", DataTypeIds.Double, ValueRanks.OneDimension, new Variant((ArrayOf<double>)new[] { 1.0, 2.0 }));
+        AddSetpoint(folder, "Int32Array", DataTypeIds.Int32, ValueRanks.OneDimension, new Variant((ArrayOf<int>)new[] { 1, 2 }));
+        AddSetpoint(folder, "Density", densityTypeId, ValueRanks.Scalar, new Variant(new ExtensionObject(DensityData.BinaryEncodingId, density)));
+        AddSetpoint(folder, "DensityArray", densityTypeId, ValueRanks.OneDimension,
+            new Variant((ArrayOf<ExtensionObject>)new[] { new ExtensionObject(DensityData.BinaryEncodingId, density) }));
+        AddSetpoint(folder, "Tank", tankTypeId, ValueRanks.Scalar, new Variant(new ExtensionObject(TankData.BinaryEncodingId, new TankData { Name = "Setpoint" })));
+        var percent = AddSetpoint(folder, "Percent", DataTypeIds.Double, ValueRanks.Scalar, new Variant(0.0));
+        percent.OnSimpleWriteValue = OnWritePercent;
+        AddSetpoint(folder, "ReadOnly", DataTypeIds.Double, ValueRanks.Scalar, new Variant(0.0), AccessLevels.CurrentRead, AccessLevels.CurrentRead);
+        AddSetpoint(folder, "UserReadOnly", DataTypeIds.Double, ValueRanks.Scalar, new Variant(0.0), AccessLevels.CurrentReadOrWrite, AccessLevels.CurrentRead);
+        var matrix = AddSetpoint(folder, "Matrix", DataTypeIds.Double, ValueRanks.TwoDimensions, new Variant(((ArrayOf<double>)new double[4]).ToMatrix([2, 2])));
+        matrix.ArrayDimensions = (ArrayOf<uint>)new uint[] { 2, 2 };
+        AddSetpoint(folder, "Number", DataTypeIds.Number, ValueRanks.Scalar, new Variant(0.0));
+        AddSetpoint(folder, "Text", DataTypeIds.LocalizedText, ValueRanks.Scalar, new Variant(new LocalizedText("en", "Setpoint")));
+
+        AddPredefinedNode(SystemContext, folder);
+    }
+
+    private BaseDataVariableState AddSetpoint(FolderState folder, string name, NodeId dataType, int valueRank, Variant value,
+        byte accessLevel = AccessLevels.CurrentReadOrWrite, byte userAccessLevel = AccessLevels.CurrentReadOrWrite)
+    {
+        var variable = new BaseDataVariableState(folder);
+        variable.Create(
+            SystemContext,
+            new NodeId($"Setpoints.{name}", NamespaceIndex),
+            new QualifiedName(name, NamespaceIndex),
+            new LocalizedText(name),
+            false);
+        variable.DataType = dataType;
+        variable.ValueRank = valueRank;
+        variable.AccessLevel = accessLevel;
+        variable.UserAccessLevel = userAccessLevel;
+        variable.WrappedValue = value;
+        variable.StatusCode = StatusCodes.Good;
+        variable.Timestamp = DateTime.UtcNow;
+        folder.AddChild(variable);
+        return variable;
+    }
+
+    // Setpoints.Percent only takes 0 to 100, so a client can see a server refuse a write.
+    private static ServiceResult OnWritePercent(ISystemContext context, NodeState node, ref Variant value) =>
+        value.TryGetValue(out double percent) && percent is >= 0 and <= 100 ? ServiceResult.Good : StatusCodes.BadOutOfRange;
 
     private sealed record StructureDataType(DataTypeState DataType, BaseObjectState Encoding);
 
