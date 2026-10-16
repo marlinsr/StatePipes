@@ -17,6 +17,12 @@ namespace StatePipes.OpcUaBridge
     /// </summary>
     internal static class OpcUaValueEncoder
     {
+        /// <summary>Whether a value of <paramref name="builtInType"/> can be written: the concrete types with a natural CLR form.</summary>
+        public static bool IsSupported(BuiltInType builtInType) => builtInType is BuiltInType.Boolean or BuiltInType.SByte or BuiltInType.Byte
+            or BuiltInType.Int16 or BuiltInType.UInt16 or BuiltInType.Int32 or BuiltInType.UInt32 or BuiltInType.Int64 or BuiltInType.UInt64
+            or BuiltInType.Float or BuiltInType.Double or BuiltInType.String or BuiltInType.DateTime or BuiltInType.Guid
+            or BuiltInType.ByteString or BuiltInType.StatusCode or BuiltInType.Enumeration;
+
         public static StatusCode TryEncode(JToken? value, BuiltInType builtInType, bool isArray, out Variant variant)
         {
             variant = Variant.Null;
