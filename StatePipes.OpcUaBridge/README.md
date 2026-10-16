@@ -91,8 +91,8 @@ Every Monitor and Delete command is answered with the variable's MonitorStatus e
 | Status | Meaning |
 |---|---|
 | `BadInvalidArgument` | A field is missing or out of range. Nothing was saved. |
-| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Nothing was saved or deleted; send the command again. `NodeId` is empty. |
-| `BadNodeIdUnknown` | The variable is not on the server, or no longer is. |
+| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Nothing was saved; send the command again. `NodeId` is empty. |
+| `BadNodeIdUnknown` | The variable is not on the server, or no longer is. A Delete for a variable that has left the server still deletes your monitor on it and is answered `Deleted`. |
 | `BadNotFound` | Delete: you have no monitor on that variable. |
 | `BadNotConnected` | `Pending`: saved, and applied when the server is back. |
 | `BadDeadbandFilterInvalid` / `BadFilterNotAllowed` | The server refused the deadband, for example `Percent` on a variable that is not an AnalogItem. The monitor is kept and retried on every reconnect. |

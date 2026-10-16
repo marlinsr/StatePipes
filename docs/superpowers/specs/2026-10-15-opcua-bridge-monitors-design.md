@@ -251,7 +251,10 @@ exchange declare on a temporary RabbitMQ channel, a topic metadata lookup on Kaf
 `ConsumeCommand` recognises a per-item Monitor or Delete command by routing key shape
 (`{namespace}.Monitor_…_Command`, `{namespace}.Delete_…_Command`) without the catalog, and answers on the
 MonitorStatus event whose name it derives from the routing key (prefix → `MonitorStatus_`, suffix → `_Event`).
-Nothing is stored; the client must re-send.
+A Monitor command stores nothing; the client must re-send. A Delete command still deletes the sender's stored
+monitor on the item those names belong to (the bridge remembers the names of every item it has listed), so a
+monitor on an item that has left the server can be removed; it is answered `Deleted` with that NodeId. Only when
+there is no such monitor does it get the status below.
 
 - **Before the first discovery** (no OPC UA session has completed yet): `Failed` +
   `BadWaitingForInitialData`, empty `NodeId`.

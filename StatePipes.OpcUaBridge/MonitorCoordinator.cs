@@ -32,6 +32,7 @@ namespace StatePipes.OpcUaBridge
         private abstract record MonitorWork;
         private sealed record MonitorRequest(string Sender, OpcUaDataItem Item, MonitorParameters Parameters, string ReplyToRaw) : MonitorWork;
         private sealed record DeleteRequest(string Sender, OpcUaDataItem Item, string ReplyToRaw) : MonitorWork;
+        private sealed record DeleteUnlistedRequest(string Sender, MessageNames Names, string ReplyToRaw, StatusCode NotFound) : MonitorWork;
         private sealed record SessionStart(IMonitorSession Session, IReadOnlyList<OpcUaDataItem> Catalog) : MonitorWork;
         private sealed record SessionEnd : MonitorWork;
         private sealed record ReplyToCheck : MonitorWork;
@@ -40,6 +41,12 @@ namespace StatePipes.OpcUaBridge
         /// <summary>Creates or updates <paramref name="senderCommandExchange"/>'s monitor on <paramref name="item"/>.</summary>
         public void Monitor(string senderCommandExchange, OpcUaDataItem item, MonitorParameters parameters, string replyToRaw) => Enqueue(new MonitorRequest(senderCommandExchange, item, parameters, replyToRaw));
         public void Delete(string senderCommandExchange, OpcUaDataItem item, string replyToRaw) => Enqueue(new DeleteRequest(senderCommandExchange, item, replyToRaw));
+        /// <summary>
+        /// A Delete command for an item the catalog does not hold, known only by its message names. It deletes the
+        /// sender's stored monitor on the item those names belong to, so a monitor on an item that has left the
+        /// server can still be removed; when there is none, the sender gets <paramref name="notFound"/>.
+        /// </summary>
+        public void DeleteUnlisted(string senderCommandExchange, MessageNames names, string replyToRaw, StatusCode notFound) => Enqueue(new DeleteUnlistedRequest(senderCommandExchange, names, replyToRaw, notFound));
         public void SessionStarted(IMonitorSession session, IReadOnlyList<OpcUaDataItem> catalog) => Enqueue(new SessionStart(session, catalog));
         public void SessionLost() => Enqueue(new SessionEnd());
         public void CheckReplyTos() => Enqueue(new ReplyToCheck());
@@ -88,6 +95,7 @@ namespace StatePipes.OpcUaBridge
         {
             MonitorRequest request => HandleMonitorAsync(request, ct),
             DeleteRequest request => HandleDeleteAsync(request, ct),
+            DeleteUnlistedRequest request => HandleDeleteUnlistedAsync(request, ct),
             SessionStart start => HandleSessionStartAsync(start, ct),
             SessionEnd => EndSessionAsync(),
             ReplyToCheck => HandleReplyToCheckAsync(ct),
@@ -126,6 +134,19 @@ namespace StatePipes.OpcUaBridge
             }
             await RemoveFromSessionAsync(key, ct);
             SendStatus(key.NodeIdText, MonitorState.Deleted, new MonitorApplyResult(MonitorState.Deleted, StatusCodes.Good, 0, 0, 0), request.ReplyToRaw);
+        }
+
+        private async Task HandleDeleteUnlistedAsync(DeleteUnlistedRequest request, CancellationToken ct)
+        {
+            var definition = registry.GetAll().FirstOrDefault(d => d.Key.SenderCommandExchange == request.Sender
+                && NamesFor(d.NodeIdText).DeleteCommandTypeFullName == request.Names.DeleteCommandTypeFullName);
+            if (definition == null || !registry.Remove(definition.Key))
+            {
+                output.SendStatus(MonitorStatus.Failed(string.Empty, request.NotFound), request.Names, request.ReplyToRaw);
+                return;
+            }
+            await RemoveFromSessionAsync(definition.Key, ct);
+            SendStatus(definition.NodeIdText, MonitorState.Deleted, new MonitorApplyResult(MonitorState.Deleted, StatusCodes.Good, 0, 0, 0), request.ReplyToRaw);
         }
 
         /// <summary>

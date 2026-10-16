@@ -38,15 +38,20 @@ namespace StatePipes.OpcUaBridge
         /// </summary>
         public static bool TryGetMonitorStatusEventFor(string commandFullName, string @namespace, out string statusEventFullName)
         {
-            statusEventFullName = string.Empty;
+            var names = FromCommandFullName(commandFullName, @namespace);
+            statusEventFullName = names?.MonitorStatusEventTypeFullName ?? string.Empty;
+            return names != null;
+        }
+
+        /// <summary>The names of the node a Monitor or Delete command's full name belongs to, or null for any other name.</summary>
+        public static MessageNames? FromCommandFullName(string commandFullName, string @namespace)
+        {
             var namespacePrefix = @namespace + ".";
-            if (!commandFullName.StartsWith(namespacePrefix, StringComparison.Ordinal) || !commandFullName.EndsWith(CommandSuffix, StringComparison.Ordinal)) return false;
+            if (!commandFullName.StartsWith(namespacePrefix, StringComparison.Ordinal) || !commandFullName.EndsWith(CommandSuffix, StringComparison.Ordinal)) return null;
             var name = commandFullName[namespacePrefix.Length..^CommandSuffix.Length];
             string? baseName = name.StartsWith(MonitorPrefix, StringComparison.Ordinal) ? name[MonitorPrefix.Length..]
                 : name.StartsWith(DeletePrefix, StringComparison.Ordinal) ? name[DeletePrefix.Length..] : null;
-            if (string.IsNullOrEmpty(baseName)) return false;
-            statusEventFullName = $"{namespacePrefix}{MonitorStatusPrefix}{baseName}{EventSuffix}";
-            return true;
+            return string.IsNullOrEmpty(baseName) ? null : new MessageNames(@namespace, GetPrefix + baseName);
         }
     }
 

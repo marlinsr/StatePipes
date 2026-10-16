@@ -261,6 +261,19 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public void DeleteCommand_ItemGoneFromCatalog_DeletesStoredMonitor()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus();
+            _bridge.SetCatalog([]);
+            _channels.Notifications.Sent.Clear();
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Deleted, StatusCodes.Good, _pressure.NodeIdText);
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
         public void GetCommand_StillAnsweredOnMainChannel()
         {
             _bridge.SetCatalog([_pressure]);

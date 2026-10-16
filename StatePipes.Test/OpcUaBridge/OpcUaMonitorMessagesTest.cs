@@ -2,7 +2,9 @@ using Opc.Ua;
 using StatePipes.Common;
 using StatePipes.Messages;
 using StatePipes.OpcUaBridge;
+using StatePipes.OpcUaBridge.Messages;
 using StatePipes.SelfDescription;
+using System.Text;
 
 namespace StatePipes.Test.OpcUaBridge
 {
@@ -108,6 +110,13 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.AreEqual(typeof(uint), status.GetProperty("RevisedQueueSize")!.PropertyType);
             Assert.AreEqual(typeof(double), status.GetProperty("RevisedPublishingInterval")!.PropertyType);
             Assert.IsNull(status.GetProperty("MonitorName"));
+
+            var body = Encoding.UTF8.GetString(OpcUaBridgeService.CreateMonitorStatusBody(new MonitorStatus("ns=2;s=Line1.Temperature", MonitorState.Active, StatusCodes.Good, 50, 10, 1000)));
+            dynamic statusBody = JsonUtility.GetObjectFromJson(body, status)!;
+            Assert.AreEqual("Active", statusBody.State.ToString());
+            Assert.AreEqual(1000.0, (double)statusBody.RevisedPublishingInterval);
+            Assert.AreEqual(10u, (uint)statusBody.RevisedQueueSize);
+            Assert.AreEqual("ns=2;s=Line1.Temperature", (string)statusBody.NodeId);
 
             Assert.IsFalse(emitted.Keys.Any(name => name.EndsWith("DeleteMonitorCommand") || name.EndsWith("MonitorStatusEvent")));
             Assert.IsTrue(emitted.Keys.Where(name => name.Contains("_ns2_s_Line1_Temperature_")).All(name => name.StartsWith("Line1Plc.")));

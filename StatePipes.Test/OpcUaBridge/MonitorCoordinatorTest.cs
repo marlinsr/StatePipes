@@ -282,6 +282,36 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public void DeleteUnlisted_StoredItemGoneFromCatalog_Deleted()
+        {
+            var gone = On("ns=2;s=removed");
+            _registry.Upsert(gone);
+            var session = StartSession();
+            NextStatus();
+            var names = MessageNames.FromCommandFullName("Line1Plc.Delete_ns2_s_removed_Command", Exchange)!;
+            _coordinator.DeleteUnlisted(Sender, names, gone.ReplyToRaw, StatusCodes.BadNodeIdUnknown);
+            var (status, statusNames, _) = NextEntry();
+            Assert.AreEqual(MonitorState.Deleted, status.State);
+            Assert.AreEqual("ns=2;s=removed", status.NodeId);
+            Assert.AreEqual("Line1Plc.MonitorStatus_ns2_s_removed_Event", statusNames.MonitorStatusEventTypeFullName);
+            Assert.IsNull(_registry.Get(gone.Key));
+        }
+
+        [TestMethod]
+        public void DeleteUnlisted_NoStoredMonitor_FailedWithGivenCode()
+        {
+            _registry.Upsert(On("ns=2;s=removed", "Client2"));
+            var names = MessageNames.FromCommandFullName("Line1Plc.Delete_ns2_s_removed_Command", Exchange)!;
+            _coordinator.DeleteUnlisted(Sender, names, On(Pressure).ReplyToRaw, StatusCodes.BadWaitingForInitialData);
+            var (status, statusNames, _) = NextEntry();
+            Assert.AreEqual(MonitorState.Failed, status.State);
+            Assert.AreEqual(StatusCodes.BadWaitingForInitialData, status.StatusCode.Code);
+            Assert.AreEqual("", status.NodeId);
+            Assert.AreEqual("Line1Plc.MonitorStatus_ns2_s_removed_Event", statusNames.MonitorStatusEventTypeFullName);
+            Assert.HasCount(1, _registry.GetAll());
+        }
+
+        [TestMethod]
         public void Delete_WhileDisconnected_RemovedAndNotRebuilt()
         {
             var definition = On(Pressure);

@@ -174,12 +174,15 @@ namespace StatePipes.OpcUaBridge
                 {
                     if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) Monitors.Delete(replyTo.CommandExchangeName, deleted, Encoding.UTF8.GetString(replyToRaw.Span));
                 }
-                else if (MessageNames.TryGetMonitorStatusEventFor(routingKey, _namespace, out var statusEvent))
+                else if (MessageNames.FromCommandFullName(routingKey, _namespace) is { } names)
                 {
                     // A Monitor or Delete command for a node the catalog does not hold: not discovered yet, or gone.
-                    if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out _)) return;
+                    // A Delete still removes a stored monitor on that node, which may well have left the server.
+                    if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) return;
                     var status = catalog.Discovered ? StatusCodes.BadNodeIdUnknown : StatusCodes.BadWaitingForInitialData;
-                    SendStatus(MonitorStatus.Failed(string.Empty, status), statusEvent, Encoding.UTF8.GetString(replyToRaw.Span));
+                    var replyToText = Encoding.UTF8.GetString(replyToRaw.Span);
+                    if (routingKey == names.DeleteCommandTypeFullName) Monitors.DeleteUnlisted(replyTo.CommandExchangeName, names, replyToText, status);
+                    else SendStatus(MonitorStatus.Failed(string.Empty, status), names, replyToText);
                 }
                 else
                 {
