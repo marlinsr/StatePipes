@@ -5,7 +5,7 @@
         private readonly List<string> _typeFullNameAddedList = [];
         public void AddNamespace(string element)
         {
-            
+
             if (Contains(element)) return;
             if (element.StartsWith("System") || element.StartsWith("StatePipes")) Add(element);
         }
@@ -19,7 +19,8 @@
             {
                 throw new Exception($"Namespace not found for type {td.FullName}");
             }
-            AddNamespace(td.Namespace);
+            // Any other type is generated into the proxy's own ValueObjects namespace, so its source namespace is never referenced.
+            if (td.Namespace.StartsWith("System") || td.Namespace.StartsWith("StatePipes.Common")) AddNamespace(td.Namespace);
         }
     }
 }
