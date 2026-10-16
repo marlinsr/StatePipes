@@ -36,10 +36,10 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.IsNotNull(items[_plc.Setpoint("Density")].Structure);
             Assert.IsTrue(items[_plc.Setpoint("DensityArray")].IsArray);
             Assert.AreEqual(typeof(string), items[_plc.Setpoint("Matrix")].ValueType);
-            Assert.HasCount(16, items.Keys.Where(n => n.IdentifierAsString?.StartsWith("Setpoints.") == true));
+            Assert.HasCount(17, items.Keys.Where(n => n.IdentifierAsString?.StartsWith("Setpoints.") == true));
         }
 
-        private static readonly string[] WritableSetpoints = ["Double", "Int16", "Boolean", "String", "DateTime", "DoubleArray", "Int32Array", "Density", "DensityArray", "Tank", "Percent"];
+        private static readonly string[] WritableSetpoints = ["Double", "Int16", "Boolean", "String", "DateTime", "DoubleArray", "Int32Array", "ByteArray", "Density", "DensityArray", "Tank", "Percent"];
         private static readonly string[] UnwritableSetpoints = ["ReadOnly", "UserReadOnly", "Matrix", "Number", "Text"];
 
         [TestMethod]
@@ -197,6 +197,7 @@ namespace StatePipes.Test.OpcUaBridge
         [DataRow("DateTime", "\"2026-03-04T05:06:07Z\"")]
         [DataRow("DoubleArray", "[1, 2.5]")]
         [DataRow("Int32Array", "[3, 4]")]
+        [DataRow("ByteArray", "\"AQID\"")]
         [DataRow("Density", """{"Volume":1,"Mass":2}""")]
         [DataRow("DensityArray", """[{"Volume":1,"Mass":2},{"Volume":3,"Mass":4}]""")]
         [DataRow("Tank", """{"Name":"T2","Density":{"Volume":1,"Mass":2},"History":[{"Volume":3,"Mass":4}],"Readings":[5]}""")]

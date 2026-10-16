@@ -21,6 +21,7 @@ written value is overwritten within half a second.
 | `Setpoints.DateTime` | DateTime | yes |
 | `Setpoints.DoubleArray` | Double[] | yes |
 | `Setpoints.Int32Array` | Int32[] | yes |
+| `Setpoints.ByteArray` | Byte[] | yes (sent and published as base64) |
 | `Setpoints.Density` | DensityDataType | yes |
 | `Setpoints.DensityArray` | DensityDataType[] | yes |
 | `Setpoints.Tank` | TankDataType | yes |

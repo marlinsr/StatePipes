@@ -181,6 +181,7 @@ public class PlcNodeManager : CustomNodeManager2
         AddSetpoint(folder, "DateTime", DataTypeIds.DateTime, ValueRanks.Scalar, new Variant(new DateTimeUtc(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))));
         AddSetpoint(folder, "DoubleArray", DataTypeIds.Double, ValueRanks.OneDimension, new Variant((ArrayOf<double>)new[] { 1.0, 2.0 }));
         AddSetpoint(folder, "Int32Array", DataTypeIds.Int32, ValueRanks.OneDimension, new Variant((ArrayOf<int>)new[] { 1, 2 }));
+        AddSetpoint(folder, "ByteArray", DataTypeIds.Byte, ValueRanks.OneDimension, new Variant((ArrayOf<byte>)new byte[] { 1, 2 }));
         AddSetpoint(folder, "Density", densityTypeId, ValueRanks.Scalar, new Variant(new ExtensionObject(DensityData.BinaryEncodingId, density)));
         AddSetpoint(folder, "DensityArray", densityTypeId, ValueRanks.OneDimension,
             new Variant((ArrayOf<ExtensionObject>)new[] { new ExtensionObject(DensityData.BinaryEncodingId, density) }));

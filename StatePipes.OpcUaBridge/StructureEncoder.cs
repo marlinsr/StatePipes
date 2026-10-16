@@ -87,6 +87,14 @@ namespace StatePipes.OpcUaBridge
 
         private static StatusCode TryWriteArray(BinaryEncoder encoder, JToken value, StructureFieldLayout field)
         {
+            if (field.Structure == null && field.BuiltInType == BuiltInType.Byte && value.Type == JTokenType.String)
+            {
+                // A C# byte[] property, as clients emit from the self description, serializes as base64.
+                if (!OpcUaValueEncoder.TryDecodeBase64(value, out var bytes)) return StatusCodes.BadTypeMismatch;
+                encoder.WriteInt32(field.Name, bytes.Length);
+                foreach (var b in bytes) encoder.WriteByte(field.Name, b);
+                return StatusCodes.Good;
+            }
             if (value is not JArray array) return StatusCodes.BadTypeMismatch;
             encoder.WriteInt32(field.Name, array.Count);
             foreach (var element in array)

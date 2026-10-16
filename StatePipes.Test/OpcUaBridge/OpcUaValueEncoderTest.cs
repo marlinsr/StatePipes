@@ -115,6 +115,32 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        [DataRow("\"03/04/2026\"")]
+        [DataRow("\"2026-03-04\"")]
+        [DataRow("\"March 4, 2026\"")]
+        [DataRow("\"4 Mar 2026 05:06:07\"")]
+        public void Encode_DateTimeNotIso8601_TypeMismatch(string json) =>
+            Assert.AreEqual(StatusCodes.BadTypeMismatch, Refuse(json, BuiltInType.DateTime).Code);
+
+        [TestMethod]
+        public void Encode_DateTimeAsGetPublishesIt_Accepted()
+        {
+            var published = Newtonsoft.Json.JsonConvert.SerializeObject(new DateTime(2026, 3, 4, 5, 6, 7, 890, DateTimeKind.Utc));
+            var value = ((DateTimeUtc)Boxed(Encode(published, BuiltInType.DateTime))!).ToDateTime();
+            Assert.AreEqual(new DateTime(2026, 3, 4, 5, 6, 7, 890, DateTimeKind.Utc), value);
+        }
+
+        [TestMethod]
+        public void Encode_ByteArrayAsGetPublishesIt_ByteArrayVariant()
+        {
+            var variant = Encode("\"AQID\"", BuiltInType.Byte, isArray: true);
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, (byte[])Boxed(variant)!);
+            CollectionAssert.AreEqual(new byte[] { 4, 5 }, (byte[])Boxed(Encode("[4, 5]", BuiltInType.Byte, isArray: true))!);
+            Assert.AreEqual(StatusCodes.BadTypeMismatch, Refuse("\"not base64!\"", BuiltInType.Byte, isArray: true).Code);
+            Assert.AreEqual(StatusCodes.BadTypeMismatch, Refuse("\"AQID\"", BuiltInType.Int32, isArray: true).Code, "Only Byte arrays travel as base64");
+        }
+
+        [TestMethod]
         public void Encode_Arrays_TypedArrayVariant()
         {
             CollectionAssert.AreEqual(new[] { 1.5, 2.0 }, (double[])Boxed(Encode("[1.5, 2]", BuiltInType.Double, isArray: true))!);

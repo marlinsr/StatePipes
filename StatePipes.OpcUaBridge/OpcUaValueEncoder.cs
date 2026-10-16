@@ -13,10 +13,13 @@ namespace StatePipes.OpcUaBridge
     /// <para>Conversion is strict: a value is never rounded, wrapped or parsed from text of the wrong kind,
     /// because a setpoint that silently changed on the way is worse than one refused. JSON of the wrong kind is
     /// <c>BadTypeMismatch</c>; a number the type cannot hold is <c>BadOutOfRange</c>. A DateTime without an offset
-    /// is taken as UTC, the zone OPC UA keeps every DateTime in.</para>
+    /// is taken as UTC, the zone OPC UA keeps every DateTime in, and only ISO 8601 is read, so <c>03/04/2026</c>
+    /// is never guessed into a month. A Byte array may also be sent as base64, which is how Get publishes it.</para>
     /// </summary>
     internal static class OpcUaValueEncoder
     {
+        private static readonly string[] IsoDateTimeFormats = ["yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK"];
+
         /// <summary>Whether a value of <paramref name="builtInType"/> can be written: the concrete types with a natural CLR form.</summary>
         public static bool IsSupported(BuiltInType builtInType) => builtInType is BuiltInType.Boolean or BuiltInType.SByte or BuiltInType.Byte
             or BuiltInType.Int16 or BuiltInType.UInt16 or BuiltInType.Int32 or BuiltInType.UInt32 or BuiltInType.Int64 or BuiltInType.UInt64
@@ -32,6 +35,12 @@ namespace StatePipes.OpcUaBridge
                 var status = TryConvertScalar(value, builtInType, out var scalar);
                 if (StatusCode.IsBad(status)) return status;
                 variant = ToVariant(scalar!, builtInType);
+                return StatusCodes.Good;
+            }
+            if (builtInType == BuiltInType.Byte && value.Type == JTokenType.String)
+            {
+                if (!TryDecodeBase64(value, out var bytes)) return StatusCodes.BadTypeMismatch;
+                variant = new Variant((ArrayOf<byte>)bytes);
                 return StatusCodes.Good;
             }
             if (value is not JArray array) return StatusCodes.BadTypeMismatch;
@@ -85,15 +94,24 @@ namespace StatePipes.OpcUaBridge
                     clrValue = guid;
                     return StatusCodes.Good;
                 case BuiltInType.ByteString:
-                    if (value.Type != JTokenType.String) return StatusCodes.BadTypeMismatch;
-                    var text = (string)value!;
-                    var bytes = new byte[text.Length];
-                    if (!Convert.TryFromBase64String(text, bytes, out var length)) return StatusCodes.BadTypeMismatch;
-                    clrValue = bytes[..length];
+                    if (!TryDecodeBase64(value, out var bytes)) return StatusCodes.BadTypeMismatch;
+                    clrValue = bytes;
                     return StatusCodes.Good;
                 default:
                     return StatusCodes.BadTypeMismatch;
             }
+        }
+
+        /// <summary>Reads a JSON string of base64, the way Newtonsoft writes a byte[].</summary>
+        public static bool TryDecodeBase64(JToken value, out byte[] bytes)
+        {
+            bytes = [];
+            if (value.Type != JTokenType.String) return false;
+            var text = (string)value!;
+            var buffer = new byte[text.Length];
+            if (!Convert.TryFromBase64String(text, buffer, out var length)) return false;
+            bytes = buffer[..length];
+            return true;
         }
 
         private static StatusCode TryConvertInteger(JToken value, BigInteger min, BigInteger max, Func<BigInteger, object> convert, out object? clrValue)
@@ -122,7 +140,7 @@ namespace StatePipes.OpcUaBridge
             switch (value.Type)
             {
                 case JTokenType.String:
-                    return DateTime.TryParse((string)value!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out dateTime);
+                    return DateTime.TryParseExact((string)value!, IsoDateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out dateTime);
                 case JTokenType.Date:
                     var date = (DateTime)value;
                     dateTime = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();

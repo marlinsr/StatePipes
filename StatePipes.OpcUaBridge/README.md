@@ -116,7 +116,8 @@ The Set command has one property, `Value`, typed exactly like the Get event's `V
 
 - **Strict conversion.** The value is written as the variable's exact built-in type (an Int16 variable gets an Int16). JSON of the wrong kind (`"5"` or `3.7` for an Int16) is refused with `BadTypeMismatch`, and a number the type can't hold (`70000` for an Int16) with `BadOutOfRange`; nothing is rounded or wrapped. A DateTime without an offset is taken as UTC.
 - **Structures.** Every field is required, except String, ByteString and array fields, which are written as null when left out. That is how the Get event leaves out null fields, so a Get event's `Value` can be sent back unchanged. A property the structure doesn't have is refused with `BadTypeMismatch`.
-- **Arrays** are written whole; there is no way to set a single element.
+- **Arrays** are written whole; there is no way to set a single element. A Byte array may be sent as base64, which is how Get publishes it, or as an array of numbers.
+- **DateTime** must be ISO 8601 (`2026-03-04T05:06:07Z`, as Get publishes it); other forms such as `03/04/2026` are refused rather than guessed.
 - **Order.** Sets to one variable are written in the order they arrive, and their SetStatus events come back in that order. Sets to different variables that arrive together are batched into one OPC UA Write.
 - **No retries.** A Set is written once or not at all. When the OPC UA server is unreachable it fails at once with `BadNotConnected`; nothing waits for the server to come back.
 

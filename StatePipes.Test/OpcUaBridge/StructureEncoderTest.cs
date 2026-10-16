@@ -12,11 +12,14 @@ namespace StatePipes.Test.OpcUaBridge
     {
         private static readonly NodeId SmallTypeId = new("SmallDataType", 2);
         private static readonly NodeId AddressTypeId = new("AddressDataType", 2);
+        private static readonly NodeId BlockTypeId = new("BlockDataType", 2);
 
         private static Dictionary<NodeId, DataTypeInfo> ExtraTypes => new()
         {
             [DataTypeIds.Int16] = new(BuiltInType.Int16, false, null),
             [DataTypeIds.NodeId] = new(BuiltInType.NodeId, false, null),
+            [DataTypeIds.Byte] = new(BuiltInType.Byte, false, null),
+            [BlockTypeId] = Structure(Encoded("BlockDataType", Field("Data", DataTypeIds.Byte, ValueRanks.OneDimension))),
             [SmallTypeId] = Structure(Encoded("SmallDataType", Field("Count", DataTypeIds.Int16))),
             [AddressTypeId] = Structure(Encoded("AddressDataType", Field("Node", DataTypeIds.NodeId)))
         };
@@ -92,6 +95,17 @@ namespace StatePipes.Test.OpcUaBridge
             var layout = await LayoutAsync(SmallTypeId);
             Assert.AreEqual(StatusCodes.BadOutOfRange, Refuse("""{"Count":70000}""", layout).Code);
             AssertRoundTrips("""{"Count":-7}""", layout);
+        }
+
+        [TestMethod]
+        public async Task Encode_ByteArrayField_AcceptsBase64AndNumbers()
+        {
+            var layout = await LayoutAsync(BlockTypeId);
+            AssertRoundTrips("""{"Data":[1,2,3]}""", layout);
+            // A C# byte[] property, as Explorer emits from the self description, serializes as base64.
+            var decoded = StructureDecoder.ToJToken(Encode("""{"Data":"AQID"}""", layout), layout, false);
+            Assert.IsTrue(JToken.DeepEquals(JToken.Parse("""{"Data":[1,2,3]}"""), decoded), decoded.ToString());
+            Assert.AreEqual(StatusCodes.BadTypeMismatch, Refuse("""{"Data":"not base64!"}""", layout).Code);
         }
 
         [TestMethod]
