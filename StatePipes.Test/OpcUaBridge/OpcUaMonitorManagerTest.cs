@@ -213,6 +213,24 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        [DataRow(1)]
+        [DataRow(7)]
+        [DataRow(100)]
+        [DataRow(599)]
+        [DataRow(1000)]
+        [DataRow(250000)]
+        public void LifetimeCountFor_AnyInterval_LifetimeAtLeastSessionTimeout(int publishingInterval)
+        {
+            var lifetimeCount = OpcUaMonitorManager.LifetimeCountFor(publishingInterval);
+            Assert.IsGreaterThanOrEqualTo(OpcUaClient.SessionTimeoutMilliseconds, (double)lifetimeCount * publishingInterval);
+            Assert.IsGreaterThanOrEqualTo(100u, lifetimeCount);
+        }
+
+        [TestMethod]
+        public void LifetimeCountFor_SubMillisecondInterval_LifetimeAtLeastSessionTimeout() =>
+            Assert.IsGreaterThanOrEqualTo(OpcUaClient.SessionTimeoutMilliseconds, OpcUaMonitorManager.LifetimeCountFor(0.5));
+
+        [TestMethod]
         public void CallFailed_SessionGone_Pending()
         {
             var result = OpcUaMonitorManager.CallFailed(new ServiceResultException(StatusCodes.BadSessionClosed), sessionConnected: false);

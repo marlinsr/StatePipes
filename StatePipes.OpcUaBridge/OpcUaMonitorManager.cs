@@ -159,6 +159,14 @@ namespace StatePipes.OpcUaBridge
             await DeleteIfEmptyAsync(entry.PublishingInterval, ct);
         }
 
+        /// <summary>
+        /// The lifetime count that keeps a subscription alive at least as long as the session, so an outage the
+        /// session survives cannot make the server delete the subscription. The server deletes a subscription
+        /// that gets no publish request for lifetime count × publishing interval.
+        /// </summary>
+        internal static uint LifetimeCountFor(double publishingInterval) =>
+            Math.Max(LifetimeCount, (uint)Math.Ceiling(OpcUaClient.SessionTimeoutMilliseconds / Math.Max(1.0, (int)publishingInterval)));
+
         private async Task<Subscription> GetSubscriptionAsync(double publishingInterval, CancellationToken ct)
         {
             if (_subscriptions.TryGetValue(publishingInterval, out var existing)) return existing;
@@ -168,7 +176,7 @@ namespace StatePipes.OpcUaBridge
                 PublishingInterval = (int)publishingInterval,
                 PublishingEnabled = true,
                 KeepAliveCount = KeepAliveCount,
-                LifetimeCount = LifetimeCount,
+                LifetimeCount = LifetimeCountFor(publishingInterval),
                 TimestampsToReturn = TimestampsToReturn.Both
             });
             session.AddSubscription(subscription);

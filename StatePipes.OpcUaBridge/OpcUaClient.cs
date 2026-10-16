@@ -19,7 +19,7 @@ namespace StatePipes.OpcUaBridge
     /// </summary>
     internal sealed class OpcUaClient : IAsyncDisposable
     {
-        private const uint SessionTimeoutMilliseconds = 60_000;
+        internal const uint SessionTimeoutMilliseconds = 60_000;
         private const int BrowseBatchSize = 100;
         private const int ReadBatchSize = 500;
         private const string DiagnosticsNamespaceUri = "http://opcfoundation.org/UA/Diagnostics";
