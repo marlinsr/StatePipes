@@ -2,20 +2,20 @@
 
 A docker container that presents an OPC UA server as a StatePipes service on a RabbitMQ or Kafka broker.
 
-On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command** and a **Monitor command**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
+On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**, a **Monitor command**, a **Delete command** and a **MonitorStatus event**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
 
 ## Naming
 
-Every Get command and Get event is in the namespace given by the bridge's `EXCHANGE`. The type name is the whole NodeId: its namespace index, the letter of its identifier type (`i`, `s`, `g` or `b`, as in NodeId notation) and its identifier, with dots replaced by underscores, prefixed with `Get_` and suffixed with `_Command` or `_Event`. With `EXCHANGE=Line1Plc`:
+Every message of a data item is in the namespace given by the bridge's `EXCHANGE`, so StatePipes.Explorer shows them together. The type name is the whole NodeId: its namespace index, the letter of its identifier type (`i`, `s`, `g` or `b`, as in NodeId notation) and its identifier, with dots replaced by underscores, prefixed with `Get_`, `Monitor_`, `Delete_` or `MonitorStatus_` and suffixed with `_Command` or `_Event`. With `EXCHANGE=Line1Plc`:
 
-| OPC UA node | Namespace | Get command | Get event | Monitor command |
+| OPC UA node | Get command / event | Monitor command | Delete command | MonitorStatus event |
 |---|---|---|---|---|
-| `ns=2;s=Machine.Motor.Speed` | `Line1Plc` | `Get_ns2_s_Machine_Motor_Speed_Command` | `Get_ns2_s_Machine_Motor_Speed_Event` | `Monitor_ns2_s_Machine_Motor_Speed_Command` |
-| `ns=2;s=Speed` | `Line1Plc` | `Get_ns2_s_Speed_Command` | `Get_ns2_s_Speed_Event` | `Monitor_ns2_s_Speed_Command` |
-| `ns=3;i=1001` | `Line1Plc` | `Get_ns3_i_1001_Command` | `Get_ns3_i_1001_Event` | `Monitor_ns3_i_1001_Command` |
+| `ns=2;s=Machine.Motor.Speed` | `Get_ns2_s_Machine_Motor_Speed_Command` / `_Event` | `Monitor_ns2_s_Machine_Motor_Speed_Command` | `Delete_ns2_s_Machine_Motor_Speed_Command` | `MonitorStatus_ns2_s_Machine_Motor_Speed_Event` |
+| `ns=2;s=Speed` | `Get_ns2_s_Speed_Command` / `_Event` | `Monitor_ns2_s_Speed_Command` | `Delete_ns2_s_Speed_Command` | `MonitorStatus_ns2_s_Speed_Event` |
+| `ns=3;i=1001` | `Get_ns3_i_1001_Command` / `_Event` | `Monitor_ns3_i_1001_Command` | `Delete_ns3_i_1001_Command` | `MonitorStatus_ns3_i_1001_Event` |
 
 - Any other character that can't appear in a type name becomes `_`, in the type name and in each segment of the exchange name.
-- If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged. The Monitor command gets the same suffix.
+- If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged. The item's other messages get the same suffix.
 - The full name is the RabbitMQ routing key, which is capped at 255 bytes. Type names too long for that are shortened and end with a hash of the NodeId.
 
 ## Get event
@@ -37,11 +37,10 @@ When a read fails, `Value` is left out and `StatusCode`/`Status` explain why. Fo
 
 ## Monitors
 
-A Monitor command asks the bridge to watch a variable:
+A variable's Monitor command asks the bridge to watch it:
 
 ```json
 {
-  "MonitorName": "MotorSpeed",
   "MonitoringMode": "Reporting",
   "DataChangeTrigger": "StatusValue",
   "DeadbandType": "Absolute",
@@ -54,7 +53,6 @@ A Monitor command asks the bridge to watch a variable:
 
 | Field | Values | Meaning |
 |---|---|---|
-| `MonitorName` | 1 to 256 characters | Your name for the monitor. |
 | `MonitoringMode` | `Disabled`, `Reporting` | `Disabled` keeps the monitored item on the server but silent. |
 | `DataChangeTrigger` | `Status`, `StatusValue`, `StatusValueTimestamp` | What counts as a change. |
 | `DeadbandType` | `None`, `Absolute`, `Percent` | How small a change is ignored. `Percent` needs an AnalogItem with an EURange. |
@@ -65,20 +63,19 @@ A Monitor command asks the bridge to watch a variable:
 
 Enums can be sent as names or numbers. The server may revise the intervals and queue size; the revised values come back in the status.
 
-- **Identity.** A monitor is identified by the sender's command exchange and its `MonitorName`. Sending a Monitor command with a name you already use updates that monitor, on whichever variable the command is for, and its responses go to the reply-to of the latest command. A restarted client takes its monitors back by sending its Monitor commands again.
+- **Identity.** You have at most one monitor per variable. Sending a variable's Monitor command again updates your monitor on it, and its responses go to the reply-to of the latest command. A restarted client takes its monitors back by sending its Monitor commands again. Other clients' monitors on the same variable are separate.
 - **Data changes** arrive as the variable's Get event, sent to you as a response.
-- **`DeleteMonitorCommand`** (`{"MonitorName": "MotorSpeed"}`) deletes your monitor with that name.
+- **Delete.** A variable's Delete command (empty body) deletes your monitor on it.
 - **Persistence.** Monitors are saved to `MONITOR_STORE_PATH` and rebuilt on every new OPC UA session, so they survive both a PLC reboot and a bridge restart.
 - **Suspension.** When your response exchange disappears (your client disconnected), your monitors are suspended. The bridge stops sending and keeps them until you send their Monitor commands again, delete them, or `MONITOR_SUSPENDED_EXPIRY_HOURS` passes. The bridge checks every 30 seconds.
 - **Re-send your Monitor commands after every reconnect.** A client's response exchange is deleted whenever its broker connection drops, even briefly. If a check happens during that gap, your monitors are suspended, and they stay suspended after you reconnect, with no status sent. Sending your Monitor commands again after each reconnect reclaims them; for monitors that are still active, it is a harmless update.
 
 ### Monitor status
 
-Every Monitor and Delete command is answered with a `StatePipes.OpcUaBridge.Messages.MonitorStatusEvent`. Every monitor that is not suspended also gets one each time monitors are rebuilt on a new OPC UA session:
+Every Monitor and Delete command is answered with the variable's MonitorStatus event. Every monitor that is not suspended also gets one each time monitors are rebuilt on a new OPC UA session:
 
 ```json
 {
-  "MonitorName": "MotorSpeed",
   "NodeId": "ns=2;s=Machine.Motor.Speed",
   "State": "Active",
   "StatusCode": 0,
@@ -94,9 +91,9 @@ Every Monitor and Delete command is answered with a `StatePipes.OpcUaBridge.Mess
 | Status | Meaning |
 |---|---|
 | `BadInvalidArgument` | A field is missing or out of range. Nothing was saved. |
-| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Nothing was saved; send the command again. `NodeId` is empty. |
+| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Nothing was saved or deleted; send the command again. `NodeId` is empty. |
 | `BadNodeIdUnknown` | The variable is not on the server, or no longer is. |
-| `BadNotFound` | Delete: you have no monitor with that name. |
+| `BadNotFound` | Delete: you have no monitor on that variable. |
 | `BadNotConnected` | `Pending`: saved, and applied when the server is back. |
 | `BadDeadbandFilterInvalid` / `BadFilterNotAllowed` | The server refused the deadband, for example `Percent` on a variable that is not an AnalogItem. The monitor is kept and retried on every reconnect. |
 
@@ -134,7 +131,7 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 
 | Variable | Default | Description |
 |---|---|---|
-| `MONITOR_STORE_PATH` | `/usr/share/StatePipes/StatePipes.OpcUaBridge/Config/monitors.json` | Where monitors are saved. Mount the directory as a volume to keep monitors when the container is re-created. An unreadable file is renamed to `monitors.json.corrupt-<time>` and the bridge starts with no monitors. |
+| `MONITOR_STORE_PATH` | `/usr/share/StatePipes/StatePipes.OpcUaBridge/Config/monitors.json` | Where monitors are saved. Mount the directory as a volume to keep monitors when the container is re-created. An unreadable file, or one written by an earlier bridge version, is renamed to `monitors.json.corrupt-<time>` and the bridge starts with no monitors. |
 | `MONITOR_SUSPENDED_EXPIRY_HOURS` | *(never)* | Delete monitors that stay suspended this long. |
 
 On Kafka, suspension needs the broker setting `auto.create.topics.enable=false`. Otherwise the next data change recreates a departed client's response topic, and its monitors keep sending to it.
@@ -143,7 +140,7 @@ Discovery browses down from the Objects folder. It runs again after every reconn
 
 ### Large servers
 
-The self description lists every Get command, Get event and Monitor command in **one message**, at roughly 7.5 KB per variable (about 3.3 KB of it for the Get command and event, 4.2 KB for the Monitor command). Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 2,200 variables on RabbitMQ and about 130 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) or raise the broker's limit.
+The self description lists all five messages of every variable in **one message**, at roughly 10.7 KB per variable (about 3.3 KB of it for the Get command and event). Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 1,500 variables on RabbitMQ and about 95 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) or raise the broker's limit.
 
 ## Running
 
