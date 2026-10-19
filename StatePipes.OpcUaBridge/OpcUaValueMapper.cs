@@ -66,6 +66,14 @@ namespace StatePipes.OpcUaBridge
         /// null when the value is absent or cannot be represented, so a client never receives a value that fails
         /// to deserialize into the type the bridge advertised.
         /// </summary>
+        /// <summary>
+        /// A value as it is published: decoded as <paramref name="structure"/> when it has one, else converted to
+        /// <paramref name="valueType"/>. Shared by Get events, notifications and ExecResult outputs.
+        /// </summary>
+        public static JToken ToJToken(object? value, Type valueType, StructureLayout? structure, bool isArray) => structure == null
+            ? ToJToken(value, valueType)
+            : StructureDecoder.ToJToken(value, structure, isArray);
+
         public static JToken ToJToken(object? value, Type targetType)
         {
             if (value is Variant variant) value = variant.AsBoxedObject(Variant.BoxingBehavior.Legacy);

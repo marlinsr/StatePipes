@@ -275,9 +275,7 @@ namespace StatePipes.OpcUaBridge
             return Encoding.UTF8.GetBytes(getEvent.ToString(Newtonsoft.Json.Formatting.None));
         }
 
-        private static JToken ToJToken(OpcUaDataItem item, object? value) => item.Structure == null
-            ? OpcUaValueMapper.ToJToken(value, item.ValueType)
-            : StructureDecoder.ToJToken(value, item.Structure, item.IsArray);
+        private static JToken ToJToken(OpcUaDataItem item, object? value) => OpcUaValueMapper.ToJToken(value, item.ValueType, item.Structure, item.IsArray);
 
         public void SendStatus(MonitorStatus status, MessageNames names, string replyToRaw) => SendStatus(status, names.MonitorStatusEventTypeFullName, replyToRaw);
 
