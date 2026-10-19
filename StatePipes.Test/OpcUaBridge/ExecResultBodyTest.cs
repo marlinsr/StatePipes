@@ -70,7 +70,7 @@ namespace StatePipes.Test.OpcUaBridge
 
             var body = Parse(ExecResultBody.Create(Reject, result));
 
-            Assert.AreEqual($"{result.StatusCode}: percent ({result.InputArgumentResults[0]})", (string)body["Status"]!);
+            Assert.AreEqual($"{result.StatusCode.ToString()}: percent ({result.InputArgumentResults[0].ToString()})", (string)body["Status"]!);
         }
 
         [TestMethod]

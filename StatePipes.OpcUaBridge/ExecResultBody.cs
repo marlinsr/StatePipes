@@ -42,7 +42,8 @@ namespace StatePipes.OpcUaBridge
             if (result.StatusCode.Code != StatusCodes.BadInvalidArgument.Code) return text;
             var rejected = Enumerable.Range(0, Math.Min(method.Inputs.Count, result.InputArgumentResults.Count))
                 .Where(i => StatusCode.IsBad(result.InputArgumentResults[i]))
-                .Select(i => $"{method.Inputs[i].PropertyName} ({result.InputArgumentResults[i]})")
+                // ToString, not interpolation: a formatted StatusCode carries its hex code, unlike every other Status text.
+                .Select(i => $"{method.Inputs[i].PropertyName} ({result.InputArgumentResults[i].ToString()})")
                 .ToList();
             return rejected.Count == 0 ? text : $"{text}: {string.Join(", ", rejected)}";
         }
