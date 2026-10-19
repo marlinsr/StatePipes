@@ -77,18 +77,25 @@ namespace StatePipes.OpcUaBridge
         }
 
         /// <summary>
-        /// Finds every variable the session is allowed to read. The returned items are named but not yet
-        /// typed by anything beyond the server's declared DataType and ValueRank.
+        /// Finds every variable the session is allowed to read and every method it may execute. The returned
+        /// items are named but not yet typed by anything beyond the server's declared DataType and ValueRank.
         /// </summary>
-        public async Task<IReadOnlyList<OpcUaDataItem>> DiscoverAsync(CancellationToken ct)
+        public async Task<DiscoveredNodes> DiscoverAsync(CancellationToken ct)
         {
             var session = _session ?? throw new InvalidOperationException("Not connected to an OPC UA server");
-            var variables = await BrowseVariablesAsync(session, ct);
-            var readable = await ReadVariableAttributesAsync(session, variables, ct);
+            var (variables, methodPairs) = await BrowseAsync(session, ct);
+            Dictionary<NodeId, DataTypeInfo?> dataTypes = [];
+            StructureLayoutBuilder layouts = new(_settings.BusConfig.ExchangeNamePrefix, async (dataTypeId, token) =>
+            {
+                if (!dataTypes.TryGetValue(dataTypeId, out var info)) dataTypes[dataTypeId] = info = await DescribeDataTypeAsync(session, dataTypeId, token);
+                return info;
+            });
+            var readable = await ReadVariableAttributesAsync(session, variables, layouts, ct);
             var names = OpcUaNaming.AssignUniqueNames(_settings.BusConfig.ExchangeNamePrefix, readable.Keys, message => Log?.LogWarning(message));
-            return [.. readable
+            List<OpcUaDataItem> items = [.. readable
                 .Select(kv => new OpcUaDataItem(kv.Key, kv.Key.ToString(), names[kv.Key], kv.Value.ValueType, kv.Value.Structure, kv.Value.IsArray, kv.Value.BuiltInType, kv.Value.IsWritable))
                 .OrderBy(item => item.CommandTypeFullName, StringComparer.Ordinal)];
+            return new DiscoveredNodes(items, await DescribeMethodsAsync(session, methodPairs, layouts, ct));
         }
 
         public async Task<IReadOnlyList<DataValue>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken ct)
@@ -224,27 +231,41 @@ namespace StatePipes.OpcUaBridge
             _keepAliveFailed = true;
         }
 
-        /// <summary>Breadth-first walk of the hierarchy below Objects, returning every Variable node found.</summary>
-        private static async Task<List<NodeId>> BrowseVariablesAsync(ISession session, CancellationToken ct)
+        /// <summary>
+        /// Breadth-first walk of the hierarchy below Objects, returning every Variable node found and every
+        /// (object, method) pair: a Method referenced from an Object. Methods are not walked into, and a method node
+        /// referenced from several objects is a pair with each.
+        /// </summary>
+        private static async Task<(List<NodeId> Variables, List<(NodeId ObjectId, NodeId MethodId)> Methods)> BrowseAsync(ISession session, CancellationToken ct)
         {
             List<NodeId> variables = [];
+            List<(NodeId, NodeId)> methods = [];
             HashSet<NodeId> visited = [ObjectIds.ObjectsFolder];
+            Dictionary<NodeId, NodeClass> nodeClasses = new() { [ObjectIds.ObjectsFolder] = NodeClass.Object };
             Queue<NodeId> toBrowse = new([ObjectIds.ObjectsFolder]);
             while (toBrowse.Count > 0)
             {
                 ct.ThrowIfCancellationRequested();
                 List<BrowseDescription> batch = [];
                 while (toBrowse.Count > 0 && batch.Count < BrowseBatchSize) batch.Add(CreateBrowseDescription(toBrowse.Dequeue()));
-                foreach (var reference in await BrowseAllAsync(session, batch, ct))
+                foreach (var (source, reference) in await BrowseAllAsync(session, batch, ct))
                 {
                     if (reference.NodeId.IsAbsolute) continue; // lives on another server
                     var nodeId = ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris);
-                    if (nodeId.IsNull || !visited.Add(nodeId)) continue;
+                    if (nodeId.IsNull) continue;
+                    if (reference.NodeClass == NodeClass.Method)
+                    {
+                        // Recorded before the visited check: a method shared by two objects is reached twice.
+                        if (nodeClasses.GetValueOrDefault(source) == NodeClass.Object) methods.Add((source, nodeId));
+                        continue;
+                    }
+                    if (!visited.Add(nodeId)) continue;
+                    nodeClasses[nodeId] = reference.NodeClass;
                     if (reference.NodeClass == NodeClass.Variable) variables.Add(nodeId);
                     toBrowse.Enqueue(nodeId); // variables can have child variables (properties, structure fields)
                 }
             }
-            return variables;
+            return (variables, methods);
         }
 
         private static BrowseDescription CreateBrowseDescription(NodeId nodeId) => new()
@@ -253,29 +274,159 @@ namespace StatePipes.OpcUaBridge
             BrowseDirection = BrowseDirection.Forward,
             ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences,
             IncludeSubtypes = true,
-            NodeClassMask = (uint)(NodeClass.Object | NodeClass.Variable),
+            NodeClassMask = (uint)(NodeClass.Object | NodeClass.Variable | NodeClass.Method),
             ResultMask = (uint)(BrowseResultMask.NodeClass | BrowseResultMask.ReferenceTypeId)
         };
 
-        /// <summary>Browses a batch, following continuation points until every reference has been returned.</summary>
-        private static async Task<List<ReferenceDescription>> BrowseAllAsync(ISession session, List<BrowseDescription> batch, CancellationToken ct)
+        /// <summary>
+        /// Browses a batch, following continuation points until every reference has been returned, each paired
+        /// with the node it was found on.
+        /// </summary>
+        private static async Task<List<(NodeId Source, ReferenceDescription Reference)>> BrowseAllAsync(ISession session, List<BrowseDescription> batch, CancellationToken ct)
         {
-            List<ReferenceDescription> references = [];
+            List<(NodeId, ReferenceDescription)> references = [];
             var response = await session.BrowseAsync(null, null, 0, batch, ct);
             var results = response.Results;
+            List<NodeId> sources = [.. batch.Select(description => description.NodeId)];
             while (true)
             {
                 List<ByteString> continuationPoints = [];
-                foreach (var result in results)
+                List<NodeId> continuedSources = [];
+                for (var i = 0; i < results.Count; i++)
                 {
+                    var result = results[i];
                     if (StatusCode.IsBad(result.StatusCode)) continue;
-                    references.AddRange(result.References);
-                    if (result.ContinuationPoint is { Length: > 0 }) continuationPoints.Add(result.ContinuationPoint);
+                    foreach (var reference in result.References) references.Add((sources[i], reference));
+                    if (result.ContinuationPoint is not { Length: > 0 }) continue;
+                    continuationPoints.Add(result.ContinuationPoint);
+                    continuedSources.Add(sources[i]);
                 }
                 if (continuationPoints.Count == 0) return references;
                 var next = await session.BrowseNextAsync(null, false, continuationPoints, ct);
                 results = next.Results;
+                sources = continuedSources;
             }
+        }
+
+        /// <summary>
+        /// Keeps the (object, method) pairs this session may call and the bridge can serve: not the server's own
+        /// methods, passing <see cref="BridgeSettings.MethodFilter"/>, Executable and UserExecutable, and with
+        /// every input argument of a shape a Set could write. Outputs are published as Get values are, so no output
+        /// hides a method.
+        /// </summary>
+        private async Task<IReadOnlyList<OpcUaMethodItem>> DescribeMethodsAsync(ISession session, List<(NodeId ObjectId, NodeId MethodId)> pairs,
+            StructureLayoutBuilder layouts, CancellationToken ct)
+        {
+            var candidates = pairs.Distinct()
+                .Where(p => !IsServerOwnNamespace(p.MethodId.NamespaceIndex, session.NamespaceUris) && (_settings.MethodFilter?.IsMatch(p.MethodId.ToString()) ?? true))
+                .ToList();
+            var executable = await ReadExecutableAsync(session, [.. candidates.Select(p => p.MethodId).Distinct()], ct);
+            var arguments = await ReadArgumentsAsync(session, executable, ct);
+            Dictionary<NodeId, (IReadOnlyList<MethodArgument> Inputs, IReadOnlyList<MethodArgument> Outputs)> signatures = [];
+            Dictionary<string, int> unexecutable = new(StringComparer.Ordinal);
+            foreach (var methodId in executable)
+            {
+                var (inputArguments, outputArguments) = arguments[methodId];
+                var inputs = await DescribeArgumentsAsync(session, layouts, methodId, inputArguments, MethodArgumentNaming.PropertyNames([.. inputArguments.Select(a => a.Name)], new HashSet<string>()), ct);
+                var reason = inputs.Select(input => UnwritableReason(input.Argument.BuiltInType, input.Rank, input.Argument.Structure)).FirstOrDefault(r => r != null);
+                if (reason != null)
+                {
+                    unexecutable[reason] = unexecutable.GetValueOrDefault(reason) + 1;
+                    Log?.LogVerbose($"{methodId} is executable but has no Exec command: {reason}");
+                    continue;
+                }
+                var outputs = await DescribeArgumentsAsync(session, layouts, methodId, outputArguments, MethodArgumentNaming.PropertyNames([.. outputArguments.Select(a => a.Name)], MethodArgumentNaming.OutputReserved), ct);
+                signatures[methodId] = ([.. inputs.Select(i => i.Argument)], [.. outputs.Select(o => o.Argument)]);
+            }
+            if (unexecutable.Count > 0)
+                Log?.LogInfo($"{unexecutable.Values.Sum()} executable methods have no Exec command ({string.Join(", ", unexecutable.Select(kv => $"{kv.Key}: {kv.Value}"))})");
+            var kept = candidates.Where(p => signatures.ContainsKey(p.MethodId)).ToList();
+            var names = OpcUaNaming.AssignUniqueMethodNames(_settings.BusConfig.ExchangeNamePrefix, kept, message => Log?.LogWarning(message));
+            return [.. kept
+                .Select(p => new OpcUaMethodItem(p.ObjectId, p.MethodId, p.ObjectId.ToString(), p.MethodId.ToString(), names[p], signatures[p.MethodId].Inputs, signatures[p.MethodId].Outputs))
+                .OrderBy(method => method.ExecCommandTypeFullName, StringComparer.Ordinal)];
+        }
+
+        /// <summary>The methods whose Executable and UserExecutable attributes are both true.</summary>
+        private static async Task<List<NodeId>> ReadExecutableAsync(ISession session, List<NodeId> methodIds, CancellationToken ct)
+        {
+            List<NodeId> executable = [];
+            uint[] attributes = [Attributes.Executable, Attributes.UserExecutable];
+            foreach (var chunk in methodIds.Chunk(ReadBatchSize / attributes.Length))
+            {
+                List<ReadValueId> toRead = [.. chunk.SelectMany(nodeId => attributes.Select(attributeId => new ReadValueId { NodeId = nodeId, AttributeId = attributeId }))];
+                var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, ct);
+                var results = response.Results;
+                for (var i = 0; i < chunk.Length; i++)
+                {
+                    if (IsTrue(results[i * 2]) && IsTrue(results[i * 2 + 1])) executable.Add(chunk[i]);
+                }
+            }
+            return executable;
+
+            static bool IsTrue(DataValue value) => !StatusCode.IsBad(value.StatusCode) && value.WrappedValue.TryGetValue(out bool flag) && flag;
+        }
+
+        /// <summary>
+        /// Each method's InputArguments and OutputArguments property values; a method without one of the
+        /// properties has no arguments of that kind.
+        /// </summary>
+        private static async Task<Dictionary<NodeId, (List<Argument> Inputs, List<Argument> Outputs)>> ReadArgumentsAsync(ISession session, List<NodeId> methodIds, CancellationToken ct)
+        {
+            Dictionary<NodeId, (List<Argument>, List<Argument>)> arguments = methodIds.ToDictionary(m => m, _ => (new List<Argument>(), new List<Argument>()));
+            List<(NodeId MethodId, bool IsInput, NodeId Property)> properties = [];
+            foreach (var chunk in methodIds.Chunk(BrowseBatchSize))
+            {
+                List<BrowseDescription> batch = [.. chunk.Select(methodId => new BrowseDescription
+                {
+                    NodeId = methodId,
+                    BrowseDirection = BrowseDirection.Forward,
+                    ReferenceTypeId = ReferenceTypeIds.HasProperty,
+                    IncludeSubtypes = true,
+                    NodeClassMask = (uint)NodeClass.Variable,
+                    ResultMask = (uint)BrowseResultMask.BrowseName
+                })];
+                foreach (var (methodId, reference) in await BrowseAllAsync(session, batch, ct))
+                {
+                    if (reference.NodeId.IsAbsolute || reference.BrowseName.NamespaceIndex != 0) continue;
+                    var isInput = reference.BrowseName.Name == BrowseNames.InputArguments;
+                    if (!isInput && reference.BrowseName.Name != BrowseNames.OutputArguments) continue;
+                    properties.Add((methodId, isInput, ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris)));
+                }
+            }
+            foreach (var chunk in properties.Chunk(ReadBatchSize))
+            {
+                List<ReadValueId> toRead = [.. chunk.Select(p => new ReadValueId { NodeId = p.Property, AttributeId = Attributes.Value })];
+                var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, ct);
+                for (var i = 0; i < chunk.Length; i++)
+                {
+                    var value = response.Results[i];
+                    if (StatusCode.IsBad(value.StatusCode) || !value.WrappedValue.TryGetValue(out ArrayOf<ExtensionObject> extensions)) continue;
+                    var target = chunk[i].IsInput ? arguments[chunk[i].MethodId].Item1 : arguments[chunk[i].MethodId].Item2;
+                    foreach (var extension in extensions)
+                    {
+                        if (extension.TryGetValue(out Argument? argument) && argument != null) target.Add(argument);
+                    }
+                }
+            }
+            return arguments;
+        }
+
+        private sealed record DescribedArgument(MethodArgument Argument, int Rank);
+
+        private static async Task<List<DescribedArgument>> DescribeArgumentsAsync(ISession session, StructureLayoutBuilder layouts, NodeId methodId, List<Argument> arguments,
+            IReadOnlyList<string> propertyNames, CancellationToken ct)
+        {
+            List<DescribedArgument> described = [];
+            for (var i = 0; i < arguments.Count; i++)
+            {
+                var argument = arguments[i];
+                var builtInType = !argument.DataType.IsNull ? await TypeInfo.GetBuiltInTypeAsync(argument.DataType, session.TypeTree, ct) : BuiltInType.Null;
+                var structure = await BuildStructureLayoutAsync(layouts, methodId, argument.DataType, builtInType, argument.ValueRank, ct);
+                var valueType = OpcUaValueMapper.MapToClrType(builtInType, argument.ValueRank);
+                described.Add(new(new MethodArgument(propertyNames[i], builtInType, valueType, structure, argument.ValueRank == ValueRanks.OneDimension), argument.ValueRank));
+            }
+            return described;
         }
 
         /// <summary>
@@ -283,16 +434,10 @@ namespace StatePipes.OpcUaBridge
         /// read and pairing each with the CLR type its value will be published as, or, for a structure the
         /// bridge can decode, with the structure's layout; and deciding which of them get a Set command.
         /// </summary>
-        private async Task<Dictionary<NodeId, VariableAttributes>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, CancellationToken ct)
+        private async Task<Dictionary<NodeId, VariableAttributes>> ReadVariableAttributesAsync(ISession session, List<NodeId> variables, StructureLayoutBuilder layouts, CancellationToken ct)
         {
             Dictionary<NodeId, VariableAttributes> readable = [];
             Dictionary<string, int> unwritable = new(StringComparer.Ordinal);
-            Dictionary<NodeId, DataTypeInfo?> dataTypes = [];
-            StructureLayoutBuilder layouts = new(_settings.BusConfig.ExchangeNamePrefix, async (dataTypeId, token) =>
-            {
-                if (!dataTypes.TryGetValue(dataTypeId, out var info)) dataTypes[dataTypeId] = info = await DescribeDataTypeAsync(session, dataTypeId, token);
-                return info;
-            });
             uint[] attributes = [Attributes.UserAccessLevel, Attributes.DataType, Attributes.ValueRank];
             foreach (var chunk in variables.Where(nodeId => IsIncluded(nodeId, session.NamespaceUris)).Chunk(ReadBatchSize / attributes.Length))
             {

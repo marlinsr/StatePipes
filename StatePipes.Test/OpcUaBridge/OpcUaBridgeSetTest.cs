@@ -24,7 +24,7 @@ namespace StatePipes.Test.OpcUaBridge
         {
             await using OpcUaClient client = new(settings ?? _plc.CreateBridgeSettings(MonitorRegistryTest.Own));
             await client.ConnectAsync(CancellationToken.None);
-            return await client.DiscoverAsync(CancellationToken.None);
+            return (await client.DiscoverAsync(CancellationToken.None)).Items;
         }
 
         [TestMethod]

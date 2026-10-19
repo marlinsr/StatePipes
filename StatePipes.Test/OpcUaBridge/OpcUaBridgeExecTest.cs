@@ -1,5 +1,6 @@
 using Opc.Ua;
 using StatePipes.OpcUaBridge;
+using System.Text.RegularExpressions;
 
 namespace StatePipes.Test.OpcUaBridge
 {
@@ -21,6 +22,93 @@ namespace StatePipes.Test.OpcUaBridge
             OpcUaClient client = new(_plc.CreateBridgeSettings(MonitorRegistryTest.Own));
             await client.ConnectAsync(CancellationToken.None);
             return client;
+        }
+
+        private static BridgeSettings Settings(Regex? methodFilter = null, bool includeNamespaceZero = false)
+        {
+            var settings = _plc.CreateBridgeSettings(MonitorRegistryTest.Own);
+            return new BridgeSettings
+            {
+                BusConfig = settings.BusConfig,
+                OpcUaEndpoint = settings.OpcUaEndpoint,
+                UseSecurity = settings.UseSecurity,
+                AutoAcceptUntrustedCertificates = settings.AutoAcceptUntrustedCertificates,
+                PkiPath = settings.PkiPath,
+                ApplicationName = settings.ApplicationName,
+                MethodFilter = methodFilter,
+                IncludeNamespaceZero = includeNamespaceZero
+            };
+        }
+
+        private static async Task<IReadOnlyList<OpcUaMethodItem>> DiscoverMethodsAsync(BridgeSettings? settings = null)
+        {
+            await using OpcUaClient client = new(settings ?? Settings());
+            await client.ConnectAsync(CancellationToken.None);
+            return (await client.DiscoverAsync(CancellationToken.None)).Methods;
+        }
+
+        private static bool IsInMethodsObject(OpcUaMethodItem method) => method.MethodId.IdentifierAsString?.StartsWith("Methods.") == true;
+
+        [TestMethod]
+        public async Task Discover_MethodsTable_ExecExactlyAsSpec()
+        {
+            var methods = await DiscoverMethodsAsync();
+
+            CollectionAssert.AreEquivalent(
+                new[] { "Add", "Echo", "EchoDensity", "NoArgs", "Slow", "Reject", "TextOut", "Start", "Start" }.Select(n => _plc.Method(n)).ToArray(),
+                methods.Where(IsInMethodsObject).Select(m => m.MethodId).ToArray());
+            Assert.IsTrue(methods.Any(m => m.MethodId.IdentifierAsString == "CalculatePressureVolumeMass"));
+        }
+
+        [TestMethod]
+        public async Task Discover_Arguments_Typed()
+        {
+            var methods = (await DiscoverMethodsAsync()).Where(m => m.ObjectId == _plc.MethodsObject).ToDictionary(m => m.MethodId.IdentifierAsString!);
+
+            var add = methods["Methods.Add"];
+            CollectionAssert.AreEqual(new[] { "a", "b" }, add.Inputs.Select(a => a.PropertyName).ToArray());
+            Assert.AreEqual(typeof(int), add.Inputs[0].ValueType);
+            Assert.AreEqual(BuiltInType.Int32, add.Inputs[0].BuiltInType);
+            Assert.AreEqual("sum", add.Outputs.Single().PropertyName);
+            var echo = methods["Methods.Echo"].Inputs.ToDictionary(a => a.PropertyName);
+            Assert.AreEqual(typeof(double[]), echo["da"].ValueType);
+            Assert.IsTrue(echo["da"].IsArray);
+            Assert.AreEqual(typeof(byte[]), echo["bytes"].ValueType);
+            var echoDensity = methods["Methods.EchoDensity"];
+            Assert.IsNotNull(echoDensity.Inputs[0].Structure);
+            Assert.IsFalse(echoDensity.Inputs[0].IsArray);
+            Assert.IsTrue(echoDensity.Inputs[1].IsArray);
+            Assert.AreEqual(typeof(string), methods["Methods.TextOut"].Outputs.Single().ValueType);
+            Assert.IsEmpty(methods["Methods.NoArgs"].Inputs);
+            Assert.IsEmpty(methods["Methods.NoArgs"].Outputs);
+            Assert.AreEqual($"{OpcUaNaming.MessageNamespace(MonitorRegistryTest.Own.ExchangeNamePrefix)}.Exec_ns{_plc.NamespaceIndex}_s_Methods_Add_Command", add.ExecCommandTypeFullName);
+        }
+
+        [TestMethod]
+        public async Task Discover_SharedMethod_OneExecPerObject()
+        {
+            var starts = (await DiscoverMethodsAsync()).Where(m => m.MethodId == _plc.Method("Start")).ToList();
+
+            CollectionAssert.AreEquivalent(new[] { _plc.Pump1, _plc.Pump2 }, starts.Select(m => m.ObjectId).ToArray());
+            Assert.AreEqual(2, starts.Select(m => m.ExecCommandTypeFullName).Distinct().Count());
+            Assert.IsTrue(starts.All(m => m.ExecCommandTypeFullName.Contains("__")), "A shared method is named with its object");
+        }
+
+        [TestMethod]
+        public async Task Discover_NoServerOwnMethods()
+        {
+            var methods = await DiscoverMethodsAsync(Settings(includeNamespaceZero: true));
+
+            Assert.IsFalse(methods.Any(m => m.MethodId.NamespaceIndex == 0), string.Join(", ", methods.Where(m => m.MethodId.NamespaceIndex == 0).Select(m => m.MethodIdText)));
+            Assert.IsTrue(methods.All(m => m.MethodId.NamespaceIndex == _plc.NamespaceIndex));
+        }
+
+        [TestMethod]
+        public async Task Discover_MethodFilter_Narrows()
+        {
+            var methods = await DiscoverMethodsAsync(Settings(methodFilter: new Regex("Methods\\.Add$")));
+
+            CollectionAssert.AreEqual(new[] { _plc.Method("Add") }, methods.Where(IsInMethodsObject).Select(m => m.MethodId).ToArray());
         }
 
         [TestMethod]
