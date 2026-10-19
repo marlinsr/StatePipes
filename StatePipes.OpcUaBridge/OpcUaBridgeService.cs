@@ -54,7 +54,7 @@ namespace StatePipes.OpcUaBridge
         private readonly CommandExecutor _executor;
         private ISimpleConnectionChannel? _connectionChannel;
         private ISimpleConnectionChannel? _notificationChannel;
-        private volatile Catalog _catalog = Catalog.Create([], discovered: false);
+        private volatile Catalog _catalog = Catalog.Create([], [], discovered: false);
         private long _heartbeatCounter;
         private int _replyToCheckRequested;
 
@@ -74,33 +74,35 @@ namespace StatePipes.OpcUaBridge
 
         /// <summary>What the bridge currently exposes, swapped as a whole whenever the server is rediscovered.</summary>
         private sealed class Catalog(Dictionary<string, OpcUaDataItem> byCommand, Dictionary<string, OpcUaDataItem> byMonitorCommand, Dictionary<string, OpcUaDataItem> byDeleteCommand,
-            Dictionary<string, OpcUaDataItem> bySetCommand, byte[] selfDescriptionBody, bool discovered)
+            Dictionary<string, OpcUaDataItem> bySetCommand, Dictionary<string, OpcUaMethodItem> byExecCommand, byte[] selfDescriptionBody, bool discovered)
         {
             public Dictionary<string, OpcUaDataItem> ByCommand { get; } = byCommand;
             public Dictionary<string, OpcUaDataItem> ByMonitorCommand { get; } = byMonitorCommand;
             public Dictionary<string, OpcUaDataItem> ByDeleteCommand { get; } = byDeleteCommand;
             /// <summary>The writable items only.</summary>
             public Dictionary<string, OpcUaDataItem> BySetCommand { get; } = bySetCommand;
+            public Dictionary<string, OpcUaMethodItem> ByExecCommand { get; } = byExecCommand;
             public byte[] SelfDescriptionBody { get; } = selfDescriptionBody;
             /// <summary>False until the OPC UA server has been discovered once.</summary>
             public bool Discovered { get; } = discovered;
-            public static Catalog Create(IReadOnlyList<OpcUaDataItem> items, bool discovered)
+            public static Catalog Create(IReadOnlyList<OpcUaDataItem> items, IReadOnlyList<OpcUaMethodItem> methods, bool discovered)
             {
-                var selfDescription = new SelfDescriptionEvent(SelfDescriptionBuilder.Build(items));
+                var selfDescription = new SelfDescriptionEvent(SelfDescriptionBuilder.Build(items, methods));
                 return new(items.ToDictionary(item => item.CommandTypeFullName, StringComparer.Ordinal),
                     items.ToDictionary(item => item.MonitorCommandTypeFullName, StringComparer.Ordinal),
                     items.ToDictionary(item => item.DeleteCommandTypeFullName, StringComparer.Ordinal),
                     items.Where(item => item.IsWritable).ToDictionary(item => item.SetCommandTypeFullName, StringComparer.Ordinal),
+                    methods.ToDictionary(method => method.ExecCommandTypeFullName, StringComparer.Ordinal),
                     Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject(selfDescription, true)), discovered);
             }
         }
 
-        public void SetCatalog(IReadOnlyList<OpcUaDataItem> items)
+        public void SetCatalog(IReadOnlyList<OpcUaDataItem> items, IReadOnlyList<OpcUaMethodItem>? methods = null)
         {
-            var catalog = Catalog.Create(items, discovered: true);
+            var catalog = Catalog.Create(items, methods ?? [], discovered: true);
             _catalog = catalog;
             var size = catalog.SelfDescriptionBody.Length;
-            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get, Monitor and Delete commands, {catalog.BySetCommand.Count} of them also as Set commands, on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
+            Log?.LogInfo($"Exposing {items.Count} OPC UA data items as Get, Monitor and Delete commands, {catalog.BySetCommand.Count} of them also as Set commands, and {catalog.ByExecCommand.Count} methods as Exec commands, on {_busConfig.CommandExchangeName} (self description {size / 1024} KiB)");
             var limit = _busConfig.TransportKind == TransportKind.Kafka ? KafkaDefaultMaxMessageBytes : RabbitMqDefaultMaxMessageBytes;
             if (size > limit)
                 Log?.LogError($"The self description is {size / 1024} KiB, over the {limit / 1024} KiB default {_busConfig.TransportKind} message limit, so clients may never receive it. Narrow the exposed nodes with OPCUA_NODE_FILTER or raise the broker's limit.");
@@ -185,6 +187,18 @@ namespace StatePipes.OpcUaBridge
                 else if (catalog.BySetCommand.TryGetValue(routingKey, out var settable))
                 {
                     if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) _executor.EnqueueSet(settable, [.. body], replyTo, replyToRaw.ToArray());
+                }
+                else if (catalog.ByExecCommand.TryGetValue(routingKey, out var method))
+                {
+                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) _executor.EnqueueExec(method, [.. body], replyTo, replyToRaw.ToArray());
+                }
+                else if (MessageNames.FromExecCommandFullName(routingKey, _namespace) is { } execNames)
+                {
+                    // An Exec for a method without one: not discovered yet, gone, filtered, or not executable.
+                    if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) return;
+                    var status = catalog.Discovered ? StatusCodes.BadMethodInvalid : StatusCodes.BadWaitingForInitialData;
+                    var raw = replyToRaw.ToArray();
+                    EnqueueRefusal(routingKey, () => SendExecResult(execNames, ExecResultBody.Refused(null, status), replyTo, raw));
                 }
                 else if (MessageNames.FromSetCommandFullName(routingKey, _namespace) is { } setNames)
                 {

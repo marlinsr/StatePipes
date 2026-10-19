@@ -49,7 +49,7 @@ namespace StatePipes.OpcUaBridge
             typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent)
         ];
 
-        public static TypeSerializationList Build(IEnumerable<OpcUaDataItem> items)
+        public static TypeSerializationList Build(IEnumerable<OpcUaDataItem> items, IEnumerable<OpcUaMethodItem>? methods = null)
         {
             TypeSerializationConverter converter = new();
             TypeSerializationList list = new();
@@ -65,7 +65,46 @@ namespace StatePipes.OpcUaBridge
                 list.TypeSerializations.Add(BuildSetCommand(item));
                 list.TypeSerializations.Add(BuildSetStatusEvent(item));
             }
+            foreach (var method in methods ?? [])
+            {
+                list.TypeSerializations.Add(BuildExecCommand(method));
+                list.TypeSerializations.Add(BuildExecResultEvent(method));
+            }
             return list;
+        }
+
+        /// <summary>An Exec command holds one property per input, typed as a Set's Value: an Exec always says what to call with.</summary>
+        private static TypeSerialization BuildExecCommand(OpcUaMethodItem method)
+        {
+            var description = CreateDescription(method.Names.Namespace, method.Names.ExecCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            foreach (var input in method.Inputs)
+            {
+                if (input.Structure == null) AddProperty(serialization, description, input.PropertyName, input.ValueType);
+                else AddStructureProperty(serialization, description, input.PropertyName, input.Structure, input.IsArray);
+            }
+            return serialization;
+        }
+
+        /// <summary>An ExecResult's outputs are typed as a Get event's Value, nullable because a failed call has none.</summary>
+        private static TypeSerialization BuildExecResultEvent(OpcUaMethodItem method)
+        {
+            var description = CreateDescription(method.Names.Namespace, method.Names.ExecResultEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, ObjectIdProperty, typeof(string));
+            AddProperty(serialization, description, MethodIdProperty, typeof(string));
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            foreach (var output in method.Outputs)
+            {
+                if (output.Structure == null) AddProperty(serialization, description, output.PropertyName, output.ValueType, isNullable: output.ValueType.IsValueType);
+                else AddStructureProperty(serialization, description, output.PropertyName, output.Structure, output.IsArray);
+            }
+            return serialization;
         }
 
         /// <summary>

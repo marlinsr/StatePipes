@@ -40,7 +40,7 @@ namespace StatePipes.OpcUaBridge
                 {
                     await opcUa.ConnectAsync(ct);
                     var nodes = await opcUa.DiscoverAsync(ct);
-                    bridge.SetCatalog(nodes.Items);
+                    bridge.SetCatalog(nodes.Items, nodes.Methods);
                     bridge.Monitors.SessionStarted(opcUa.CreateMonitorManager(bridge.Monitors.OnNotification), nodes.Items);
                     while (opcUa.IsConnected) await Task.Delay(TimeSpan.FromSeconds(1), ct);
                     Log?.LogError($"Lost connection to OPC UA server {settings.OpcUaEndpoint}");

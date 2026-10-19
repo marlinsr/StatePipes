@@ -315,6 +315,81 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.AreEqual((uint)StatusCodes.BadNotConnected, (uint)getEvent.StatusCode);
         }
 
+        internal static OpcUaMethodItem CreateAddMethod(string identifier = "Methods.Add")
+        {
+            NodeId objectId = new("Methods", 2), methodId = new(identifier, 2);
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange, [(objectId, methodId)]).Values.Single();
+            return new(objectId, methodId, objectId.ToString(), methodId.ToString(), names,
+                [new("a", BuiltInType.Int32, typeof(int), null, false), new("b", BuiltInType.Int32, typeof(int), null, false)],
+                [new("sum", BuiltInType.Int32, typeof(int), null, false)]);
+        }
+
+        [TestMethod]
+        public void SelfDescription_ExecTypesOnlyForMethods()
+        {
+            var add = CreateAddMethod();
+
+            var list = SelfDescriptionBuilder.Build([CreateItem("Line1.Temperature", typeof(double))], [add]).TypeSerializations;
+
+            var command = list.Single(t => t.FullName == add.ExecCommandTypeFullName).GetTopLevelDescription();
+            Assert.IsTrue(command.IsCommand);
+            CollectionAssert.AreEqual(new[] { "a", "b" }, command.Properties.Select(p => p.Name).ToArray());
+            Assert.IsTrue(command.Properties.All(p => !p.IsNullable && p.FullName == typeof(int).FullName));
+            var result = list.Single(t => t.FullName == add.ExecResultEventTypeFullName).GetTopLevelDescription();
+            Assert.IsTrue(result.IsEvent);
+            CollectionAssert.AreEqual(new[] { "ObjectId", "MethodId", "StatusCode", "Status", "sum" }, result.Properties.Select(p => p.Name).ToArray());
+            Assert.IsTrue(result.Properties.Single(p => p.Name == "sum").IsNullable);
+            Assert.AreEqual(2, list.Count(t => t.FullName.Contains("Exec")));
+        }
+
+        [TestMethod]
+        public void SelfDescription_SizePerMethod()
+        {
+            static int Size(IEnumerable<OpcUaMethodItem> methods) => JsonUtility.GetJsonStringForObject(new SelfDescriptionEvent(SelfDescriptionBuilder.Build([], methods)), true).Length;
+            var methods = Enumerable.Range(0, 100).Select(i => CreateAddMethod($"Methods.Add{i}")).ToList();
+
+            var perMethod = (Size(methods) - Size([])) / 100;
+
+            Console.WriteLine($"A method with two Int32 inputs and one Int32 output adds {perMethod} bytes to the self description");
+            Assert.IsLessThan(8 * 1024, perMethod);
+        }
+
+        /// <summary>Exec types are used like Get types: Explorer emits them, sends an Exec built from one, and reads an ExecResult into one.</summary>
+        [TestMethod]
+        public void SelfDescription_ConsumedLikeExplorer_ExecTypesEmit()
+        {
+            var add = CreateAddMethod();
+            var json = JsonUtility.GetJsonStringForObject(new SelfDescriptionEvent(SelfDescriptionBuilder.Build([], [add])), true);
+            var received = JsonUtility.GetObjectForJsonString<SelfDescriptionEvent>(json)!;
+            TypeSerializationConverter converter = new();
+            Dictionary<string, Type> emitted = [];
+            foreach (var typeSerialization in received.TypeList.TypeSerializations)
+            {
+                TypeSerializationJsonHelper helper = new(typeSerialization, converter);
+                Assert.IsNotNull(helper.ThisType, typeSerialization.FullName);
+                Assert.IsNotNull(helper.GenerateExampleJson(), typeSerialization.FullName);
+                emitted[typeSerialization.FullName] = helper.ThisType;
+            }
+            Assert.IsTrue(typeof(StatePipes.Interfaces.ICommand).IsAssignableFrom(emitted[add.ExecCommandTypeFullName]));
+            Assert.IsTrue(typeof(StatePipes.Interfaces.IEvent).IsAssignableFrom(emitted[add.ExecResultEventTypeFullName]));
+
+            dynamic exec = Activator.CreateInstance(emitted[add.ExecCommandTypeFullName])!;
+            exec.a = 2;
+            exec.b = 3;
+            var execBody = Encoding.UTF8.GetBytes(JsonUtility.GetJsonStringForObject((object)exec));
+            Assert.AreEqual(StatusCodes.Good, ExecArgumentEncoder.TryEncode(execBody, add.Inputs, out var inputs).Code, Encoding.UTF8.GetString(execBody));
+            Assert.AreEqual(3, inputs[1].AsBoxedObject(Variant.BoxingBehavior.Legacy));
+
+            var resultBody = ExecResultBody.Create(add, new CallMethodResult { StatusCode = StatusCodes.Good, OutputArguments = new[] { new Variant(5) } });
+            dynamic result = JsonUtility.GetObjectFromJson(Encoding.UTF8.GetString(resultBody), emitted[add.ExecResultEventTypeFullName])!;
+            Assert.AreEqual(5, (int?)result.sum);
+            Assert.AreEqual("ns=2;s=Methods.Add", (string)result.MethodId);
+
+            var refused = ExecResultBody.Refused(null, StatusCodes.BadMethodInvalid);
+            result = JsonUtility.GetObjectFromJson(Encoding.UTF8.GetString(refused), emitted[add.ExecResultEventTypeFullName])!;
+            Assert.AreEqual(StatusCodes.BadMethodInvalid.Code, (uint)result.StatusCode);
+        }
+
         private static OpcUaDataItem CreateItem(string identifier, Type valueType)
         {
             NodeId nodeId = new(identifier, 2);
