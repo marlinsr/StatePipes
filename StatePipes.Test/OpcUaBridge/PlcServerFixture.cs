@@ -30,6 +30,11 @@ namespace StatePipes.Test.OpcUaBridge
         public NodeId Msg => new("msg", NamespaceIndex);
         /// <summary>A node in the Setpoints folder, which nothing but a test changes.</summary>
         public NodeId Setpoint(string name) => new($"Setpoints.{name}", NamespaceIndex);
+        /// <summary>A node of the Methods object: one of its methods, objects or variables.</summary>
+        public NodeId Method(string name) => new($"Methods.{name}", NamespaceIndex);
+        public NodeId MethodsObject => new("Methods", NamespaceIndex);
+        public NodeId Pump1 => Method("Pump1");
+        public NodeId Pump2 => Method("Pump2");
 
         public static async Task<PlcServerFixture> StartAsync(int port)
         {

@@ -150,8 +150,14 @@ Turns an Exec body into the call's input `Variant`s, one per input in order, usi
   - Reads `Executable`, `UserExecutable` and the `InputArguments` / `OutputArguments` property values, and builds
     structure layouts for structure argument types with `StructureLayoutBuilder`.
   - `CallAsync(NodeId objectId, NodeId methodId, IReadOnlyList<Variant> inputs, CancellationToken)` returns the
-    `CallMethodResult`, or a result with `BadNotConnected` when there is no connected session. It sends the Call
-    with `RequestHeader.TimeoutHint` at its maximum so the bridge's 15 s `OperationTimeout` does not cut it off.
+    `CallMethodResult`, or a result with `BadNotConnected` when there is no connected session.
+  - **Call session (revised 2026-10-19):** the client stack cuts every request off at the session's
+    `OperationTimeout` (15 s) and ignores `RequestHeader.TimeoutHint`, so Calls go over a **second OPC UA
+    session** whose `OperationTimeout` is `int.MaxValue`. It is opened on the first Call after each connect
+    (servers whose methods are never called see one session), reopened if it has failed, and closed by
+    `DisconnectAsync` together with the main session. Reads, Writes, keep-alives and monitors stay on the main
+    session with their 15 s limit, so a dead connection is still detected there; losing the main session closes
+    the call session, which ends a running call as outcome unknown.
 - **`MonitorCoordinator`:** `Monitor`, `Delete` and `DeleteUnlisted` become `MonitorAsync`, `DeleteAsync` and
   `DeleteUnlistedAsync`, which return a `Task` that completes once the request has been handled (registry
   updated, applied to the live session if any, MonitorStatus sent). The request still goes through the
@@ -257,7 +263,7 @@ No command is ever retried.
 the method may have run. Because answers are matched by order, a lost ExecResult (broker down) also leaves that
 client's matching out of step; the README says so.
 
-**No timeout:** a method that never returns holds the queue, and every Get, Set, Exec, Monitor and Delete behind
+**No timeout:** Calls use the dedicated call session (see `OpcUaClient`). A method that never returns holds the queue, and every Get, Set, Exec, Monitor and Delete behind
 it, until it returns or the session drops. Notifications from existing monitors keep flowing.
 
 **Logging:** failed Execs at Warning (object, method, sender `CommandExchangeName`, status); successful ones at
@@ -349,4 +355,5 @@ Run `OpcUaServer` and the bridge against a broker, open the bridge in StatePipes
 - Correlation of ExecResult to Exec is by order only.
 - One command at a time, bridge-wide: a slow method delays every other command.
 - No call timeout: a hung method stalls commands until the session drops.
+- The bridge holds a second OPC UA session on the server once a method has been called.
 - Self-description grows with every method; large servers need `OPCUA_METHOD_FILTER`.

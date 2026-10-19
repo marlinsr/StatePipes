@@ -8,7 +8,8 @@ using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.OpcUaBridge
 {
     /// <summary>
-    /// The OPC UA half of the bridge: owns one session, finds every readable variable and reads them on demand.
+    /// The OPC UA half of the bridge: owns the session, finds every readable variable and reads them on demand,
+    /// and calls methods over a second session of its own (see <see cref="CallAsync"/>).
     ///
     /// <para>Discovery walks the hierarchical references down from the Objects folder, which is how a generic
     /// client sees "everything on the server". Namespace 0 and the stack's Diagnostics namespace hold the server's
@@ -27,6 +28,9 @@ namespace StatePipes.OpcUaBridge
         private readonly ITelemetryContext _telemetry;
         private ApplicationConfiguration? _configuration;
         private ISession? _session;
+        private ConfiguredEndpoint? _endpoint;
+        private ISession? _callSession;
+        private readonly SemaphoreSlim _callSessionLock = new(1, 1);
         private volatile bool _keepAliveFailed;
 
         public OpcUaClient(BridgeSettings settings)
@@ -44,22 +48,32 @@ namespace StatePipes.OpcUaBridge
             var endpointDescription = await CoreClientUtils.SelectEndpointAsync(_configuration, _settings.OpcUaEndpoint, _settings.UseSecurity, _telemetry, ct)
                 ?? throw new InvalidOperationException($"No endpoint found at {_settings.OpcUaEndpoint}");
             var endpoint = new ConfiguredEndpoint(null, endpointDescription, EndpointConfiguration.Create(_configuration));
-            var session = await new DefaultSessionFactory(_telemetry).CreateAsync(_configuration, endpoint, false, false,
-                _settings.ApplicationName, SessionTimeoutMilliseconds, CreateIdentity(), default, ct);
+            var session = await CreateSessionAsync(endpoint, _settings.ApplicationName, ct);
             _keepAliveFailed = false;
             session.KeepAlive += OnKeepAlive;
+            _endpoint = endpoint;
             _session = session;
             Log?.LogInfo($"Connected to OPC UA server {endpointDescription.EndpointUrl} [{endpointDescription.SecurityMode} {SecurityPolicies.Default.GetDisplayName(endpointDescription.SecurityPolicyUri ?? string.Empty) ?? endpointDescription.SecurityPolicyUri}]");
         }
+
+        private Task<ISession> CreateSessionAsync(ConfiguredEndpoint endpoint, string sessionName, CancellationToken ct) =>
+            new DefaultSessionFactory(_telemetry).CreateAsync(_configuration!, endpoint, false, false, sessionName, SessionTimeoutMilliseconds, CreateIdentity(), default, ct);
 
         public async Task DisconnectAsync()
         {
             var session = _session;
             _session = null;
+            CloseCallSession();
             if (session == null) return;
             session.KeepAlive -= OnKeepAlive;
             try { await session.CloseAsync(); } catch { }
             session.Dispose();
+        }
+
+        private void CloseCallSession()
+        {
+            // Dispose rather than close: closing waits for outstanding requests, and a running call must end now.
+            try { Interlocked.Exchange(ref _callSession, null)?.Dispose(); } catch { }
         }
 
         /// <summary>
@@ -97,6 +111,52 @@ namespace StatePipes.OpcUaBridge
             var results = response.Results.ToList();
             ClientBase.ValidateResponse(results, toWrite);
             return results;
+        }
+
+        /// <summary>
+        /// Calls one method and returns the server's result, or BadNotConnected without a call when there is no
+        /// session. Failures of the Call itself are thrown.
+        ///
+        /// <para>The call waits as long as the server takes. The stack cuts every request off at its session's
+        /// OperationTimeout whatever the request's timeout hint says, so calls go over a second session of their
+        /// own with no practical timeout, opened on the first call and closed with the main session. Everything
+        /// else keeps the main session's timeout, so a dead connection is still noticed there.</para>
+        /// </summary>
+        public async Task<CallMethodResult> CallAsync(NodeId objectId, NodeId methodId, IReadOnlyList<Variant> inputs, CancellationToken ct)
+        {
+            var session = await GetCallSessionAsync(ct);
+            if (session == null) return new CallMethodResult { StatusCode = StatusCodes.BadNotConnected };
+            List<CallMethodRequest> toCall = [new CallMethodRequest { ObjectId = objectId, MethodId = methodId, InputArguments = [.. inputs] }];
+            var response = await session.CallAsync(null, toCall, ct);
+            var results = response.Results.ToList();
+            ClientBase.ValidateResponse(results, toCall);
+            return results[0];
+        }
+
+        /// <summary>The open call session, opening one if needed, or null when the main session is not connected.</summary>
+        private async Task<ISession?> GetCallSessionAsync(CancellationToken ct)
+        {
+            await _callSessionLock.WaitAsync(ct);
+            try
+            {
+                var main = _session;
+                if (main == null || !IsConnected || _endpoint == null) return null;
+                if (_callSession is { Connected: true } open) return open;
+                CloseCallSession();
+                var endpoint = new ConfiguredEndpoint(null, _endpoint.Description, EndpointConfiguration.Create(_configuration!));
+                endpoint.Configuration.OperationTimeout = int.MaxValue;
+                var callSession = await CreateSessionAsync(endpoint, _settings.ApplicationName + " calls", ct);
+                callSession.OperationTimeout = int.MaxValue;
+                if (_session != main)
+                {
+                    // Disconnected while the call session was opening.
+                    callSession.Dispose();
+                    return null;
+                }
+                _callSession = callSession;
+                return callSession;
+            }
+            finally { _callSessionLock.Release(); }
         }
 
         /// <summary>The monitored items of the current session; a new session needs a new manager.</summary>

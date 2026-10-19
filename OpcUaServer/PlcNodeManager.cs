@@ -10,6 +10,7 @@ public class PlcNodeManager : CustomNodeManager2
     private const int TankHistoryLength = 3;
     private BaseDataVariableState<ExtensionObject> _density = null!;
     private BaseDataVariableState<ExtensionObject> _tank = null!;
+    private BaseDataVariableState<int> _noArgsCount = null!;
     private readonly Queue<DensityData> _tankHistory = new();
 
     public PlcNodeManager(IServerInternal server, ApplicationConfiguration configuration)
@@ -121,6 +122,7 @@ public class PlcNodeManager : CustomNodeManager2
             AddPredefinedNode(SystemContext, _tank);
 
             CreateSetpoints(root, densityTypeId, tankType.DataType.NodeId);
+            CreateMethods(root, densityTypeId);
 
             var calcMethod = new MethodState(root);
             calcMethod.Create(
@@ -217,6 +219,122 @@ public class PlcNodeManager : CustomNodeManager2
         variable.Timestamp = DateTime.UtcNow;
         folder.AddChild(variable);
         return variable;
+    }
+
+    // Methods a client can call, one per kind of argument the bridge carries, plus methods that must not get an
+    // Exec command (not executable, not executable by this user, a matrix input) and one method node shared by
+    // two objects.
+    private void CreateMethods(FolderState root, NodeId densityTypeId)
+    {
+        var methods = AddObject(root, "Methods", "Methods");
+        _noArgsCount = new BaseDataVariableState<int>.Implementation<VariantBuilder>(methods);
+        _noArgsCount.Create(SystemContext, new NodeId("Methods.NoArgsCount", NamespaceIndex), new QualifiedName("NoArgsCount", NamespaceIndex), new LocalizedText("NoArgsCount"), false);
+        _noArgsCount.DataType = DataTypeIds.Int32;
+        _noArgsCount.ValueRank = ValueRanks.Scalar;
+        _noArgsCount.AccessLevel = AccessLevels.CurrentRead;
+        _noArgsCount.UserAccessLevel = AccessLevels.CurrentRead;
+        _noArgsCount.Value = 0;
+        _noArgsCount.StatusCode = StatusCodes.Good;
+        _noArgsCount.Timestamp = DateTime.UtcNow;
+        methods.AddChild(_noArgsCount);
+
+        static Argument Arg(string name, NodeId dataType, int valueRank = ValueRanks.Scalar) => new() { Name = name, DataType = dataType, ValueRank = valueRank };
+        Argument[] echo =
+        [
+            Arg("d", DataTypeIds.Double), Arg("i16", DataTypeIds.Int16), Arg("b", DataTypeIds.Boolean), Arg("s", DataTypeIds.String),
+            Arg("dt", DataTypeIds.DateTime), Arg("da", DataTypeIds.Double, ValueRanks.OneDimension), Arg("bytes", DataTypeIds.Byte, ValueRanks.OneDimension)
+        ];
+        Argument[] echoDensity = [Arg("density", densityTypeId), Arg("densities", densityTypeId, ValueRanks.OneDimension)];
+
+        AddMethod(methods, "Add", [Arg("a", DataTypeIds.Int32), Arg("b", DataTypeIds.Int32)], [Arg("sum", DataTypeIds.Int32)],
+            (_, _, inputs, outputs) => { outputs[0] = new Variant((int)inputs[0] + (int)inputs[1]); return ServiceResult.Good; });
+        AddMethod(methods, "Echo", echo, echo, EchoInputs);
+        AddMethod(methods, "EchoDensity", echoDensity, echoDensity, EchoInputs);
+        AddMethod(methods, "NoArgs", [], [], (_, _, _, _) => { IncrementNoArgsCount(); return ServiceResult.Good; });
+        // The server calls methods synchronously, so Slow holds one of its request threads while it waits.
+        AddMethod(methods, "Slow", [Arg("ms", DataTypeIds.UInt32)], [], (_, _, inputs, _) => { Thread.Sleep(TimeSpan.FromMilliseconds((uint)inputs[0])); return ServiceResult.Good; });
+        AddMethod(methods, "Reject", [Arg("percent", DataTypeIds.Double)], [], null, method: new RejectMethodState(methods));
+        AddMethod(methods, "TextOut", [], [Arg("text", DataTypeIds.LocalizedText)],
+            (_, _, _, outputs) => { outputs[0] = new Variant(new LocalizedText("en", "Text")); return ServiceResult.Good; });
+        AddMethod(methods, "NotExecutable", [], [], (_, _, _, _) => ServiceResult.Good, executable: false, userExecutable: false);
+        AddMethod(methods, "UserNotExecutable", [], [], (_, _, _, _) => ServiceResult.Good, userExecutable: false);
+        AddMethod(methods, "MatrixIn", [Arg("matrix", DataTypeIds.Double, ValueRanks.TwoDimensions)], [], (_, _, _, _) => ServiceResult.Good);
+
+        // One Start method node, a component of Pump1 and also referenced from Pump2.
+        var pump1 = AddObject(methods, "Methods.Pump1", "Pump1");
+        var pump2 = AddObject(methods, "Methods.Pump2", "Pump2");
+        var start = AddMethod(pump1, "Start", [], [], (_, _, _, _) => ServiceResult.Good);
+        pump2.AddReference(ReferenceTypeIds.HasComponent, false, start.NodeId);
+        start.AddReference(ReferenceTypeIds.HasComponent, true, pump2.NodeId);
+
+        AddPredefinedNode(SystemContext, methods);
+    }
+
+    private static ServiceResult EchoInputs(ISystemContext context, MethodState method, ArrayOf<Variant> inputs, List<Variant> outputs)
+    {
+        for (var i = 0; i < outputs.Count; i++) outputs[i] = inputs[i];
+        return ServiceResult.Good;
+    }
+
+    private void IncrementNoArgsCount()
+    {
+        lock (Lock)
+        {
+            _noArgsCount.Value++;
+            _noArgsCount.Timestamp = DateTime.UtcNow;
+            _noArgsCount.ClearChangeMasks(SystemContext, false);
+        }
+    }
+
+    private BaseObjectState AddObject(NodeState parent, string id, string name)
+    {
+        var obj = new BaseObjectState(parent) { ReferenceTypeId = ReferenceTypeIds.HasComponent };
+        obj.Create(SystemContext, new NodeId(id, NamespaceIndex), new QualifiedName(name, NamespaceIndex), new LocalizedText(name), false);
+        parent.AddChild(obj);
+        return obj;
+    }
+
+    // Method NodeIds are Methods.{name}, whichever object they belong to.
+    private MethodState AddMethod(NodeState parent, string name, Argument[] inputs, Argument[] outputs, GenericMethodCalledEventHandler? handler,
+        bool executable = true, bool userExecutable = true, MethodState? method = null)
+    {
+        method ??= new MethodState(parent);
+        method.Create(SystemContext, new NodeId($"Methods.{name}", NamespaceIndex), new QualifiedName(name, NamespaceIndex), new LocalizedText(name), false);
+        method.ReferenceTypeId = ReferenceTypeIds.HasComponent;
+        if (inputs.Length > 0) method.InputArguments = CreateArgumentsProperty(method, $"Methods.{name}_InputArguments", BrowseNames.InputArguments, inputs);
+        if (outputs.Length > 0) method.OutputArguments = CreateArgumentsProperty(method, $"Methods.{name}_OutputArguments", BrowseNames.OutputArguments, outputs);
+        method.Executable = executable;
+        method.UserExecutable = userExecutable;
+        if (handler != null) method.OnCallMethod = handler;
+        parent.AddChild(method);
+        return method;
+    }
+
+    private PropertyState<ArrayOf<Argument>> CreateArgumentsProperty(MethodState method, string id, string browseName, Argument[] arguments)
+    {
+        var property = new PropertyState<ArrayOf<Argument>>.Implementation<StructureBuilder<Argument>>(method);
+        property.Create(SystemContext, new NodeId(id, NamespaceIndex), new QualifiedName(browseName), LocalizedText.Null, false);
+        property.Value = arguments;
+        return property;
+    }
+
+    // Methods.Reject only takes a percent from 0 to 100 and says which argument was wrong, so a client can see a
+    // server reject a call's input.
+    private sealed class RejectMethodState(NodeState parent) : MethodState(parent)
+    {
+        public override ServiceResult Call(ISystemContext context, NodeId objectId, ArrayOf<Variant> inputArguments, IList<ServiceResult> argumentErrors, IList<Variant> outputArguments) =>
+            Reject(inputArguments, argumentErrors);
+
+        public override ValueTask<ServiceResult> CallAsync(ISystemContext context, NodeId objectId, ArrayOf<Variant> inputArguments, IList<ServiceResult> argumentErrors,
+            IList<Variant> outputArguments, CancellationToken cancellationToken) => ValueTask.FromResult(Reject(inputArguments, argumentErrors));
+
+        private static ServiceResult Reject(ArrayOf<Variant> inputArguments, IList<ServiceResult> argumentErrors)
+        {
+            while (argumentErrors.Count < inputArguments.Count) argumentErrors.Add(ServiceResult.Good);
+            if (inputArguments.Count == 1 && inputArguments[0].TryGetValue(out double percent) && percent is >= 0 and <= 100) return ServiceResult.Good;
+            argumentErrors[0] = new ServiceResult(StatusCodes.BadOutOfRange);
+            return ServiceResult.Good; // the server turns a Bad argument error into BadInvalidArgument with InputArgumentResults
+        }
     }
 
     // Setpoints.Percent only takes 0 to 100, so a client can see a server refuse a write.

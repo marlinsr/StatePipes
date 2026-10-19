@@ -31,3 +31,22 @@ written value is overwritten within half a second.
 | `Setpoints.Matrix` | Double, 2×2 matrix | no |
 | `Setpoints.Number` | abstract Number | no |
 | `Setpoints.Text` | LocalizedText | no |
+
+## Methods (for testing calls)
+
+`PLC_Data/Methods` is an object holding methods for the bridge's Exec commands, and `Methods.NoArgsCount`, an
+Int32 that counts calls to `NoArgs`. `CalculatePressureVolumeMass` on `PLC_Data` is unchanged.
+
+| NodeId (`ns=2;s=...`) | Arguments → outputs | Bridge Exec command |
+|---|---|---|
+| `Methods.Add` | (Int32 a, Int32 b) → Int32 sum | yes |
+| `Methods.Echo` | (Double d, Int16 i16, Boolean b, String s, DateTime dt, Double[] da, Byte[] bytes) → the same | yes |
+| `Methods.EchoDensity` | (DensityDataType density, DensityDataType[] densities) → the same | yes |
+| `Methods.NoArgs` | () → (); increments `Methods.NoArgsCount` | yes |
+| `Methods.Slow` | (UInt32 ms) → (); returns after `ms` milliseconds | yes |
+| `Methods.Reject` | (Double percent) → (); outside 0–100 the call fails with `BadInvalidArgument` and `percent` gets `BadOutOfRange` | yes |
+| `Methods.TextOut` | () → LocalizedText text | yes (output as a string) |
+| `Methods.NotExecutable` | not executable | no |
+| `Methods.UserNotExecutable` | executable, but not by the session's user | no |
+| `Methods.MatrixIn` | (Double[,] matrix) → () | no |
+| `Methods.Start` | () → (); one method node, a component of `Methods.Pump1` and also referenced from `Methods.Pump2` | yes, one per pump |
