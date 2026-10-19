@@ -94,7 +94,7 @@ namespace StatePipes.Test.OpcUaBridge
             CollectionAssert.AreEqual(new[] { StatusCodes.BadNotConnected, StatusCodes.BadNotConnected }, results.Select(r => r.Code).ToArray());
         }
 
-        /// <summary>The whole bridge -- OPC UA session loop, routing, SetWriter -- with a fake broker channel.</summary>
+        /// <summary>The whole bridge -- OPC UA session loop, routing, CommandExecutor -- with a fake broker channel.</summary>
         private sealed class Bridge : IAsyncDisposable
         {
             private readonly CancellationTokenSource _cts = new();

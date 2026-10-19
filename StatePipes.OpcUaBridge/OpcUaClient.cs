@@ -18,7 +18,7 @@ namespace StatePipes.OpcUaBridge
     /// <see cref="BridgeSettings.NodeFilter"/> narrows the set further on servers too large to describe in one
     /// self-description message.</para>
     /// </summary>
-    internal sealed class OpcUaClient : ISetSession, IAsyncDisposable
+    internal sealed class OpcUaClient : IOpcUaSession, IAsyncDisposable
     {
         internal const uint SessionTimeoutMilliseconds = 60_000;
         private const int BrowseBatchSize = 100;
@@ -150,8 +150,9 @@ namespace StatePipes.OpcUaBridge
                 if (main == null || !IsConnected || _endpoint == null) return null;
                 if (_callSession is { Connected: true } open) return open;
                 CloseCallSession();
-                var endpoint = new ConfiguredEndpoint(null, _endpoint.Description, EndpointConfiguration.Create(_configuration!));
-                endpoint.Configuration.OperationTimeout = int.MaxValue;
+                var configuration = EndpointConfiguration.Create(_configuration!);
+                configuration.OperationTimeout = int.MaxValue;
+                var endpoint = new ConfiguredEndpoint(null, _endpoint.Description, configuration);
                 var callSession = await CreateSessionAsync(endpoint, _settings.ApplicationName + " calls", ct);
                 callSession.OperationTimeout = int.MaxValue;
                 if (_session != main)

@@ -15,15 +15,21 @@ namespace StatePipes.Test.OpcUaBridge
     [TestCategory(TestCategories.Unit)]
     public class OpcUaBridgeSetRoutingTest
     {
-        private sealed class RecordingSetSession : ISetSession
+        private sealed class RecordingSetSession : IOpcUaSession
         {
             public ConcurrentQueue<(NodeId NodeId, Variant Value)> Written { get; } = new();
+
+            public Task<IReadOnlyList<DataValue>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyList<DataValue>>([.. nodeIds.Select(_ => DataValue.FromStatusCode(StatusCodes.BadNotConnected))]);
 
             public Task<IReadOnlyList<StatusCode>> WriteValuesAsync(IReadOnlyList<(NodeId NodeId, Variant Value)> values, CancellationToken ct)
             {
                 foreach (var value in values) Written.Enqueue(value);
                 return Task.FromResult<IReadOnlyList<StatusCode>>([.. values.Select(_ => (StatusCode)StatusCodes.Good)]);
             }
+
+            public Task<CallMethodResult> CallAsync(NodeId objectId, NodeId methodId, IReadOnlyList<Variant> inputs, CancellationToken ct) =>
+                Task.FromResult(new CallMethodResult { StatusCode = StatusCodes.BadNotConnected });
         }
 
         private readonly FakeChannelFactory _channels = new();
