@@ -19,6 +19,8 @@ namespace StatePipes.Test.OpcUaBridge
         /// <summary>When set, Remove and Disable throw it, as a session dying underneath them might.</summary>
         public Exception? Throw { get; set; }
         public static MonitorApplyResult ActiveResult { get; } = new(MonitorState.Active, StatusCodes.Good, 50, 10, 100);
+        /// <summary>When set, ApplyAll waits for it, as a slow rebuild on a large server would.</summary>
+        public Task? Gate { get; init; }
 
         private MonitorApplyResult ResultFor(MonitorKey key) => Results.GetValueOrDefault(key, ActiveResult);
 
@@ -28,10 +30,11 @@ namespace StatePipes.Test.OpcUaBridge
             return Task.FromResult(ResultFor(definition.Key));
         }
 
-        public Task<IReadOnlyDictionary<MonitorKey, MonitorApplyResult>> ApplyAllAsync(IReadOnlyList<MonitorDefinition> definitions, CancellationToken ct)
+        public async Task<IReadOnlyDictionary<MonitorKey, MonitorApplyResult>> ApplyAllAsync(IReadOnlyList<MonitorDefinition> definitions, CancellationToken ct)
         {
             AppliedAll.Enqueue(definitions);
-            return Task.FromResult<IReadOnlyDictionary<MonitorKey, MonitorApplyResult>>(definitions.ToDictionary(d => d.Key, d => ResultFor(d.Key)));
+            if (Gate != null) await Gate.WaitAsync(ct);
+            return definitions.ToDictionary(d => d.Key, d => ResultFor(d.Key));
         }
 
         public Task RemoveAsync(MonitorKey key, CancellationToken ct)
@@ -61,7 +64,14 @@ namespace StatePipes.Test.OpcUaBridge
         public ConcurrentDictionary<string, bool> Missing { get; } = new();
         public ConcurrentQueue<string> ExistenceChecks { get; } = new();
 
-        public void SendStatus(MonitorStatus status, MessageNames names, string replyToRaw) => Statuses.Enqueue((status, names, replyToRaw));
+        /// <summary>When set, sending a status throws it, as a failing broker channel might.</summary>
+        public Exception? ThrowOnStatus { get; set; }
+
+        public void SendStatus(MonitorStatus status, MessageNames names, string replyToRaw)
+        {
+            if (ThrowOnStatus != null) throw ThrowOnStatus;
+            Statuses.Enqueue((status, names, replyToRaw));
+        }
         public void SendNotification(OpcUaDataItem item, DataValue value, string replyToRaw) => Notifications.Enqueue((item, value, replyToRaw));
 
         public Task<bool> ReplyToExistsAsync(BusConfig replyTo, CancellationToken ct)
@@ -148,10 +158,67 @@ namespace StatePipes.Test.OpcUaBridge
 
         private static MonitorDefinition On(string nodeIdText, string sender = "Client1") => Definition(nodeIdText, sender: sender);
 
-        private void Monitor(MonitorDefinition definition, OpcUaDataItem item) =>
-            _coordinator.Monitor(definition.Key.SenderCommandExchange, item, definition.Parameters, definition.ReplyToRaw);
+        private Task Monitor(MonitorDefinition definition, OpcUaDataItem item) =>
+            _coordinator.MonitorAsync(definition.Key.SenderCommandExchange, item, definition.Parameters, definition.ReplyToRaw, CancellationToken.None);
 
-        private void Delete(OpcUaDataItem item, string replyToRaw) => _coordinator.Delete(Sender, item, replyToRaw);
+        private Task Delete(OpcUaDataItem item, string replyToRaw) => _coordinator.DeleteAsync(Sender, item, replyToRaw, CancellationToken.None);
+
+        [TestMethod]
+        public async Task MonitorAsync_CompletesAfterStatusSent()
+        {
+            StartSession();
+
+            await Monitor(On(Pressure), PressureItem).WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.HasCount(1, _output.Statuses);
+        }
+
+        [TestMethod]
+        public async Task MonitorAsync_WaitsForQueuedSessionStart()
+        {
+            TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _coordinator.SessionStarted(new FakeMonitorSession { Gate = gate.Task }, Catalog);
+
+            var monitoring = Monitor(On(Pressure), PressureItem);
+            await Task.Delay(200);
+            Assert.IsFalse(monitoring.IsCompleted, "Completed before the session start ahead of it was handled");
+
+            gate.SetResult();
+            await monitoring.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        [TestMethod]
+        public async Task MonitorAsync_HandlerThrows_StillCompletes()
+        {
+            _output.ThrowOnStatus = new InvalidOperationException("broker gone");
+
+            await Monitor(On(Pressure), PressureItem).WaitAsync(TimeSpan.FromSeconds(5));
+            await Delete(PressureItem, On(Pressure).ReplyToRaw).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        [TestMethod]
+        public async Task MonitorAsync_CoordinatorStopped_TaskCancelled()
+        {
+            TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _coordinator.SessionStarted(new FakeMonitorSession { Gate = gate.Task }, Catalog);
+            var pending = Monitor(On(Pressure), PressureItem);
+
+            await _cts.CancelAsync();
+            var afterStop = Monitor(On(Msg), MsgItem);
+
+            await Assert.ThrowsAsync<TaskCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(1)));
+            await Assert.ThrowsAsync<TaskCanceledException>(() => afterStop.WaitAsync(TimeSpan.FromSeconds(1)));
+        }
+
+        [TestMethod]
+        public async Task DeleteUnlistedAsync_Completes()
+        {
+            var names = MessageNames.FromCommandFullName("Line1Plc.Delete_ns2_s_removed_Command", Exchange)!;
+
+            await _coordinator.DeleteUnlistedAsync(Sender, names, On(Pressure).ReplyToRaw, StatusCodes.BadNodeIdUnknown, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.HasCount(1, _output.Statuses);
+        }
 
         [TestMethod]
         public void Monitor_Connected_UpsertsAppliesAndRespondsActiveOnItemStatusEvent()
@@ -289,7 +356,7 @@ namespace StatePipes.Test.OpcUaBridge
             var session = StartSession();
             NextStatus();
             var names = MessageNames.FromCommandFullName("Line1Plc.Delete_ns2_s_removed_Command", Exchange)!;
-            _coordinator.DeleteUnlisted(Sender, names, gone.ReplyToRaw, StatusCodes.BadNodeIdUnknown);
+            _ = _coordinator.DeleteUnlistedAsync(Sender, names, gone.ReplyToRaw, StatusCodes.BadNodeIdUnknown, CancellationToken.None);
             var (status, statusNames, _) = NextEntry();
             Assert.AreEqual(MonitorState.Deleted, status.State);
             Assert.AreEqual("ns=2;s=removed", status.NodeId);
@@ -302,7 +369,7 @@ namespace StatePipes.Test.OpcUaBridge
         {
             _registry.Upsert(On("ns=2;s=removed", "Client2"));
             var names = MessageNames.FromCommandFullName("Line1Plc.Delete_ns2_s_removed_Command", Exchange)!;
-            _coordinator.DeleteUnlisted(Sender, names, On(Pressure).ReplyToRaw, StatusCodes.BadWaitingForInitialData);
+            _ = _coordinator.DeleteUnlistedAsync(Sender, names, On(Pressure).ReplyToRaw, StatusCodes.BadWaitingForInitialData, CancellationToken.None);
             var (status, statusNames, _) = NextEntry();
             Assert.AreEqual(MonitorState.Failed, status.State);
             Assert.AreEqual(StatusCodes.BadWaitingForInitialData, status.StatusCode.Code);

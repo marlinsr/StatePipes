@@ -29,7 +29,11 @@ namespace StatePipes.OpcUaBridge
         private volatile IReadOnlyDictionary<string, OpcUaDataItem> _catalog = new Dictionary<string, OpcUaDataItem>();
         private IMonitorSession? _session;
 
-        private abstract record MonitorWork;
+        /// <summary>A unit of work; <see cref="Done"/>, when set, completes once it has been handled, or is cancelled if it never will be.</summary>
+        private abstract record MonitorWork
+        {
+            public TaskCompletionSource? Done { get; init; }
+        }
         private sealed record MonitorRequest(string Sender, OpcUaDataItem Item, MonitorParameters Parameters, string ReplyToRaw) : MonitorWork;
         private sealed record DeleteRequest(string Sender, OpcUaDataItem Item, string ReplyToRaw) : MonitorWork;
         private sealed record DeleteUnlistedRequest(string Sender, MessageNames Names, string ReplyToRaw, StatusCode NotFound) : MonitorWork;
@@ -38,20 +42,37 @@ namespace StatePipes.OpcUaBridge
         private sealed record ReplyToCheck : MonitorWork;
         private sealed record ExpiryCheck : MonitorWork;
 
-        /// <summary>Creates or updates <paramref name="senderCommandExchange"/>'s monitor on <paramref name="item"/>.</summary>
-        public void Monitor(string senderCommandExchange, OpcUaDataItem item, MonitorParameters parameters, string replyToRaw) => Enqueue(new MonitorRequest(senderCommandExchange, item, parameters, replyToRaw));
-        public void Delete(string senderCommandExchange, OpcUaDataItem item, string replyToRaw) => Enqueue(new DeleteRequest(senderCommandExchange, item, replyToRaw));
+        /// <summary>
+        /// Creates or updates <paramref name="senderCommandExchange"/>'s monitor on <paramref name="item"/>. The task
+        /// completes once the registry, the live session if any, and the sender's MonitorStatus are done with it, so
+        /// the bridge's command queue can wait its turn on it.
+        /// </summary>
+        public Task MonitorAsync(string senderCommandExchange, OpcUaDataItem item, MonitorParameters parameters, string replyToRaw, CancellationToken ct) =>
+            EnqueueAndWait(new MonitorRequest(senderCommandExchange, item, parameters, replyToRaw), ct);
+        public Task DeleteAsync(string senderCommandExchange, OpcUaDataItem item, string replyToRaw, CancellationToken ct) =>
+            EnqueueAndWait(new DeleteRequest(senderCommandExchange, item, replyToRaw), ct);
         /// <summary>
         /// A Delete command for an item the catalog does not hold, known only by its message names. It deletes the
         /// sender's stored monitor on the item those names belong to, so a monitor on an item that has left the
         /// server can still be removed; when there is none, the sender gets <paramref name="notFound"/>.
         /// </summary>
-        public void DeleteUnlisted(string senderCommandExchange, MessageNames names, string replyToRaw, StatusCode notFound) => Enqueue(new DeleteUnlistedRequest(senderCommandExchange, names, replyToRaw, notFound));
+        public Task DeleteUnlistedAsync(string senderCommandExchange, MessageNames names, string replyToRaw, StatusCode notFound, CancellationToken ct) =>
+            EnqueueAndWait(new DeleteUnlistedRequest(senderCommandExchange, names, replyToRaw, notFound), ct);
         public void SessionStarted(IMonitorSession session, IReadOnlyList<OpcUaDataItem> catalog) => Enqueue(new SessionStart(session, catalog));
         public void SessionLost() => Enqueue(new SessionEnd());
         public void CheckReplyTos() => Enqueue(new ReplyToCheck());
 
-        private void Enqueue(MonitorWork work) => _work.Writer.TryWrite(work);
+        private void Enqueue(MonitorWork work)
+        {
+            if (!_work.Writer.TryWrite(work)) work.Done?.TrySetCanceled();
+        }
+
+        private Task EnqueueAndWait(MonitorWork work, CancellationToken ct)
+        {
+            TaskCompletionSource done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Enqueue(work with { Done = done });
+            return done.Task.WaitAsync(ct);
+        }
 
         public void OnNotification(MonitorKey key, DataValue value)
         {
@@ -68,14 +89,29 @@ namespace StatePipes.OpcUaBridge
             {
                 await foreach (var work in _work.Reader.ReadAllAsync(ct))
                 {
-                    try { await HandleAsync(work, ct); }
-                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                    catch (Exception ex) { Log?.LogException(ex); }
+                    try
+                    {
+                        await HandleAsync(work, ct);
+                        work.Done?.TrySetResult();
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        work.Done?.TrySetCanceled();
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log?.LogException(ex);
+                        work.Done?.TrySetResult();
+                    }
                 }
             }
             catch (OperationCanceledException) { }
             finally
             {
+                // Nothing is handled after this, so nobody may wait for it.
+                _work.Writer.TryComplete();
+                while (_work.Reader.TryRead(out var left)) left.Done?.TrySetCanceled();
                 await Task.WhenAll(replyToChecks, expiryChecks);
                 await EndSessionAsync();
             }

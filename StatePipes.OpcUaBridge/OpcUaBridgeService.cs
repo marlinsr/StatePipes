@@ -180,7 +180,7 @@ namespace StatePipes.OpcUaBridge
                 }
                 else if (catalog.ByDeleteCommand.TryGetValue(routingKey, out var deleted))
                 {
-                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) Monitors.Delete(replyTo.CommandExchangeName, deleted, Encoding.UTF8.GetString(replyToRaw.Span));
+                    if (TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) _ = Monitors.DeleteAsync(replyTo.CommandExchangeName, deleted, Encoding.UTF8.GetString(replyToRaw.Span), CancellationToken.None);
                 }
                 else if (catalog.BySetCommand.TryGetValue(routingKey, out var settable))
                 {
@@ -202,7 +202,7 @@ namespace StatePipes.OpcUaBridge
                     if (!TryGetAllowedReplyTo(routingKey, replyToRaw, out var replyTo)) return;
                     var status = catalog.Discovered ? StatusCodes.BadNodeIdUnknown : StatusCodes.BadWaitingForInitialData;
                     var replyToText = Encoding.UTF8.GetString(replyToRaw.Span);
-                    if (routingKey == names.DeleteCommandTypeFullName) Monitors.DeleteUnlisted(replyTo.CommandExchangeName, names, replyToText, status);
+                    if (routingKey == names.DeleteCommandTypeFullName) _ = Monitors.DeleteUnlistedAsync(replyTo.CommandExchangeName, names, replyToText, status, CancellationToken.None);
                     else SendStatus(MonitorStatus.Failed(string.Empty, status), names, replyToText);
                 }
                 else
@@ -221,7 +221,7 @@ namespace StatePipes.OpcUaBridge
             var parsed = MonitorParameters.Parse(body);
             var replyToText = Encoding.UTF8.GetString(replyToRaw.Span);
             if (parsed.Parameters == null) SendStatus(MonitorStatus.Failed(item.NodeIdText, parsed.Status), item.Names, replyToText);
-            else Monitors.Monitor(replyTo.CommandExchangeName, item, parsed.Parameters, replyToText);
+            else _ = Monitors.MonitorAsync(replyTo.CommandExchangeName, item, parsed.Parameters, replyToText, CancellationToken.None);
         }
 
         private async Task ServeGetsAsync(CancellationToken ct)
