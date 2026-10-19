@@ -74,6 +74,63 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.IsNull(MessageNames.FromCommandFullName(names.SetCommandTypeFullName, Exchange));
         }
 
+        private static NodeId Ns2(string id) => new(id, 2);
+
+        [TestMethod]
+        public void ExecNames_ForMethod()
+        {
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange, [(Ns2("PLC_Data"), Ns2("CalculatePressureVolumeMass"))]).Values.Single();
+            Assert.AreEqual("Line1Plc.Exec_ns2_s_CalculatePressureVolumeMass_Command", names.ExecCommandTypeFullName);
+            Assert.AreEqual("Line1Plc.ExecResult_ns2_s_CalculatePressureVolumeMass_Event", names.ExecResultEventTypeFullName);
+        }
+
+        [TestMethod]
+        public void AssignUniqueMethodNames_SharedMethod_EveryPairQualified()
+        {
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange,
+                [(Ns2("Pump1"), Ns2("Start")), (Ns2("Pump2"), Ns2("Start")), (Ns2("Obj"), Ns2("Add"))]);
+            Assert.AreEqual("Line1Plc.Exec_ns2_s_Pump1__ns2_s_Start_Command", names[(Ns2("Pump1"), Ns2("Start"))].ExecCommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Exec_ns2_s_Pump2__ns2_s_Start_Command", names[(Ns2("Pump2"), Ns2("Start"))].ExecCommandTypeFullName);
+            Assert.AreEqual("Line1Plc.Exec_ns2_s_Add_Command", names[(Ns2("Obj"), Ns2("Add"))].ExecCommandTypeFullName);
+        }
+
+        [TestMethod]
+        public void AssignUniqueMethodNames_SanitizeCollision_Suffixed()
+        {
+            List<string> collisions = [];
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange, [(Ns2("Obj"), Ns2("A-B")), (Ns2("Obj"), Ns2("A_B"))], collisions.Add);
+            CollectionAssert.AreEquivalent(new[] { "Line1Plc.Exec_ns2_s_A_B_Command", "Line1Plc.Exec_ns2_s_A_B_2_Command" },
+                names.Values.Select(n => n.ExecCommandTypeFullName).ToArray());
+            Assert.HasCount(1, collisions);
+        }
+
+        [TestMethod]
+        public void AssignUniqueMethodNames_VeryLong_FitsRoutingKey()
+        {
+            var longObject = Ns2(new string('o', 400));
+            var longMethod = Ns2(new string('m', 400));
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange, [(longObject, longMethod), (Ns2("Other"), longMethod)]);
+            foreach (var n in names.Values)
+            {
+                Assert.IsLessThanOrEqualTo(255, n.ExecCommandTypeFullName.Length);
+                Assert.IsLessThanOrEqualTo(255, n.ExecResultEventTypeFullName.Length);
+            }
+            Assert.AreEqual(2, names.Values.Select(n => n.ExecCommandTypeFullName).Distinct().Count());
+        }
+
+        [TestMethod]
+        public void FromExecCommandFullName_RecognisesExecOnly()
+        {
+            var names = OpcUaNaming.AssignUniqueMethodNames(Exchange, [(Ns2("Obj"), Ns2("Add"))]).Values.Single();
+            Assert.AreEqual(names, MessageNames.FromExecCommandFullName(names.ExecCommandTypeFullName, Exchange));
+            var item = OpcUaNaming.ToMessageNames(Exchange, Ns2("Add"));
+            Assert.IsNull(MessageNames.FromExecCommandFullName(item.SetCommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromExecCommandFullName(item.MonitorCommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromExecCommandFullName(item.CommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromSetCommandFullName(names.ExecCommandTypeFullName, Exchange));
+            Assert.IsNull(MessageNames.FromCommandFullName(names.ExecCommandTypeFullName, Exchange));
+        }
+
         [TestMethod]
         public void AssignUniqueNames_SameIdentifierDifferentIdType_NoCollision()
         {

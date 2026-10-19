@@ -21,6 +21,8 @@ namespace StatePipes.OpcUaBridge
     internal static class SelfDescriptionBuilder
     {
         public const string NodeIdProperty = "NodeId";
+        public const string ObjectIdProperty = "ObjectId";
+        public const string MethodIdProperty = "MethodId";
         public const string ValueProperty = "Value";
         public const string StatusCodeProperty = "StatusCode";
         public const string StatusProperty = "Status";

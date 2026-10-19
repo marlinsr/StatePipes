@@ -18,6 +18,8 @@ namespace StatePipes.OpcUaBridge
         public const string MonitorStatusPrefix = "MonitorStatus_";
         public const string SetPrefix = "Set_";
         public const string SetStatusPrefix = "SetStatus_";
+        public const string ExecPrefix = "Exec_";
+        public const string ExecResultPrefix = "ExecResult_";
         public const string CommandSuffix = "_Command";
         public const string EventSuffix = "_Event";
         /// <summary>How much longer than <c>Get_..._Command</c> the longest name, <c>MonitorStatus_..._Event</c>, is.</summary>
@@ -29,6 +31,8 @@ namespace StatePipes.OpcUaBridge
         public string MonitorStatusEventTypeName => MonitorStatusPrefix + Base + EventSuffix;
         public string SetCommandTypeName => SetPrefix + Base + CommandSuffix;
         public string SetStatusEventTypeName => SetStatusPrefix + Base + EventSuffix;
+        public string ExecCommandTypeName => ExecPrefix + Base + CommandSuffix;
+        public string ExecResultEventTypeName => ExecResultPrefix + Base + EventSuffix;
         public string CommandTypeFullName => $"{Namespace}.{CommandTypeName}";
         public string EventTypeFullName => $"{Namespace}.{EventTypeName}";
         public string MonitorCommandTypeFullName => $"{Namespace}.{MonitorCommandTypeName}";
@@ -36,6 +40,8 @@ namespace StatePipes.OpcUaBridge
         public string MonitorStatusEventTypeFullName => $"{Namespace}.{MonitorStatusEventTypeName}";
         public string SetCommandTypeFullName => $"{Namespace}.{SetCommandTypeName}";
         public string SetStatusEventTypeFullName => $"{Namespace}.{SetStatusEventTypeName}";
+        public string ExecCommandTypeFullName => $"{Namespace}.{ExecCommandTypeName}";
+        public string ExecResultEventTypeFullName => $"{Namespace}.{ExecResultEventTypeName}";
         private string Base => Name[GetPrefix.Length..];
 
         /// <summary>
@@ -64,9 +70,17 @@ namespace StatePipes.OpcUaBridge
         /// The names of the node a Set command's full name belongs to, or null for any other name. Kept apart from
         /// <see cref="FromCommandFullName"/>, whose answers are MonitorStatus events.
         /// </summary>
-        public static MessageNames? FromSetCommandFullName(string commandFullName, string @namespace)
+        public static MessageNames? FromSetCommandFullName(string commandFullName, string @namespace) => FromPrefixedCommandFullName(commandFullName, @namespace, SetPrefix);
+
+        /// <summary>
+        /// The names of the method an Exec command's full name belongs to, or null for any other name. Kept apart
+        /// from the other <c>From...</c> methods, whose answers are other events.
+        /// </summary>
+        public static MessageNames? FromExecCommandFullName(string commandFullName, string @namespace) => FromPrefixedCommandFullName(commandFullName, @namespace, ExecPrefix);
+
+        private static MessageNames? FromPrefixedCommandFullName(string commandFullName, string @namespace, string messagePrefix)
         {
-            var prefix = @namespace + "." + SetPrefix;
+            var prefix = @namespace + "." + messagePrefix;
             if (!commandFullName.StartsWith(prefix, StringComparison.Ordinal) || !commandFullName.EndsWith(CommandSuffix, StringComparison.Ordinal)) return null;
             var baseName = commandFullName[prefix.Length..^CommandSuffix.Length];
             return baseName.Length == 0 ? null : new MessageNames(@namespace, GetPrefix + baseName);
@@ -103,16 +117,26 @@ namespace StatePipes.OpcUaBridge
             return Fit(unfittedNamespace, MaxNamespaceLength, unfittedNamespace);
         }
 
-        public static MessageNames ToMessageNames(string exchangeName, NodeId nodeId)
+        public static MessageNames ToMessageNames(string exchangeName, NodeId nodeId) => ToMessageNames(exchangeName, BaseText(nodeId), nodeId.ToString());
+
+        /// <summary>
+        /// The names of a method's Exec messages: the method's NodeId as for an item, or, when
+        /// <paramref name="qualifyingObject"/> is given, the object's and the method's joined by a double underscore.
+        /// </summary>
+        public static MessageNames ToMethodMessageNames(string exchangeName, NodeId? qualifyingObject, NodeId methodId) => qualifyingObject is { } objectId
+            ? ToMessageNames(exchangeName, $"{BaseText(objectId)}__{BaseText(methodId)}", $"{objectId}/{methodId}")
+            : ToMessageNames(exchangeName, BaseText(methodId), methodId.ToString());
+
+        private static string BaseText(NodeId nodeId) => $"ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(IdentifierText(nodeId))}";
+
+        private static MessageNames ToMessageNames(string exchangeName, string baseText, string hashSource)
         {
-            var identifier = IdentifierText(nodeId);
             var @namespace = MessageNamespace(exchangeName);
             // Names are pure ASCII, so characters are bytes. Leave room for the separating dot, the longer
             // suffix, a possible collision suffix and the longest per-item message name (MonitorStatus_..._Event).
             var maxNameLength = MaxFullNameLength - @namespace.Length - 1 - MessageNames.CommandSuffix.Length - CollisionSuffixReserve
                 - MessageNames.LongestNameExtra;
-            var name = Fit($"{MessageNames.GetPrefix}ns{nodeId.NamespaceIndex}_{IdTypeLetter(nodeId.IdType)}_{Sanitize(identifier)}", maxNameLength, nodeId.ToString());
-            return new MessageNames(@namespace, name);
+            return new MessageNames(@namespace, Fit(MessageNames.GetPrefix + baseText, maxNameLength, hashSource));
         }
 
         /// <summary>
@@ -148,16 +172,36 @@ namespace StatePipes.OpcUaBridge
         /// Nodes are ordered by their NodeId text so the same address space always yields the same
         /// names, and a suffixed name never takes a name that another node has on its own merit.
         /// </summary>
-        public static IReadOnlyDictionary<NodeId, MessageNames> AssignUniqueNames(string exchangeName, IEnumerable<NodeId> nodeIds, Action<string>? onCollision = null)
+        public static IReadOnlyDictionary<NodeId, MessageNames> AssignUniqueNames(string exchangeName, IEnumerable<NodeId> nodeIds, Action<string>? onCollision = null) =>
+            AssignUnique(nodeIds.Distinct().Select(nodeId => (nodeId, nodeId.ToString(), ToMessageNames(exchangeName, nodeId))),
+                names => names.CommandTypeFullName, onCollision);
+
+        /// <summary>
+        /// Assigns every (object, method) pair the names of its Exec messages, as <see cref="AssignUniqueNames"/>
+        /// does for nodes. A method node reached from more than one object is named with the object in every pair,
+        /// so no object holds the bare name by the order the server lists them in.
+        /// </summary>
+        public static IReadOnlyDictionary<(NodeId ObjectId, NodeId MethodId), MessageNames> AssignUniqueMethodNames(string exchangeName,
+            IEnumerable<(NodeId ObjectId, NodeId MethodId)> pairs, Action<string>? onCollision = null)
         {
-            var baseNames = nodeIds.Distinct()
-                .OrderBy(n => n.ToString(), StringComparer.Ordinal)
-                .Select(nodeId => (NodeId: nodeId, Names: ToMessageNames(exchangeName, nodeId)))
-                .ToList();
+            var distinct = pairs.Distinct().ToList();
+            var shared = distinct.GroupBy(p => p.MethodId).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+            return AssignUnique(distinct.Select(p => (p, $"{p.MethodId} on {p.ObjectId}", ToMethodMessageNames(exchangeName, shared.Contains(p.MethodId) ? p.ObjectId : null, p.MethodId))),
+                names => names.ExecCommandTypeFullName, onCollision);
+        }
+
+        /// <summary>
+        /// Makes each key's names unique with a numeric suffix. Keys are ordered by their text so the same address
+        /// space always yields the same names, and a suffixed name never takes a name that another key has on its own merit.
+        /// </summary>
+        private static Dictionary<TKey, MessageNames> AssignUnique<TKey>(IEnumerable<(TKey Key, string Text, MessageNames Names)> keys,
+            Func<MessageNames, string> exposedAs, Action<string>? onCollision) where TKey : notnull
+        {
+            var baseNames = keys.OrderBy(k => k.Text, StringComparer.Ordinal).ToList();
             HashSet<string> reserved = new(baseNames.Select(b => b.Names.Name), StringComparer.Ordinal);
-            Dictionary<string, NodeId> holders = new(StringComparer.Ordinal);
-            Dictionary<NodeId, MessageNames> names = [];
-            foreach (var (nodeId, baseName) in baseNames)
+            Dictionary<string, string> holders = new(StringComparer.Ordinal);
+            Dictionary<TKey, MessageNames> names = [];
+            foreach (var (key, text, baseName) in baseNames)
             {
                 var messageNames = baseName;
                 if (holders.TryGetValue(baseName.Name, out var holder))
@@ -165,10 +209,10 @@ namespace StatePipes.OpcUaBridge
                     var suffix = 2;
                     while (!reserved.Add($"{baseName.Name}_{suffix}")) suffix++;
                     messageNames = baseName with { Name = $"{baseName.Name}_{suffix}" };
-                    onCollision?.Invoke($"{nodeId} and {holder} both map to {baseName.Name}; {nodeId} is exposed as {messageNames.CommandTypeFullName}");
+                    onCollision?.Invoke($"{text} and {holder} both map to {baseName.Name}; {text} is exposed as {exposedAs(messageNames)}");
                 }
-                holders.Add(messageNames.Name, nodeId);
-                names.Add(nodeId, messageNames);
+                holders.Add(messageNames.Name, text);
+                names.Add(key, messageNames);
             }
             return names;
         }
