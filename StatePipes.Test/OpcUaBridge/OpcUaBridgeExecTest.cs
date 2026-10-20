@@ -1,6 +1,9 @@
+using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using StatePipes.OpcUaBridge;
+using System.Text;
 using System.Text.RegularExpressions;
+using static StatePipes.Test.OpcUaBridge.OpcUaBridgeMonitorTest;
 
 namespace StatePipes.Test.OpcUaBridge
 {
@@ -187,6 +190,197 @@ namespace StatePipes.Test.OpcUaBridge
             var result = await client.CallAsync(_plc.MethodsObject, _plc.Method("Add"), [new Variant(2), new Variant(3)], CancellationToken.None);
 
             Assert.AreEqual(StatusCodes.BadNotConnected, result.StatusCode.Code);
+        }
+
+        /// <summary>The whole bridge -- OPC UA session loop, routing, CommandExecutor -- with a fake broker channel.</summary>
+        private sealed class Bridge : IAsyncDisposable
+        {
+            private readonly CancellationTokenSource _cts = new();
+            private readonly OpcUaClient _opcUa;
+            private readonly Task _running;
+            private readonly string _directory;
+
+            public Bridge()
+            {
+                _directory = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "OpcUaBridgeExecTest", Guid.NewGuid().ToString("N"))).FullName;
+                var settings = Settings();
+                var registry = MonitorRegistry.Load(new MonitorStore(Path.Combine(_directory, "monitors.json")), MonitorRegistryTest.Own, null, TimeProvider.System);
+                _opcUa = new OpcUaClient(settings);
+                Service = new OpcUaBridgeService(MonitorRegistryTest.Own, _opcUa, registry, TimeProvider.System, Channels.Create);
+                _running = Task.WhenAll(Service.RunAsync(_cts.Token), ServiceWorker.MaintainOpcUaSessionAsync(settings, _opcUa, Service, _cts.Token));
+            }
+
+            public FakeChannelFactory Channels { get; } = new();
+            public OpcUaBridgeService Service { get; }
+
+            public async ValueTask DisposeAsync()
+            {
+                await _cts.CancelAsync();
+                await _running;
+                Service.Dispose();
+                await _opcUa.DisposeAsync();
+                Directory.Delete(_directory, true);
+            }
+        }
+
+        private static string Exchange => MonitorRegistryTest.Own.ExchangeNamePrefix;
+        private static MessageNames ExecNames(string method, NodeId? qualifyingObject = null) => OpcUaNaming.ToMethodMessageNames(Exchange, qualifyingObject, _plc.Method(method));
+        private static MessageNames ItemNames(NodeId nodeId) => OpcUaNaming.ToMessageNames(Exchange, nodeId);
+
+        private static void Send(Bridge bridge, string routingKey, string body) =>
+            bridge.Channels.Main.CommandConsumer!(Encoding.UTF8.GetBytes(body), routingKey, Encoding.UTF8.GetBytes(ClientReplyTo));
+
+        /// <summary>Everything sent to the client so far, in order, as (routing key, body).</summary>
+        private static List<(string RoutingKey, JObject Body)> Responses(Bridge bridge) =>
+            [.. bridge.Channels.Main.Sent.Where(s => s.ExchangeName == Client.ResponseExchangeName).Select(s => (s.RoutingKey, JObject.Parse(Encoding.UTF8.GetString(s.Body))))];
+
+        private static List<JObject> WaitForResponses(Bridge bridge, string routingKey, int count, int timeoutSeconds = 10)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+            List<JObject> responses;
+            do
+            {
+                responses = [.. Responses(bridge).Where(r => r.RoutingKey == routingKey).Select(r => r.Body)];
+                if (responses.Count >= count) return responses;
+                Thread.Sleep(20);
+            }
+            while (DateTime.UtcNow < deadline);
+            Assert.Fail($"Expected {count} {routingKey}, got {responses.Count}");
+            return responses;
+        }
+
+        /// <summary>A Get is ignored until the bridge has discovered the server, so asking until one is answered waits for discovery.</summary>
+        private static async Task<Bridge> StartBridgeAsync()
+        {
+            Bridge bridge = new();
+            var names = ItemNames(_plc.Method("NoArgsCount"));
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (!bridge.Channels.Main.Sent.Any(s => s.RoutingKey == names.EventTypeFullName))
+            {
+                if (DateTime.UtcNow > deadline) Assert.Fail("The bridge never discovered the server");
+                Send(bridge, names.CommandTypeFullName, "{}");
+                await Task.Delay(100);
+            }
+            return bridge;
+        }
+
+        private static JObject Exec(Bridge bridge, MessageNames names, string body, int timeoutSeconds = 10)
+        {
+            var before = WaitForResponses(bridge, names.ExecResultEventTypeFullName, 0).Count;
+            Send(bridge, names.ExecCommandTypeFullName, body);
+            return WaitForResponses(bridge, names.ExecResultEventTypeFullName, before + 1, timeoutSeconds)[before];
+        }
+
+        private static JToken? Get(Bridge bridge, NodeId nodeId)
+        {
+            var names = ItemNames(nodeId);
+            var before = WaitForResponses(bridge, names.EventTypeFullName, 0).Count;
+            Send(bridge, names.CommandTypeFullName, "{}");
+            return WaitForResponses(bridge, names.EventTypeFullName, before + 1)[before]["Value"];
+        }
+
+        /// <summary>Numbers compared as doubles and dates as UTC instants, as JSON does not keep either distinction.</summary>
+        private static JToken? Normalize(JToken? token) => token switch
+        {
+            JObject o => new JObject(o.Properties().Select(p => new JProperty(p.Name, Normalize(p.Value)))),
+            JArray a => new JArray(a.Select(Normalize)),
+            JValue { Type: JTokenType.Integer or JTokenType.Float } v => new JValue(Convert.ToDouble(v.Value, System.Globalization.CultureInfo.InvariantCulture)),
+            JValue { Type: JTokenType.Date } v => new JValue(((DateTime)v).ToUniversalTime()),
+            _ => token
+        };
+
+        private static void AssertGood(JObject result) => Assert.AreEqual(StatusCodes.Good.Code, (uint)result["StatusCode"]!, result.ToString());
+
+        private static void AssertEchoed(JObject inputs, JObject result)
+        {
+            AssertGood(result);
+            foreach (var input in inputs.Properties())
+                Assert.IsTrue(JToken.DeepEquals(Normalize(input.Value), Normalize(result[input.Name])), $"{input.Name}: sent {input.Value}, got {result[input.Name]}");
+        }
+
+        [TestMethod]
+        public async Task Exec_EachMethod_ExpectedOutputs()
+        {
+            await using var bridge = await StartBridgeAsync();
+
+            var add = Exec(bridge, ExecNames("Add"), """{"a":2,"b":3}""");
+            AssertGood(add);
+            Assert.AreEqual(5, (int)add["sum"]!);
+            Assert.AreEqual(_plc.MethodsObject.ToString(), (string)add["ObjectId"]!);
+            Assert.AreEqual(_plc.Method("Add").ToString(), (string)add["MethodId"]!);
+
+            var echoInputs = JObject.Parse("""{"d":1.5,"i16":-7,"b":true,"s":"hi","dt":"2026-03-04T05:06:07Z","da":[1,2.5],"bytes":"AQID"}""");
+            AssertEchoed(echoInputs, Exec(bridge, ExecNames("Echo"), echoInputs.ToString()));
+
+            var densityInputs = JObject.Parse("""{"density":{"Volume":1.5,"Mass":2},"densities":[{"Volume":3,"Mass":4},{"Volume":5,"Mass":6}]}""");
+            AssertEchoed(densityInputs, Exec(bridge, ExecNames("EchoDensity"), densityInputs.ToString()));
+
+            var noArgs = Exec(bridge, ExecNames("NoArgs"), "{}");
+            AssertGood(noArgs);
+            CollectionAssert.AreEquivalent(new[] { "ObjectId", "MethodId", "StatusCode", "Status" }, noArgs.Properties().Select(p => p.Name).ToArray());
+
+            var text = Exec(bridge, ExecNames("TextOut"), "{}");
+            AssertGood(text);
+            Assert.AreEqual(JTokenType.String, text["text"]!.Type);
+
+            var start = Exec(bridge, ExecNames("Start", _plc.Pump1), "{}");
+            AssertGood(start);
+            Assert.AreEqual(_plc.Pump1.ToString(), (string)start["ObjectId"]!);
+        }
+
+        [TestMethod]
+        public async Task Exec_Reject150_NamesPercent()
+        {
+            await using var bridge = await StartBridgeAsync();
+
+            var result = Exec(bridge, ExecNames("Reject"), """{"percent":150}""");
+
+            Assert.AreEqual(StatusCodes.BadInvalidArgument.Code, (uint)result["StatusCode"]!);
+            Assert.AreEqual($"{((StatusCode)StatusCodes.BadInvalidArgument).ToString()}: percent ({((StatusCode)StatusCodes.BadOutOfRange).ToString()})", (string)result["Status"]!);
+        }
+
+        [TestMethod]
+        public async Task Exec_Slow20000_Succeeds()
+        {
+            await using var bridge = await StartBridgeAsync();
+
+            AssertGood(Exec(bridge, ExecNames("Slow"), """{"ms":20000}""", timeoutSeconds: 40));
+        }
+
+        [TestMethod]
+        public async Task Ordering_SlowNoArgsGet_AnsweredInOrderAndSeesIncrement()
+        {
+            await using var bridge = await StartBridgeAsync();
+            var count = (int)Get(bridge, _plc.Method("NoArgsCount"))!;
+            var slow = ExecNames("Slow");
+            var noArgs = ExecNames("NoArgs");
+            var counter = ItemNames(_plc.Method("NoArgsCount"));
+            var before = Responses(bridge).Count;
+            var countsBefore = WaitForResponses(bridge, counter.EventTypeFullName, 0).Count;
+
+            Send(bridge, slow.ExecCommandTypeFullName, """{"ms":2000}""");
+            Send(bridge, noArgs.ExecCommandTypeFullName, "{}");
+            Send(bridge, counter.CommandTypeFullName, "{}");
+
+            WaitForResponses(bridge, counter.EventTypeFullName, countsBefore + 1, timeoutSeconds: 15);
+            var answers = Responses(bridge).Skip(before).ToList();
+            CollectionAssert.AreEqual(new[] { slow.ExecResultEventTypeFullName, noArgs.ExecResultEventTypeFullName, counter.EventTypeFullName },
+                answers.Select(a => a.RoutingKey).ToArray());
+            Assert.AreEqual(count + 1, (int)answers[2].Body["Value"]!);
+        }
+
+        [TestMethod]
+        public async Task SetThenGet_ReadsOwnWrite()
+        {
+            await using var bridge = await StartBridgeAsync();
+            var names = ItemNames(_plc.Setpoint("Double"));
+            var before = WaitForResponses(bridge, names.EventTypeFullName, 0).Count;
+
+            Send(bridge, names.SetCommandTypeFullName, """{"Value":42.5}""");
+            Send(bridge, names.CommandTypeFullName, "{}");
+
+            var got = WaitForResponses(bridge, names.EventTypeFullName, before + 1)[before];
+            Assert.AreEqual(42.5, (double)got["Value"]!);
         }
     }
 }

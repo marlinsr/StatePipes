@@ -2,7 +2,7 @@
 
 A docker container that presents an OPC UA server as a StatePipes service on a RabbitMQ or Kafka broker.
 
-On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**, a **Monitor command**, a **Delete command** and a **MonitorStatus event**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. Each variable the session may also write gets a **Set command** and a **SetStatus event**: a Set command writes its value, and the SetStatus event tells the sender whether the write succeeded. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
+On startup, OpcUaBridge connects to the OPC UA server and finds every variable the session can read. For each one it exposes a **Get command**, a **Monitor command**, a **Delete command** and a **MonitorStatus event**. When it receives a Get command, it reads the variable and sends a **Get event** containing the value back to the sender as a response. A Monitor command sets up an OPC UA monitored item instead, and every data change the server reports goes back to the sender as the same Get event. Each variable the session may also write gets a **Set command** and a **SetStatus event**: a Set command writes its value, and the SetStatus event tells the sender whether the write succeeded. Each method the session may execute gets an **Exec command** and an **ExecResult event**: an Exec command calls the method with its input arguments, and the ExecResult event returns the output arguments. The bridge also answers `GetSelfDescriptionCommand` and publishes `HeartbeatEvent`, so StatePipes.Explorer and generated proxies treat it like any other service.
 
 ## Naming
 
@@ -15,6 +15,8 @@ Every message of a data item is in the namespace given by the bridge's `EXCHANGE
 | `ns=3;i=1001` | `Get_ns3_i_1001_Command` / `_Event` | `Monitor_ns3_i_1001_Command` | `Delete_ns3_i_1001_Command` | `MonitorStatus_ns3_i_1001_Event` |
 
 A writable variable's Set command and SetStatus event follow the same pattern: `Set_ns2_s_Machine_Motor_Speed_Command` and `SetStatus_ns2_s_Machine_Motor_Speed_Event`.
+
+A method's Exec command and ExecResult event are named from the method's NodeId the same way: `ns=2;s=Pump.Start` gets `Exec_ns2_s_Pump_Start_Command` and `ExecResult_ns2_s_Pump_Start_Event`. A method node that several objects share is called on each of them separately, so each pair is named with the object first, then the method, separated by a double underscore: `Exec_ns2_s_Pump1__ns2_s_Start_Command` and `Exec_ns2_s_Pump2__ns2_s_Start_Command`.
 
 - Any other character that can't appear in a type name becomes `_`, in the type name and in each segment of the exchange name.
 - If two nodes still end up with the same type name (for example `A-B` and `A_B`), the later one in NodeId order gets a `_2` suffix (or the next number not already used by another node), and a warning is logged. The item's other messages get the same suffix.
@@ -118,7 +120,7 @@ The Set command has one property, `Value`, typed exactly like the Get event's `V
 - **Structures.** Every field is required, except String, ByteString and array fields, which are written as null when left out. That is how the Get event leaves out null fields, so a Get event's `Value` can be sent back unchanged. A property the structure doesn't have is refused with `BadTypeMismatch`.
 - **Arrays** are written whole; there is no way to set a single element. A Byte array may be sent as base64, which is how Get publishes it, or as an array of numbers.
 - **DateTime** must be ISO 8601 (`2026-03-04T05:06:07Z`, as Get publishes it); other forms such as `03/04/2026` are refused rather than guessed.
-- **Order.** Sets to one variable are written in the order they arrive, and their SetStatus events come back in that order. Sets to different variables that arrive together are batched into one OPC UA Write.
+- **Order.** Sets are served in the order they arrive, together with every other command (see [Order](#order)). Sets to different variables that arrive together are batched into one OPC UA Write.
 - **No retries.** A Set is written once or not at all. When the OPC UA server is unreachable it fails at once with `BadNotConnected`; nothing waits for the server to come back.
 
 ### Set status
@@ -142,6 +144,51 @@ Every Set command is answered with the variable's SetStatus event, sent to you a
 | any other | The server's own reason, e.g. `BadUserAccessDenied`. |
 
 A Set whose reply-to is on another broker or uses other credentials than the bridge is dropped unanswered, and nothing is written.
+
+## Exec
+
+A method gets an Exec command when it is a component of an object below the Objects folder, both its `Executable` and `UserExecutable` attributes are true, it matches `OPCUA_METHOD_FILTER` if that is set, and every input argument can be written from JSON, by the same rules as a Set's `Value`. The server's own methods (namespace 0 and the Diagnostics namespace, such as `Server.GetMonitoredItems`) are never exposed, even with `OPCUA_INCLUDE_NS0`. A method with an input that can't be written (a matrix, an abstract type, a type published as a string, ...) gets no Exec command; discovery logs how many and why, e.g. `1 executable methods have no Exec command (matrix or unfixed rank: 1)`. Outputs never hide a method: an output with no natural JSON form is published as a string, as Get does.
+
+The Exec command has one property per input argument, named after the argument, typed exactly like a Set's `Value`. For a method `Add(Int32 a, Int32 b) → Int32 sum`:
+
+```json
+{ "a": 2, "b": 3 }
+```
+
+Every input is required. A method without inputs takes `{}` (or an empty body). An argument with no name becomes `Arg0`, `Arg1`, ... by position, a name that isn't an identifier has its other characters replaced by `_`, and repeated names get `_2`, `_3`, ....
+
+The ExecResult event is sent to you as a response:
+
+```json
+{ "ObjectId": "ns=2;s=Methods", "MethodId": "ns=2;s=Methods.Add", "StatusCode": 0, "Status": "Good", "sum": 5 }
+```
+
+It has one property per output argument, typed like a Get event's `Value`, present only when the call did not fail (an output the server didn't return is left out). An output named `ObjectId`, `MethodId`, `StatusCode` or `Status` gets a `_2` suffix.
+
+| Status | Meaning |
+|---|---|
+| `Good`, `Uncertain...` | The method ran; the outputs are included. |
+| `BadArgumentsMissing` | The body isn't a JSON object, or an input is missing. The method wasn't called. |
+| `BadTooManyArguments` | The body has a property that is no input. The method wasn't called. |
+| `BadTypeMismatch`, `BadOutOfRange` | An input is of the wrong kind or doesn't fit its type, as for a Set. The method wasn't called. |
+| `BadInvalidArgument` | The server rejected inputs; `Status` names each one and why, e.g. `BadInvalidArgument: percent (BadOutOfRange)`. |
+| `BadMethodInvalid` | The method isn't exposed: not on the server, filtered out, or not executable. `ObjectId` and `MethodId` are empty. |
+| `BadWaitingForInitialData` | The bridge hasn't discovered the server yet. Send the command again. `ObjectId` and `MethodId` are empty. |
+| `BadNotConnected` | The OPC UA server is unreachable. The method wasn't called. |
+| `BadCommunicationError`, `BadSessionClosed`, ... after the call started | **The outcome is unknown**: the method may have run before the connection failed. |
+| any other | The server's own reason, e.g. `BadUserAccessDenied`. |
+
+- **No timeout.** The bridge waits as long as the method takes. Calls go over a second OPC UA session of their own, opened on the first call, because the OPC UA client cuts every request off at the session's 15 s operation timeout. While a method runs, every command behind it waits (see [Order](#order)); a method that never returns holds them until the OPC UA connection drops. Monitor notifications keep flowing.
+- **No retries.** A method is called once or not at all, and nothing waits for an unreachable server to come back.
+- An Exec whose reply-to is on another broker or uses other credentials than the bridge is dropped unanswered, and the method isn't called.
+
+## Order
+
+The bridge serves every Get, Set, Exec, Monitor and Delete command one at a time **in the order it receives them**, and sends the answers in that order, refusals included. A Set followed by a Get of the same variable reads the value just written; an Exec sent after a Set runs after the value was written. Consecutive Gets are still batched into one OPC UA Read and consecutive Sets into one Write.
+
+Answers carry no correlation id, so match each answer to your command by order. If an answer is lost -- the broker was unreachable when the bridge sent it -- matching by order is out of step from then on; re-synchronise with a Get before relying on it again.
+
+`GetSelfDescriptionCommand` is answered at once, outside this order.
 
 ## Configuration
 
@@ -172,6 +219,7 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 | `OPCUA_INCLUDE_NS0` | `false` | Also expose namespace 0 and the `http://opcfoundation.org/UA/Diagnostics` namespace (the server's own diagnostics). |
 | `OPCUA_NODE_FILTER` | | Regex matched against the NodeId text. When set, only matching nodes are exposed. |
 | `OPCUA_WRITE_FILTER` | | Regex matched against the NodeId text. When set, only matching writable nodes get a Set command; the others stay readable. |
+| `OPCUA_METHOD_FILTER` | | Regex matched against the method's NodeId text. When set, only matching executable methods get an Exec command. |
 | `OPCUA_RECONNECT_SECONDS` | `5` | Delay before reconnecting after the session is lost. |
 
 ### Monitors
@@ -187,7 +235,7 @@ Discovery browses down from the Objects folder. It runs again after every reconn
 
 ### Large servers
 
-The self description lists all five messages of every variable in **one message**, at roughly 10.7 KB per variable (about 3.3 KB of it for the Get command and event). A writable variable's Set command and SetStatus event add about 2.6 KB more for a plain value, and more for a structure, whose description each message repeats. Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 1,500 variables on RabbitMQ and about 95 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`) and the writable ones with `OPCUA_WRITE_FILTER`, or raise the broker's limit.
+The self description lists all five messages of every variable in **one message**, at roughly 10.7 KB per variable (about 3.3 KB of it for the Get command and event). A writable variable's Set command and SetStatus event add about 2.6 KB more for a plain value, and more for a structure, whose description each message repeats. Brokers cap message size by default: 16 MiB for RabbitMQ 4 and 1 MiB for Kafka. That works out to about 1,500 variables on RabbitMQ and about 95 on Kafka. The bridge logs the size at startup and logs an error when it's over the limit. To stay under it, narrow the exposed nodes with `OPCUA_NODE_FILTER` (e.g. `^ns=3;`), the writable ones with `OPCUA_WRITE_FILTER` and the methods with `OPCUA_METHOD_FILTER`, or raise the broker's limit. A method's Exec command and ExecResult event add about 3.2 KB for two plain inputs and one output, and more for structures.
 
 ## Running
 
