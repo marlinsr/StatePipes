@@ -60,10 +60,13 @@ namespace StatePipes.Test.OpcUaBridge
             _server = null;
         }
 
-        public BridgeSettings CreateBridgeSettings(BusConfig busConfig) => new()
+        /// <summary>Closes the server side of every session whose name ends with <paramref name="suffix"/>.</summary>
+        public Task CloseSessionsAsync(string suffix) => _server!.CloseSessionsAsync(name => name.EndsWith(suffix, StringComparison.Ordinal), CancellationToken.None);
+
+        public BridgeSettings CreateBridgeSettings(BusConfig busConfig, string? endpointUrl = null) => new()
         {
             BusConfig = busConfig,
-            OpcUaEndpoint = EndpointUrl,
+            OpcUaEndpoint = endpointUrl ?? EndpointUrl,
             UseSecurity = false,
             AutoAcceptUntrustedCertificates = true,
             PkiPath = PkiPath,

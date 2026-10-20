@@ -27,6 +27,8 @@ namespace StatePipes.OpcUaBridge
         private const int MaxBatch = 500;
         private static readonly JsonSerializerSettings BodySettings = new() { DateParseHandling = DateParseHandling.None };
         private readonly Channel<PendingCommand> _pending = Channel.CreateUnbounded<PendingCommand>(new UnboundedChannelOptions { SingleReader = true });
+        /// <summary>The command that ended the last run without belonging to it; only the single reader touches it.</summary>
+        private PendingCommand? _held;
 
         private abstract record PendingCommand;
         private sealed record PendingGet(OpcUaDataItem Item, BusConfig ReplyTo, byte[] ReplyToRaw) : PendingCommand;
@@ -53,53 +55,66 @@ namespace StatePipes.OpcUaBridge
         public async Task RunAsync(CancellationToken ct)
         {
             var reader = _pending.Reader;
-            PendingCommand? held = null;
             try
             {
-                while (held != null || await reader.WaitToReadAsync(ct))
+                while (_held != null || await reader.WaitToReadAsync(ct))
                 {
-                    var head = held;
-                    held = null;
+                    var head = _held;
+                    _held = null;
                     if (head == null && !reader.TryRead(out head)) continue;
-                    switch (head)
+                    try { await ServeRunAsync(head, reader, ct); }
+                    catch (Exception ex) when (IsFailure(ex, ct))
                     {
-                        case PendingGet get:
-                            List<PendingGet> gets = [get];
-                            while (gets.Count < MaxBatch && reader.TryRead(out var next))
-                            {
-                                if (next is PendingGet nextGet) gets.Add(nextGet);
-                                else
-                                {
-                                    held = next;
-                                    break;
-                                }
-                            }
-                            await ServeGetsAsync(gets, ct);
-                            break;
-                        case PendingSet set:
-                            List<PendingSet> sets = [set];
-                            HashSet<NodeId> nodes = [set.Item.NodeId];
-                            while (sets.Count < MaxBatch && reader.TryRead(out var next))
-                            {
-                                if (next is PendingSet nextSet && nodes.Add(nextSet.Item.NodeId)) sets.Add(nextSet);
-                                else
-                                {
-                                    held = next;
-                                    break;
-                                }
-                            }
-                            await ServeSetsAsync(sets, ct);
-                            break;
-                        case PendingExec exec:
-                            await ServeExecAsync(exec, ct);
-                            break;
-                        case PendingAlone alone:
-                            await RunAloneAsync(alone, ct);
-                            break;
+                        // A bug in one run must not stop every command behind it; that run's answers may be lost.
+                        Log?.LogException(ex);
                     }
                 }
             }
             catch (OperationCanceledException) { }
+        }
+
+        /// <summary>
+        /// Serves the run starting at <paramref name="head"/>. A command read past the end of a Get or Set run is
+        /// held in <see cref="_held"/> for the next run, so not even a failing run loses it.
+        /// </summary>
+        private async Task ServeRunAsync(PendingCommand head, ChannelReader<PendingCommand> reader, CancellationToken ct)
+        {
+            switch (head)
+            {
+                case PendingGet get:
+                    List<PendingGet> gets = [get];
+                    while (gets.Count < MaxBatch && reader.TryRead(out var next))
+                    {
+                        if (next is PendingGet nextGet) gets.Add(nextGet);
+                        else
+                        {
+                            _held = next;
+                            break;
+                        }
+                    }
+                    await ServeGetsAsync(gets, ct);
+                    break;
+                case PendingSet set:
+                    List<PendingSet> sets = [set];
+                    HashSet<NodeId> nodes = [set.Item.NodeId];
+                    while (sets.Count < MaxBatch && reader.TryRead(out var next))
+                    {
+                        if (next is PendingSet nextSet && nodes.Add(nextSet.Item.NodeId)) sets.Add(nextSet);
+                        else
+                        {
+                            _held = next;
+                            break;
+                        }
+                    }
+                    await ServeSetsAsync(sets, ct);
+                    break;
+                case PendingExec exec:
+                    await ServeExecAsync(exec, ct);
+                    break;
+                case PendingAlone alone:
+                    await RunAloneAsync(alone, ct);
+                    break;
+            }
         }
 
         private async Task ServeGetsAsync(List<PendingGet> gets, CancellationToken ct)

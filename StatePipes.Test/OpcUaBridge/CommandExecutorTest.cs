@@ -65,7 +65,16 @@ namespace StatePipes.Test.OpcUaBridge
         {
             public ConcurrentQueue<(string Kind, OpcUaDataItem? Item, StatusCode Status, JObject? Body)> Sent { get; } = new();
 
-            public void SendGetEvent(OpcUaDataItem item, DataValue value, BusConfig replyTo, byte[] replyToRaw) => Record("Get", item, value.StatusCode, null, replyTo);
+            /// <summary>When set, the next Get answer throws it instead of being recorded.</summary>
+            public Exception? ThrowOnceOnGet { get; set; }
+
+            public void SendGetEvent(OpcUaDataItem item, DataValue value, BusConfig replyTo, byte[] replyToRaw)
+            {
+                var toThrow = ThrowOnceOnGet;
+                ThrowOnceOnGet = null;
+                if (toThrow != null) throw toThrow;
+                Record("Get", item, value.StatusCode, null, replyTo);
+            }
             public void SendSetStatus(OpcUaDataItem item, StatusCode statusCode, BusConfig replyTo, byte[] replyToRaw) => Record("SetStatus", item, statusCode, null, replyTo);
 
             public void SendExecResult(MessageNames names, byte[] body, BusConfig replyTo, byte[] replyToRaw)
@@ -422,6 +431,19 @@ namespace StatePipes.Test.OpcUaBridge
 
             CollectionAssert.AreEqual(new[] { "Get", "Refusal", "Get" }, WaitForAnswers(3).Select(x => x.Kind).ToArray());
             Assert.HasCount(2, _session.Reads);
+        }
+
+        [TestMethod]
+        public void RunThrows_QueueContinues()
+        {
+            _output.ThrowOnceOnGet = new InvalidOperationException("broker channel gone");
+            Get(Item("a"));
+            Start();
+            WaitUntil(() => _output.ThrowOnceOnGet == null, "the failing answer");
+
+            Get(Item("b"));
+
+            Assert.AreEqual("Get", WaitForAnswers(1).Single().Kind);
         }
 
         [TestMethod]

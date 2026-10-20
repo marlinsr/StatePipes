@@ -24,6 +24,8 @@ namespace StatePipes.OpcUaBridge
         private const int BrowseBatchSize = 100;
         private const int ReadBatchSize = 500;
         private const string DiagnosticsNamespaceUri = "http://opcfoundation.org/UA/Diagnostics";
+        /// <summary>How long opening the call session may take; only the calls on it are untimed.</summary>
+        private static readonly TimeSpan CallSessionOpenTimeout = TimeSpan.FromSeconds(15);
         private readonly BridgeSettings _settings;
         private readonly ITelemetryContext _telemetry;
         private ApplicationConfiguration? _configuration;
@@ -31,6 +33,8 @@ namespace StatePipes.OpcUaBridge
         private ConfiguredEndpoint? _endpoint;
         private ISession? _callSession;
         private readonly SemaphoreSlim _callSessionLock = new(1, 1);
+        /// <summary>Cancelled, and replaced, by every disconnect, so a call session still opening gives up.</summary>
+        private CancellationTokenSource _disconnected = new();
         private volatile bool _keepAliveFailed;
 
         public OpcUaClient(BridgeSettings settings)
@@ -63,6 +67,7 @@ namespace StatePipes.OpcUaBridge
         {
             var session = _session;
             _session = null;
+            Interlocked.Exchange(ref _disconnected, new()).Cancel();
             CloseCallSession();
             if (session == null) return;
             session.KeepAlive -= OnKeepAlive;
@@ -70,10 +75,12 @@ namespace StatePipes.OpcUaBridge
             session.Dispose();
         }
 
-        private void CloseCallSession()
+        private void CloseCallSession() => DisposeCallSession(Interlocked.Exchange(ref _callSession, null));
+
+        private static void DisposeCallSession(ISession? callSession)
         {
             // Dispose rather than close: closing waits for outstanding requests, and a running call must end now.
-            try { Interlocked.Exchange(ref _callSession, null)?.Dispose(); } catch { }
+            try { callSession?.Dispose(); } catch { }
         }
 
         /// <summary>
@@ -134,34 +141,55 @@ namespace StatePipes.OpcUaBridge
             var session = await GetCallSessionAsync(ct);
             if (session == null) return new CallMethodResult { StatusCode = StatusCodes.BadNotConnected };
             List<CallMethodRequest> toCall = [new CallMethodRequest { ObjectId = objectId, MethodId = methodId, InputArguments = [.. inputs] }];
-            var response = await session.CallAsync(null, toCall, ct);
+            CallResponse response;
+            try { response = await session.CallAsync(null, toCall, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                // The call session may be broken -- closed by the server, say -- while the main session is fine,
+                // and nothing else would notice. Drop it so the next call opens a new one; this call is not retried.
+                if (Interlocked.CompareExchange(ref _callSession, null, session) == session) DisposeCallSession(session);
+                throw;
+            }
             var results = response.Results.ToList();
             ClientBase.ValidateResponse(results, toCall);
             return results[0];
         }
 
-        /// <summary>The open call session, opening one if needed, or null when the main session is not connected.</summary>
+        /// <summary>
+        /// The open call session, opening one if needed, or null when the main session is not connected or is
+        /// disconnected, or the call session could not be opened in <see cref="CallSessionOpenTimeout"/>.
+        /// </summary>
         private async Task<ISession?> GetCallSessionAsync(CancellationToken ct)
         {
             await _callSessionLock.WaitAsync(ct);
             try
             {
+                var disconnected = _disconnected.Token;
                 var main = _session;
                 if (main == null || !IsConnected || _endpoint == null) return null;
-                if (_callSession is { Connected: true } open) return open;
+                if (_callSession is { Connected: true, KeepAliveStopped: false } open) return open;
                 CloseCallSession();
                 var configuration = EndpointConfiguration.Create(_configuration!);
                 configuration.OperationTimeout = int.MaxValue;
                 var endpoint = new ConfiguredEndpoint(null, _endpoint.Description, configuration);
-                var callSession = await CreateSessionAsync(endpoint, _settings.ApplicationName + " calls", ct);
-                callSession.OperationTimeout = int.MaxValue;
-                if (_session != main)
+                using var opening = CancellationTokenSource.CreateLinkedTokenSource(ct, disconnected);
+                opening.CancelAfter(CallSessionOpenTimeout);
+                ISession callSession;
+                try { callSession = await CreateSessionAsync(endpoint, _settings.ApplicationName + " calls", opening.Token); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
-                    // Disconnected while the call session was opening.
-                    callSession.Dispose();
+                    Log?.LogWarning($"Could not open the OPC UA call session: {(disconnected.IsCancellationRequested ? "disconnected" : "timed out")}");
                     return null;
                 }
+                callSession.OperationTimeout = int.MaxValue;
                 _callSession = callSession;
+                // A disconnect cancels the token before closing the call session, so one that ran while this
+                // session was opening is seen here, and this session closed, whatever the interleaving.
+                if (disconnected.IsCancellationRequested || _session != main)
+                {
+                    CloseCallSession();
+                    return null;
+                }
                 return callSession;
             }
             finally { _callSessionLock.Release(); }

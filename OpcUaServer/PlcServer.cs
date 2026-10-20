@@ -15,6 +15,13 @@ public class PlcServer(ITelemetryContext telemetry) : StandardServer(telemetry)
         return new MasterNodeManager(server, configuration, null, NodeManager);
     }
 
+    /// <summary>Closes every session whose name <paramref name="matches"/>, as an administrator or a server restart might.</summary>
+    public async Task CloseSessionsAsync(Func<string, bool> matches, CancellationToken ct)
+    {
+        foreach (var session in CurrentInstance.SessionManager.GetSessions().Where(s => matches(s.SessionName ?? string.Empty)).ToList())
+            await CurrentInstance.SessionManager.CloseSessionAsync(session.Id, ct);
+    }
+
     protected override ServerProperties LoadServerProperties()
     {
         return new ServerProperties

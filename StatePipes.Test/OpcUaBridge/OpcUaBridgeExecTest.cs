@@ -183,6 +183,40 @@ namespace StatePipes.Test.OpcUaBridge
         }
 
         [TestMethod]
+        public async Task Call_CallSessionClosedByServer_NextCallReopensIt()
+        {
+            await using var client = await ConnectAsync();
+            await client.CallAsync(_plc.MethodsObject, _plc.Method("NoArgs"), [], CancellationToken.None);
+
+            await _plc.CloseSessionsAsync(" calls");
+            try { await client.CallAsync(_plc.MethodsObject, _plc.Method("NoArgs"), [], CancellationToken.None); }
+            catch (ServiceResultException) { } // the call that finds the session gone: outcome unknown
+
+            var result = await client.CallAsync(_plc.MethodsObject, _plc.Method("NoArgs"), [], CancellationToken.None);
+            Assert.AreEqual(StatusCodes.Good, result.StatusCode.Code, result.StatusCode.ToString());
+        }
+
+        [TestMethod]
+        public async Task Call_DisconnectWhileCallSessionOpens_ReturnsPromptly()
+        {
+            using FreezingTcpProxy proxy = new(new Uri(_plc.EndpointUrl).Port);
+            var endpointUrl = new UriBuilder(_plc.EndpointUrl) { Port = proxy.Port }.Uri.ToString();
+            await using OpcUaClient client = new(_plc.CreateBridgeSettings(MonitorRegistryTest.Own, endpointUrl));
+            await client.ConnectAsync(CancellationToken.None);
+            Assert.IsTrue(proxy.Connections > 0, "The client bypassed the proxy");
+
+            proxy.Freeze();
+            var call = client.CallAsync(_plc.MethodsObject, _plc.Method("NoArgs"), [], CancellationToken.None);
+            await Task.Delay(1000);
+            Assert.IsFalse(call.IsCompleted, "The call session opened through a frozen proxy");
+            await client.DisconnectAsync();
+
+            var ended = await Task.WhenAny(call, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.AreSame(call, ended, "The call session kept opening after the disconnect");
+            Assert.AreEqual(StatusCodes.BadNotConnected, (await call).StatusCode.Code);
+        }
+
+        [TestMethod]
         public async Task Call_NotConnected_BadNotConnected()
         {
             await using OpcUaClient client = new(_plc.CreateBridgeSettings(MonitorRegistryTest.Own));
