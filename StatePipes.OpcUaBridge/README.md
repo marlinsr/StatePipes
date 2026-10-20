@@ -229,7 +229,12 @@ Each setting is read from an environment variable. The equivalent `--NAME=value`
 | `MONITOR_STORE_PATH` | `/usr/share/StatePipes/StatePipes.OpcUaBridge/Config/monitors.json` | Where monitors are saved. Mount the directory as a volume to keep monitors when the container is re-created. An unreadable file, or one written by an earlier bridge version, is renamed to `monitors.json.corrupt-<time>` and the bridge starts with no monitors. |
 | `MONITOR_SUSPENDED_EXPIRY_HOURS` | *(never)* | Delete monitors that stay suspended this long. |
 
-On Kafka, suspension needs the broker setting `auto.create.topics.enable=false`. Otherwise the next data change recreates a departed client's response topic, and its monitors keep sending to it.
+On Kafka, a response topic counts as gone when it is missing or when no consumer group is reading it. A client that shuts down cleanly deletes its response topic. A client that crashes leaves the topic behind, but its consumer group empties once the session times out (45 seconds by default), so its monitors are suspended at the next check after that.
+
+Kafka also needs:
+
+- The broker setting `auto.create.topics.enable=false`. Otherwise the next data change recreates a deleted response topic.
+- ACLs that let each client delete topics under its own prefix and describe its own consumer groups, and that let the bridge describe every consumer group. Without them, deletes fail and are logged, and the bridge treats every response topic as still in use.
 
 Discovery browses down from the Objects folder. It runs again after every reconnect, so a restarted or reconfigured server is picked up automatically. While the server is unreachable, Get commands are still answered, with a Bad status.
 

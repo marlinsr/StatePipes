@@ -17,6 +17,7 @@ namespace StatePipes.BrokerProxy
         private readonly CancellationTokenSource _cts = new();
         private readonly object _lock = new();
         private readonly List<ConsumerContext> _consumers = new();
+        private readonly KafkaAutoDeleteTopics _autoDeleteTopics = new();
         private readonly string _bootstrapServers;
         private readonly string _clientCertPath;
         private readonly string _certPassword;
@@ -58,12 +59,14 @@ namespace StatePipes.BrokerProxy
             {
                 if (_disposedValue) return;
                 var ctx = new ConsumerContext(topic, consumeMethod, routingKeys);
+                var groupId = $"{topic}.{id:N}";
                 ctx.Consumer = new ConsumerBuilder<string, byte[]>(ApplySsl(new ConsumerConfig
-                { GroupId = $"{topic}.{id:N}", AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = false, FetchWaitMaxMs = FetchWaitMaxMilliseconds, AllowAutoCreateTopics = true }))
+                { GroupId = groupId, AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = false, FetchWaitMaxMs = FetchWaitMaxMilliseconds, AllowAutoCreateTopics = true }))
                     .SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka consumer error on {topic}: {e.Reason}")).Build();
                 ctx.Consumer.Subscribe(topic);
                 ctx.Loop = new Thread(() => ConsumeLoop(ctx)) { IsBackground = true, Name = $"kafka-{commsType}-{topic}" };
                 _consumers.Add(ctx);
+                if (autoDelete) _autoDeleteTopics.Track(topic, groupId);
                 ctx.Loop.Start();
             }
         }
@@ -88,20 +91,23 @@ namespace StatePipes.BrokerProxy
             }
         }
         /// <summary>
-        /// Looks the topic up in the cluster metadata. Only an explicit unknown-topic answer counts as missing;
-        /// note that a broker with auto.create.topics.enable recreates a topic on the next produce to it.
+        /// Looks the topic up in the cluster metadata, then for a live consumer group reading it: like a RabbitMQ
+        /// auto-delete exchange, a bus nobody consumes counts as gone. A crashed consumer's group goes Empty once
+        /// its session times out (45 s by default). Only explicit answers count as missing; any failure is
+        /// "exists". Note that a broker with auto.create.topics.enable recreates a topic on the next produce to it.
         /// </summary>
         public Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct)
         {
             var topic = KafkaTopicNamer.ToTopic(exchangeName);
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
                 try
                 {
                     using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig())).Build();
                     var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(5));
                     var found = metadata.Topics.Find(t => t.Topic == topic);
-                    return found == null || found.Error.Code != ErrorCode.UnknownTopicOrPart;
+                    if (found != null && found.Error.Code == ErrorCode.UnknownTopicOrPart) return false;
+                    return await KafkaAutoDelete.HasLiveConsumerAsync(admin, topic, null);
                 }
                 catch (KafkaException ex)
                 {
@@ -185,8 +191,25 @@ namespace StatePipes.BrokerProxy
                 try { _producer.Flush(TimeSpan.FromSeconds(5)); } catch { }
                 try { _producer.Dispose(); } catch { }
                 try { _cts.Dispose(); } catch { }
+                DeleteAutoDeleteTopics();
             }
             _disposedValue = true;
+        }
+        /// <summary>
+        /// Deletes this channel's auto-delete topics once its consumers have left, keeping any that another instance
+        /// still reads. Dispose is synchronous, so this blocks on the bounded admin calls.
+        /// </summary>
+        private void DeleteAutoDeleteTopics()
+        {
+            var topics = _autoDeleteTopics.Drain();
+            if (topics.Count == 0) return;
+            try
+            {
+                using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig())).Build();
+                foreach (var (topic, groupId) in topics)
+                    KafkaAutoDelete.DeleteIfUnusedAsync(admin, topic, groupId).GetAwaiter().GetResult();
+            }
+            catch (Exception ex) { Log?.LogVerbose($"Could not auto-delete Kafka topics: {ex.Message}"); }
         }
         public void Dispose()
         {

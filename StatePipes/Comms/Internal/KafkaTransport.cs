@@ -38,6 +38,7 @@ namespace StatePipes.Comms.Internal
         private readonly CancellationTokenSource _cts = new();
         private readonly Lock _lock = new();
         private readonly Dictionary<string, KafkaConsumerContext> _consumers = [];
+        private readonly KafkaAutoDeleteTopics _autoDeleteTopics = new();
         private readonly IProducer<string, byte[]> _producer;
         private bool _disposedValue;
 
@@ -90,11 +91,13 @@ namespace StatePipes.Comms.Internal
             {
                 if (_disposedValue || _consumers.ContainsKey(topic)) return;
                 var ctx = new KafkaConsumerContext(topic, consumeMethod, routingKeys);
-                var consumerConfig = ApplySsl(new ConsumerConfig{ GroupId = $"{topic}.{Guid.NewGuid():N}", AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = true, AllowAutoCreateTopics = true});
+                var groupId = $"{topic}.{Guid.NewGuid():N}";
+                var consumerConfig = ApplySsl(new ConsumerConfig { GroupId = groupId, AutoOffsetReset = AutoOffsetReset.Latest, EnableAutoCommit = true, AllowAutoCreateTopics = true });
                 ctx.Consumer = new ConsumerBuilder<string, byte[]>(consumerConfig).SetErrorHandler((_, e) => Log?.LogVerbose($"Kafka consumer error on {topic}: {e.Reason}")).Build();
                 ctx.Consumer.Subscribe(topic);
                 ctx.Loop = new Thread(() => ConsumeLoop(ctx)) { IsBackground = true, Name = $"kafka-consume-{topic}" };
                 _consumers[topic] = ctx;
+                if (autoDelete) _autoDeleteTopics.Track(topic, groupId);
                 ctx.Loop.Start();
             }
         }
@@ -207,7 +210,25 @@ namespace StatePipes.Comms.Internal
                 try { _producer.Flush(TimeSpan.FromSeconds(5)); } catch { }
                 try { _producer.Dispose(); } catch { }
                 try { _cts.Dispose(); } catch { }
+                DeleteAutoDeleteTopics();
             }
+        }
+
+        /// <summary>
+        /// Deletes this transport's auto-delete topics once its consumers have left, keeping any that another instance
+        /// still reads. Dispose is synchronous, so this blocks on the bounded admin calls.
+        /// </summary>
+        private void DeleteAutoDeleteTopics()
+        {
+            var topics = _autoDeleteTopics.Drain();
+            if (topics.Count == 0) return;
+            try
+            {
+                using var admin = new AdminClientBuilder(ApplySsl(new AdminClientConfig())).Build();
+                foreach (var (topic, groupId) in topics)
+                    KafkaAutoDelete.DeleteIfUnusedAsync(admin, topic, groupId).GetAwaiter().GetResult();
+            }
+            catch (Exception ex) { Log?.LogVerbose($"Could not auto-delete Kafka topics: {ex.Message}"); }
         }
 
         public void Dispose()
