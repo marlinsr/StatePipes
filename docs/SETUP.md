@@ -47,7 +47,7 @@ Create them under **Issues → Labels → New label**.
      so it doesn't loop.
 
 2. **build-windows** (Windows runner)
-   - `dotnet restore` and `dotnet build StatePipes.sln -c Release`.
+   - `dotnet restore` and `dotnet build StatePipes.slnx -c Release`.
    - `StatePipes.csproj` has `GeneratePackageOnBuild=True` on Windows, so this
      produces `StatePipes/bin/Release/StatePipes.<version>.nupkg`.
    - `StatePipes.ServiceCreatorTool.Installer.csproj`'s post-build event runs

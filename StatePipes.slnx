@@ -1,0 +1,40 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="All" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Folder Name="/_Solution Items/">
+    <File Path="SolutionInfo.proj" />
+  </Folder>
+  <Project Path="OpcUaServer/OpcUaServer.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.BrokerProxy/StatePipes.BrokerProxy.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.Diagrammer/StatePipes.Diagrammer.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.Explorer/StatePipes.Explorer.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.OpcUaBridge/StatePipes.OpcUaBridge.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.ServiceCreatorTool.Installer/StatePipes.ServiceCreatorTool.Installer.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.ServiceCreatorTool/StatePipes.ServiceCreatorTool.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.ServiceCreatorToolSetup/StatePipes.ServiceCreatorToolSetup.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes.Test/StatePipes.Test.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+  <Project Path="StatePipes/StatePipes.csproj">
+    <BuildType Solution="All|*" Project="Debug" />
+  </Project>
+</Solution>
