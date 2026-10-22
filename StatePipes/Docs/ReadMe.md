@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.3 (2026-10-22)
+Merged PR: #92 Migrate StatePipes.sln to StatePipes.slnx
+
+Referenced issues:
+- #91 Update StatePipes.sln to slnx
+
+
 ### v6.0.2 (2026-10-22)
 Merged PR: #90 Opcua bridge
 
