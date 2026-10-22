@@ -1,0 +1,360 @@
+using Microsoft.Extensions.Time.Testing;
+using Newtonsoft.Json.Linq;
+using Opc.Ua;
+using StatePipes.BrokerProxy;
+using StatePipes.Common;
+using StatePipes.Comms;
+using StatePipes.Comms.Internal;
+using StatePipes.OpcUaBridge;
+using StatePipes.OpcUaBridge.Messages;
+using System.Collections.Concurrent;
+using System.Text;
+
+namespace StatePipes.Test.OpcUaBridge
+{
+    /// <summary>A broker channel that records what is sent and lets a test deliver commands.</summary>
+    internal sealed class FakeConnectionChannel : ISimpleConnectionChannel
+    {
+        public bool Open { get; set; } = true;
+        public bool IsOpen => Open;
+        public SimpleMessageReceived? CommandConsumer { get; private set; }
+        public ConcurrentQueue<(byte[] Body, string RoutingKey, string ReplyToRaw, string ExchangeName)> Sent { get; } = new();
+        /// <summary>Exchange names that no longer exist on the "broker".</summary>
+        public ConcurrentDictionary<string, bool> MissingBuses { get; } = new();
+
+        public void ConfigureBus(Guid id, CommunicationsType commsType, string exchangeName, SimpleMessageReceived? consumeMethod = null, List<string>? routingKeys = null, bool autoDelete = false)
+        {
+            if (commsType == CommunicationsType.Command) CommandConsumer = consumeMethod;
+        }
+
+        public void Send(byte[] body, string routingKey, ReadOnlyMemory<byte> replyToRaw, string exchangeName) =>
+            Sent.Enqueue((body, routingKey, Encoding.UTF8.GetString(replyToRaw.Span), exchangeName));
+
+        public Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct) => Task.FromResult(!MissingBuses.ContainsKey(exchangeName));
+
+        public void Dispose() => Open = false;
+    }
+
+    /// <summary>Hands out <see cref="FakeConnectionChannel"/>s: the first is the bridge's main channel, the second its notification channel.</summary>
+    internal sealed class FakeChannelFactory
+    {
+        public List<FakeConnectionChannel> Created { get; } = [];
+
+        public ISimpleConnectionChannel Create(BusConfig busConfig, Action<ISimpleConnectionChannel>? configureBuses, CancellationToken ct)
+        {
+            FakeConnectionChannel channel = new();
+            lock (Created) Created.Add(channel);
+            configureBuses?.Invoke(channel);
+            return channel;
+        }
+
+        public FakeConnectionChannel Main => Wait(0);
+        public FakeConnectionChannel Notifications => Wait(1);
+
+        private FakeConnectionChannel Wait(int index)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (true)
+            {
+                lock (Created) if (Created.Count > index) return Created[index];
+                if (DateTime.UtcNow > deadline) Assert.Fail($"Bridge never created channel {index}");
+                Thread.Sleep(10);
+            }
+        }
+    }
+
+    [TestClass]
+    [TestCategory(TestCategories.Unit)]
+    public class OpcUaBridgeMonitorTest
+    {
+        internal static readonly BusConfig Client = new("amqps://broker", "Client1", "c.p12", "p.txt");
+        internal static readonly string ClientReplyTo = JsonUtility.GetJsonStringForObject(Client, true);
+
+        private readonly FakeTimeProvider _time = new();
+        private readonly FakeChannelFactory _channels = new();
+        private readonly CancellationTokenSource _cts = new();
+        private string _directory = string.Empty;
+        private MonitorRegistry _registry = null!;
+        private OpcUaClient _opcUa = null!;
+        private OpcUaBridgeService _bridge = null!;
+        private Task _running = Task.CompletedTask;
+        private OpcUaDataItem _pressure = null!;
+        private MonitorKey _key;
+
+        [TestInitialize]
+        public void Initialize()
+        {
+            _directory = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "OpcUaBridgeMonitorTest", Guid.NewGuid().ToString("N"))).FullName;
+            _registry = MonitorRegistry.Load(new MonitorStore(Path.Combine(_directory, "monitors.json")), MonitorRegistryTest.Own, null, _time);
+            var settings = new BridgeSettings
+            {
+                BusConfig = MonitorRegistryTest.Own,
+                OpcUaEndpoint = "opc.tcp://localhost:1/none",
+                PkiPath = Path.Combine(_directory, "pki"),
+                ApplicationName = "Test"
+            };
+            _opcUa = new OpcUaClient(settings);
+            _bridge = new OpcUaBridgeService(MonitorRegistryTest.Own, _opcUa, _registry, _time, _channels.Create);
+            _running = _bridge.RunAsync(_cts.Token);
+            _pressure = Item(new NodeId("pressure", 2));
+            _key = new MonitorKey(Client.CommandExchangeName, _pressure.NodeIdText);
+        }
+
+        private static OpcUaDataItem Item(NodeId nodeId, MessageNames? names = null) =>
+            new(nodeId, nodeId.ToString(), names ?? OpcUaNaming.ToMessageNames(MonitorRegistryTest.Own.ExchangeNamePrefix, nodeId), typeof(double));
+
+        [TestCleanup]
+        public async Task Cleanup()
+        {
+            await _cts.CancelAsync();
+            await _running;
+            _bridge.Dispose();
+            await _opcUa.DisposeAsync();
+            Directory.Delete(_directory, true);
+        }
+
+        private static byte[] MonitorBody(uint queueSize = 1) => Encoding.UTF8.GetBytes(new JObject
+        {
+            ["MonitoringMode"] = "Reporting",
+            ["DataChangeTrigger"] = "StatusValue",
+            ["DeadbandType"] = "None",
+            ["DeadbandValue"] = 0,
+            ["SamplingInterval"] = 100,
+            ["QueueSize"] = queueSize,
+            ["PublishingInterval"] = 1000
+        }.ToString());
+
+        private void SendCommand(string routingKey, byte[] body, string? replyTo = null) =>
+            _channels.Main.CommandConsumer!(body, routingKey, Encoding.UTF8.GetBytes(replyTo ?? ClientReplyTo));
+
+        private static (byte[] Body, string RoutingKey, string ReplyToRaw, string ExchangeName) Next(FakeConnectionChannel channel, string routingKey)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (DateTime.UtcNow < deadline)
+            {
+                var match = channel.Sent.FirstOrDefault(s => s.RoutingKey == routingKey);
+                if (match.Body != null) return match;
+                Thread.Sleep(10);
+            }
+            Assert.Fail($"Nothing sent with routing key {routingKey}");
+            return default;
+        }
+
+        /// <summary>The next status sent on <paramref name="statusEvent"/>, by default the pressure item's.</summary>
+        private JObject NextStatus(string? statusEvent = null)
+        {
+            var sent = Next(_channels.Notifications, statusEvent ?? _pressure.MonitorStatusEventTypeFullName);
+            Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
+            Assert.AreEqual(ClientReplyTo, sent.ReplyToRaw);
+            return JObject.Parse(Encoding.UTF8.GetString(sent.Body));
+        }
+
+        private static void AssertStatus(JObject status, MonitorState state, StatusCode statusCode, string nodeId)
+        {
+            Assert.AreEqual(state.ToString(), (string)status["State"]!);
+            Assert.AreEqual(statusCode.Code, (uint)status["StatusCode"]!);
+            Assert.AreEqual(nodeId, (string)status["NodeId"]!);
+        }
+
+        [TestMethod]
+        public void MonitorCommand_BeforeDiscovery_FailedWaitingForInitialData()
+        {
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadWaitingForInitialData, "");
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void MonitorCommand_UnknownAfterDiscovery_FailedNodeIdUnknown()
+        {
+            _bridge.SetCatalog([]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadNodeIdUnknown, "");
+        }
+
+        [TestMethod]
+        public void MonitorCommand_Invalid_FailedInvalidArgumentNothingStored()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody(queueSize: 0));
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadInvalidArgument, _pressure.NodeIdText);
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void MonitorCommand_Valid_StoredByItemAndRespondsOnNotificationChannel()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            AssertStatus(NextStatus(), MonitorState.Pending, StatusCodes.BadNotConnected, _pressure.NodeIdText);
+            Assert.IsNotNull(_registry.Get(_key));
+            Assert.IsFalse(_channels.Main.Sent.Any(s => s.RoutingKey == _pressure.MonitorStatusEventTypeFullName));
+        }
+
+        [TestMethod]
+        public void StatusEvent_BodyHasSpecProperties()
+        {
+            _bridge.SetCatalog([_pressure]);
+            _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            var status = NextStatus();
+            CollectionAssert.AreEquivalent(new[] { "NodeId", "State", "StatusCode", "Status", "RevisedSamplingInterval", "RevisedQueueSize", "RevisedPublishingInterval" },
+                status.Properties().Select(p => p.Name).ToArray());
+            Assert.AreEqual("Active", (string)status["State"]!);
+            Assert.AreEqual("Good", (string)status["Status"]!);
+            Assert.AreEqual(100.0, (double)status["RevisedPublishingInterval"]!);
+        }
+
+        [TestMethod]
+        public void MonitorCommand_OtherBroker_DroppedNoResponse()
+        {
+            _bridge.SetCatalog([_pressure]);
+            var elsewhere = JsonUtility.GetJsonStringForObject(new BusConfig("amqps://elsewhere", "Client1", "c.p12", "p.txt"), true);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody(), elsewhere);
+            Thread.Sleep(300);
+            Assert.IsEmpty(_channels.Notifications.Sent);
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void DeleteCommand_BeforeDiscovery_FailedWaitingForInitialData()
+        {
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadWaitingForInitialData, "");
+        }
+
+        [TestMethod]
+        public void DeleteCommand_NoMonitor_FailedNotFound()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Failed, StatusCodes.BadNotFound, _pressure.NodeIdText);
+        }
+
+        [TestMethod]
+        public void DeleteCommand_Existing_Deleted()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus();
+            _channels.Notifications.Sent.Clear();
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Deleted, StatusCodes.Good, _pressure.NodeIdText);
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void DeleteCommand_CollisionSuffixedItem_AnsweredOnItsOwnStatusEvent()
+        {
+            var dashed = new NodeId("A-B", 2);
+            var underscored = new NodeId("A_B", 2);
+            var names = OpcUaNaming.AssignUniqueNames(MonitorRegistryTest.Own.ExchangeNamePrefix, [dashed, underscored]);
+            OpcUaDataItem first = Item(dashed, names[dashed]), second = Item(underscored, names[underscored]);
+            _bridge.SetCatalog([first, second]);
+            SendCommand(second.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus(second.MonitorStatusEventTypeFullName);
+            _channels.Notifications.Sent.Clear();
+            SendCommand(second.DeleteCommandTypeFullName, []);
+            StringAssert.EndsWith(second.MonitorStatusEventTypeFullName, "_2_Event");
+            AssertStatus(NextStatus(second.MonitorStatusEventTypeFullName), MonitorState.Deleted, StatusCodes.Good, "ns=2;s=A_B");
+            Assert.IsFalse(_channels.Notifications.Sent.Any(s => s.RoutingKey == first.MonitorStatusEventTypeFullName));
+        }
+
+        [TestMethod]
+        public void DeleteCommand_ItemGoneFromCatalog_DeletesStoredMonitor()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus();
+            _bridge.SetCatalog([]);
+            _channels.Notifications.Sent.Clear();
+            SendCommand(_pressure.DeleteCommandTypeFullName, []);
+            AssertStatus(NextStatus(), MonitorState.Deleted, StatusCodes.Good, _pressure.NodeIdText);
+            Assert.IsEmpty(_registry.GetAll());
+        }
+
+        [TestMethod]
+        public void GetCommand_StillAnsweredOnMainChannel()
+        {
+            _bridge.SetCatalog([_pressure]);
+            SendCommand(_pressure.CommandTypeFullName, []);
+            var sent = Next(_channels.Main, _pressure.EventTypeFullName);
+            Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
+            StringAssert.Contains(Encoding.UTF8.GetString(sent.Body), "BadNotConnected");
+        }
+
+        [TestMethod]
+        public void Notification_SentAsGetEventOnNotificationChannel()
+        {
+            _bridge.SetCatalog([_pressure]);
+            _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            Assert.AreEqual("Active", (string)NextStatus()["State"]!);
+            _bridge.Monitors.OnNotification(_key, new DataValue(new Variant(42.0)));
+            var sent = Next(_channels.Notifications, _pressure.EventTypeFullName);
+            Assert.AreEqual(Client.ResponseExchangeName, sent.ExchangeName);
+            Assert.AreEqual(42.0, (double)JObject.Parse(Encoding.UTF8.GetString(sent.Body))["Value"]!);
+        }
+
+        [TestMethod]
+        public void NotificationChannelClosed_TriggersReplyToCheck()
+        {
+            _bridge.SetCatalog([_pressure]);
+            _bridge.Monitors.SessionStarted(new FakeMonitorSession(), [_pressure]);
+            SendCommand(_pressure.MonitorCommandTypeFullName, MonitorBody());
+            NextStatus();
+            var notifications = _channels.Notifications;
+            notifications.Open = false;
+            notifications.MissingBuses[Client.ResponseExchangeName] = true;
+            _bridge.Monitors.OnNotification(_key, new DataValue(new Variant(1.0)));
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (!_registry.Get(_key)!.IsSuspended)
+            {
+                if (DateTime.UtcNow > deadline) Assert.Fail("Monitor was not suspended");
+                Thread.Sleep(10);
+            }
+        }
+    }
+}
+
+namespace StatePipes.Test.OpcUaBridge
+{
+    [TestClass]
+    [TestCategory(TestCategories.Unit)]
+    public class BridgeSettingsMonitorTest
+    {
+        private static readonly string[] Variables = ["OPCUA_ENDPOINT", "BROKER", "EXCHANGE", "MONITOR_STORE_PATH", "MONITOR_SUSPENDED_EXPIRY_HOURS"];
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            foreach (var name in Variables) Environment.SetEnvironmentVariable(name, null);
+        }
+
+        private static BridgeSettings Load(string? storePath = null, string? expiryHours = null)
+        {
+            Environment.SetEnvironmentVariable("OPCUA_ENDPOINT", "opc.tcp://plc:4840");
+            Environment.SetEnvironmentVariable("BROKER", "amqps://broker");
+            Environment.SetEnvironmentVariable("EXCHANGE", "Line1Plc");
+            Environment.SetEnvironmentVariable("MONITOR_STORE_PATH", storePath);
+            Environment.SetEnvironmentVariable("MONITOR_SUSPENDED_EXPIRY_HOURS", expiryHours);
+            return BridgeSettings.Load();
+        }
+
+        [TestMethod]
+        public void Load_Defaults_StoreInStatePipesConfigDirectoryNoExpiry()
+        {
+            var settings = Load();
+            Assert.AreEqual(Path.Combine(StatePipes.ProcessLevelServices.DirHelper.GetProductDataCategoryDirectoryForProcess(StatePipes.ProcessLevelServices.DirHelper.FileCategory.Config), "monitors.json"), settings.MonitorStorePath);
+            Assert.IsNull(settings.MonitorSuspendedExpiry);
+        }
+
+        [TestMethod]
+        public void Load_Overrides_Used()
+        {
+            var settings = Load("/data/m.json", "48");
+            Assert.AreEqual("/data/m.json", settings.MonitorStorePath);
+            Assert.AreEqual(TimeSpan.FromHours(48), settings.MonitorSuspendedExpiry);
+        }
+    }
+}

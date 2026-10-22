@@ -1,0 +1,274 @@
+using StatePipes.Messages;
+using StatePipes.OpcUaBridge.Messages;
+using StatePipes.SelfDescription;
+
+namespace StatePipes.OpcUaBridge
+{
+    /// <summary>
+    /// Builds the <see cref="TypeSerializationList"/> the bridge answers <see cref="GetSelfDescriptionCommand"/>
+    /// with. A compiled StatePipes service reflects over its message classes; the bridge has no classes for its
+    /// Get commands and events, so it writes the same descriptions by hand. Clients such as StatePipes.Explorer
+    /// cannot tell the difference and emit real types from them.
+    ///
+    /// <para>Every Get event carries the same envelope around the value: the node it came from and the OPC UA
+    /// status and timestamps of the read. Value is nullable because a failed read has no value to give.</para>
+    ///
+    /// <para>Property types are described by name only. Apart from structures, every type an event uses is one
+    /// of the base types clients resolve by name before looking at a description, so reflecting them in full --
+    /// as the converter does, pulling in DateTime's Year, Month, DayOfWeek and so on -- only multiplies the
+    /// message size, which matters with thousands of nodes.</para>
+    /// </summary>
+    internal static class SelfDescriptionBuilder
+    {
+        public const string NodeIdProperty = "NodeId";
+        public const string ObjectIdProperty = "ObjectId";
+        public const string MethodIdProperty = "MethodId";
+        public const string ValueProperty = "Value";
+        public const string StatusCodeProperty = "StatusCode";
+        public const string StatusProperty = "Status";
+        public const string SourceTimestampProperty = "SourceTimestamp";
+        public const string ServerTimestampProperty = "ServerTimestamp";
+        public const string MonitoringModeProperty = "MonitoringMode";
+        public const string DataChangeTriggerProperty = "DataChangeTrigger";
+        public const string DeadbandTypeProperty = "DeadbandType";
+        public const string DeadbandValueProperty = "DeadbandValue";
+        public const string SamplingIntervalProperty = "SamplingInterval";
+        public const string QueueSizeProperty = "QueueSize";
+        public const string PublishingIntervalProperty = "PublishingInterval";
+        public const string StateProperty = "State";
+        public const string RevisedSamplingIntervalProperty = "RevisedSamplingInterval";
+        public const string RevisedQueueSizeProperty = "RevisedQueueSize";
+        public const string RevisedPublishingIntervalProperty = "RevisedPublishingInterval";
+
+        /// <summary>
+        /// The messages the bridge itself handles or publishes, described from the real types. Enums are not
+        /// listed: clients expect only messages at the top level, and each message carries the enums it uses.
+        /// </summary>
+        private static readonly Type[] StatePipesMessageTypes =
+        [
+            typeof(GetSelfDescriptionCommand), typeof(SelfDescriptionEvent), typeof(HeartbeatEvent)
+        ];
+
+        public static TypeSerializationList Build(IEnumerable<OpcUaDataItem> items, IEnumerable<OpcUaMethodItem>? methods = null)
+        {
+            TypeSerializationConverter converter = new();
+            TypeSerializationList list = new();
+            foreach (var type in StatePipesMessageTypes) list.TypeSerializations.Add(converter.CreateFromType(type));
+            foreach (var item in items)
+            {
+                list.TypeSerializations.Add(BuildCommand(item));
+                list.TypeSerializations.Add(BuildEvent(item));
+                list.TypeSerializations.Add(BuildMonitorCommand(item, converter));
+                list.TypeSerializations.Add(BuildDeleteCommand(item));
+                list.TypeSerializations.Add(BuildMonitorStatusEvent(item, converter));
+                if (!item.IsWritable) continue;
+                list.TypeSerializations.Add(BuildSetCommand(item));
+                list.TypeSerializations.Add(BuildSetStatusEvent(item));
+            }
+            foreach (var method in methods ?? [])
+            {
+                list.TypeSerializations.Add(BuildExecCommand(method));
+                list.TypeSerializations.Add(BuildExecResultEvent(method));
+            }
+            return list;
+        }
+
+        /// <summary>An Exec command holds one property per input, typed as a Set's Value: an Exec always says what to call with.</summary>
+        private static TypeSerialization BuildExecCommand(OpcUaMethodItem method)
+        {
+            var description = CreateDescription(method.Names.Namespace, method.Names.ExecCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            foreach (var input in method.Inputs)
+            {
+                if (input.Structure == null) AddProperty(serialization, description, input.PropertyName, input.ValueType);
+                else AddStructureProperty(serialization, description, input.PropertyName, input.Structure, input.IsArray);
+            }
+            return serialization;
+        }
+
+        /// <summary>An ExecResult's outputs are typed as a Get event's Value, nullable because a failed call has none.</summary>
+        private static TypeSerialization BuildExecResultEvent(OpcUaMethodItem method)
+        {
+            var description = CreateDescription(method.Names.Namespace, method.Names.ExecResultEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, ObjectIdProperty, typeof(string));
+            AddProperty(serialization, description, MethodIdProperty, typeof(string));
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            foreach (var output in method.Outputs)
+            {
+                if (output.Structure == null) AddProperty(serialization, description, output.PropertyName, output.ValueType, isNullable: output.ValueType.IsValueType);
+                else AddStructureProperty(serialization, description, output.PropertyName, output.Structure, output.IsArray);
+            }
+            return serialization;
+        }
+
+        /// <summary>
+        /// A Monitor command's enum properties are the bridge's compiled enums. Each type serialization stands
+        /// alone, so the enums' descriptions, values included, are copied into it.
+        /// </summary>
+        private static TypeSerialization BuildMonitorCommand(OpcUaDataItem item, TypeSerializationConverter converter)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.MonitorCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddEnumProperty(serialization, description, MonitoringModeProperty, typeof(MonitoringModeKind), converter);
+            AddEnumProperty(serialization, description, DataChangeTriggerProperty, typeof(DataChangeTriggerKind), converter);
+            AddEnumProperty(serialization, description, DeadbandTypeProperty, typeof(DeadbandTypeKind), converter);
+            AddProperty(serialization, description, DeadbandValueProperty, typeof(double));
+            AddProperty(serialization, description, SamplingIntervalProperty, typeof(double));
+            AddProperty(serialization, description, QueueSizeProperty, typeof(uint));
+            AddProperty(serialization, description, PublishingIntervalProperty, typeof(double));
+            return serialization;
+        }
+
+        /// <summary>
+        /// The Set command's Value is typed as the Get event's, but not nullable: a Set always says what to write.
+        /// </summary>
+        private static TypeSerialization BuildSetCommand(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.SetCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            if (item.Structure == null) AddProperty(serialization, description, ValueProperty, item.ValueType);
+            else AddStructureProperty(serialization, description, ValueProperty, item.Structure, item.IsArray);
+            return serialization;
+        }
+
+        private static TypeSerialization BuildSetStatusEvent(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.SetStatusEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, NodeIdProperty, typeof(string));
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            return serialization;
+        }
+
+        private static TypeSerialization BuildDeleteCommand(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.DeleteCommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            return serialization;
+        }
+
+        private static TypeSerialization BuildMonitorStatusEvent(OpcUaDataItem item, TypeSerializationConverter converter)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.MonitorStatusEventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, NodeIdProperty, typeof(string));
+            AddEnumProperty(serialization, description, StateProperty, typeof(MonitorState), converter);
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            AddProperty(serialization, description, RevisedSamplingIntervalProperty, typeof(double));
+            AddProperty(serialization, description, RevisedQueueSizeProperty, typeof(uint));
+            AddProperty(serialization, description, RevisedPublishingIntervalProperty, typeof(double));
+            return serialization;
+        }
+
+        private static void AddEnumProperty(TypeSerialization serialization, TypeDescription owner, string name, Type enumType, TypeSerializationConverter converter)
+        {
+            owner.Properties.Add(new ParameterDescription(name, enumType.FullName!, false, []));
+            if (!serialization.HasTypeDescription(enumType.FullName!))
+                serialization.AddTypeDescription(converter.CreateFromType(enumType).GetTopLevelDescription());
+        }
+
+        private static TypeSerialization BuildCommand(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.CommandTypeName);
+            description.IsCommand = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            return serialization;
+        }
+
+        private static TypeSerialization BuildEvent(OpcUaDataItem item)
+        {
+            var description = CreateDescription(item.Names.Namespace, item.Names.EventTypeName);
+            description.IsEvent = true;
+            TypeSerialization serialization = new() { FullName = description.FullName };
+            serialization.AddTypeDescription(description);
+            AddProperty(serialization, description, NodeIdProperty, typeof(string));
+            if (item.Structure == null) AddProperty(serialization, description, ValueProperty, item.ValueType, isNullable: item.ValueType.IsValueType);
+            else AddStructureProperty(serialization, description, ValueProperty, item.Structure, item.IsArray);
+            AddProperty(serialization, description, StatusCodeProperty, typeof(uint));
+            AddProperty(serialization, description, StatusProperty, typeof(string));
+            AddProperty(serialization, description, SourceTimestampProperty, typeof(DateTime));
+            AddProperty(serialization, description, ServerTimestampProperty, typeof(DateTime));
+            return serialization;
+        }
+
+        /// <summary>
+        /// Structures are the one kind of type clients cannot resolve by name, so each one an event reaches is
+        /// described in full, with its fields as properties. A structure is added before its fields, so one that
+        /// holds an array of itself refers back to the description already there.
+        /// </summary>
+        private static void AddStructureProperty(TypeSerialization serialization, TypeDescription owner, string name, StructureLayout layout, bool isArray)
+        {
+            AddStructure(serialization, layout);
+            var fullName = isArray ? AddStructureArray(serialization, layout) : layout.FullName;
+            owner.Properties.Add(new ParameterDescription(name, fullName, false, []));
+        }
+
+        private static void AddStructure(TypeSerialization serialization, StructureLayout layout)
+        {
+            if (serialization.HasTypeDescription(layout.FullName)) return;
+            var description = CreateDescription(layout.Namespace, layout.Name);
+            serialization.AddTypeDescription(description);
+            foreach (var field in layout.Fields)
+            {
+                if (field.Structure != null) AddStructureProperty(serialization, description, field.Name, field.Structure, field.IsArray);
+                else if (field.IsArray) AddProperty(serialization, description, field.Name, field.ClrType!.MakeArrayType());
+                else AddProperty(serialization, description, field.Name, field.ClrType!, isNullable: field.ClrType!.IsValueType);
+            }
+        }
+
+        private static string AddStructureArray(TypeSerialization serialization, StructureLayout layout)
+        {
+            var description = CreateDescription(layout.Namespace, layout.Name + "[]");
+            description.ArrayFullName = layout.FullName;
+            description.ArrayRank = 1;
+            serialization.AddTypeDescription(description);
+            return description.FullName;
+        }
+
+        private static TypeDescription CreateDescription(string @namespace, string name) => new()
+        {
+            FullName = $"{@namespace}.{name}",
+            Namespace = @namespace,
+            AssemblyName = OpcUaNaming.AssemblyName,
+            QualifiedName = $"{@namespace}.{name}, {OpcUaNaming.AssemblyName}"
+        };
+
+        private static void AddProperty(TypeSerialization serialization, TypeDescription owner, string name, Type type, bool isNullable = false)
+        {
+            owner.Properties.Add(new ParameterDescription(name, type.FullName!, isNullable, []));
+            AddTypeByName(serialization, type);
+        }
+
+        private static void AddTypeByName(TypeSerialization serialization, Type type)
+        {
+            if (serialization.HasTypeDescription(type.FullName!)) return;
+            TypeDescription description = new();
+            description.SetNames(type);
+            serialization.AddTypeDescription(description);
+            if (!type.IsArray) return;
+            var elementType = type.GetElementType()!;
+            description.ArrayFullName = elementType.FullName!;
+            description.ArrayRank = type.GetArrayRank();
+            AddTypeByName(serialization, elementType);
+        }
+    }
+}

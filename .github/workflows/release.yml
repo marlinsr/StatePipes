@@ -5,7 +5,7 @@
 #   1. Bump VersionPrefix in SolutionInfo.proj
 #   2. Append release notes (with closing-issue info from the merged PR) to README.md
 #   3. Build the solution as Release  (Windows runner)
-#   4. Build the StatePipes.Explorer and StatePipes.BrokerProxy Docker images,
+#   4. Build the StatePipes.Explorer, StatePipes.BrokerProxy and StatePipes.OpcUaBridge Docker images,
 #      tag as v<version> + latest, push to Docker Hub as bigfish88/*
 #   5. Push the StatePipes nupkg to nuget.org
 #   6. Create the GitHub Release v<version>, attaching the
@@ -272,6 +272,16 @@ jobs:
           tags: |
             bigfish88/statepipesbrokerproxy:v${{ env.VERSION }}
             bigfish88/statepipesbrokerproxy:latest
+
+      - name: Build & push bigfish88/statepipesopcuabridge
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: StatePipes.OpcUaBridge/Dockerfile
+          push: true
+          tags: |
+            bigfish88/statepipesopcuabridge:v${{ env.VERSION }}
+            bigfish88/statepipesopcuabridge:latest
 
   # ----------------------------------------------------------------------
   # 4. Publish NuGet, then cut the GitHub Release with the installer attached.

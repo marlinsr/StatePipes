@@ -364,6 +364,8 @@ $dockerArgs = @(
     "-e", "KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR=1",
     "-e", "KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR=1",
     "-e", "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0",
+    # StatePipes creates every topic it uses; auto-creation would bring back deleted response topics.
+    "-e", "KAFKA_AUTO_CREATE_TOPICS_ENABLE=false",
     $KafkaImage
 )
 & docker @dockerArgs

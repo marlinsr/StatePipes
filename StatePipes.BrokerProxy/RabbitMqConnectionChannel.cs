@@ -1,5 +1,6 @@
-using RabbitMQ.Client;
+﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
 using System;
@@ -144,6 +145,31 @@ namespace StatePipes.BrokerProxy
                 }
                 SimpleMessageHelper.Serialize(routingKey, replyToRaw, out BasicProperties properties);
                 BasicPublish(exchangeName, routingKey, properties, body);
+            }
+        }
+        /// <summary>
+        /// A passive declare on a channel of its own: RabbitMQ answers a missing exchange by closing the channel
+        /// with 404, which must not take down the channel carrying traffic.
+        /// </summary>
+        public async Task<bool> BusExistsAsync(string exchangeName, CancellationToken ct)
+        {
+            IConnection? connection;
+            lock (_lock) connection = _connection;
+            if (connection is not { IsOpen: true }) return true;
+            try
+            {
+                await using var probe = await connection.CreateChannelAsync(null, ct);
+                await probe.ExchangeDeclarePassiveAsync(exchangeName, ct);
+                return true;
+            }
+            catch (OperationInterruptedException ex) when (ex.ShutdownReason?.ReplyCode == Constants.NotFound)
+            {
+                return false;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log?.LogVerbose($"Could not check exchange {exchangeName}: {ex.Message}");
+                return true;
             }
         }
         private void BasicPublish(string exchangeName, string routingKey, BasicProperties properties, byte[] body)
