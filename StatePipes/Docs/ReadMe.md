@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.2 (2026-10-22)
+Merged PR: #90 Opcua bridge
+
+Referenced issues:
+- #89 OpcUaBridge Get
+
+
 ### v6.0.1 (2026-09-29)
 Merged PR: #88 Modified for slnx
 
