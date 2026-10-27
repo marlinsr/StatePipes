@@ -23,5 +23,7 @@ Marker: // Injection Point 5, Do Not Delete or Modify
 
 ## Next
 
-Check how the service's `Builders/DefaultSetup.cs` registers state machines (see `docs/StateMachineComposition.md`
-section 9) and confirm the new machine is picked up; `statepipes-verify` will fail the build or tests otherwise.
+Nothing has to be registered. The service host finds every `IStateMachine` in the class library automatically
+(`AllStateMachineContainerSetup`), together with its states and triggers. **Don't** add
+`BaseStateMachineContainerSetup` code from `docs/StateMachineComposition.md` section 9 to `Builders/DefaultSetup.cs`,
+because that registers the machine twice. Next, add states with `add-state` and triggers with `add-trigger`.

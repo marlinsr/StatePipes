@@ -34,20 +34,36 @@ Usual order (the External Tools' typical workflow): `new-solution` once per repo
 microservice → per machine `add-state-machine`, then `add-state` / `add-trigger` / guards / `add-periodic` →
 `new-proxy` per remote dependency → `diagram` any time.
 
-**Events** have no External Tool menu entry. Create `<Prefix>/Events/<Event>.cs` from `Event_cs.sample`
-(`@#$EventName@#$` = `<Event>`), as `EventGeneratorTool` does, and publish it from a state with `PublishEvent`.
+The installer registers three more External Tools, which are folded into the operations above:
 
-## Where the templates are
+- **Add Event** (`-e`): creates `<Prefix>/Events/<Event>.cs` from `Event_cs.sample` (`@#$EventName@#$` = `<Event>`).
+  Do this by hand exactly as `EventGeneratorTool` does, then publish the event from a state with `PublishEvent`.
+- **Create StatePipes Proxy From Service** and **Update StatePipes Proxy From Service** (`-live`): the same as
+  `new-proxy` and `update-proxy`, but the proxy is built from the description a running service publishes on the
+  broker, so the other service's DLL isn't needed. See `operations/new-proxy.md`.
 
-Templates are `.sample` files in `StatePipes.ServiceCreatorTool/Resources/` of the StatePipes repository. A
-service repository does not contain them. Read them from the StatePipes release the service uses, so they match its
-package version (`StatePipes` `PackageReference` in `<Prefix>.csproj`, for example `6.0.3`):
+## The StatePipes version
+
+Templates and documents must come from the same StatePipes release that the service references.
+
+- **Existing service:** use the `StatePipes` `PackageReference` version in `<Prefix>.csproj`, for example `6.0.3`.
+- **New solution or first service (no csproj yet):** use the latest release tag of
+  `https://github.com/marlinsr/StatePipes` (`v<version>`, for example `v6.0.3`). Use that same `<version>` for
+  `@#$StatePipesVersion@#$`, so the new csproj references the package that matches the templates. Tell the user
+  which version you picked.
+
+## Where the templates and documents are
+
+Templates are `.sample` files in `StatePipes.ServiceCreatorTool/Resources/` of the StatePipes repository, and
+the reference documents are in `docs/`. A service repository has neither, so read them from the release:
 
 ```
 https://raw.githubusercontent.com/marlinsr/StatePipes/v<version>/StatePipes.ServiceCreatorTool/Resources/<Template>
+https://raw.githubusercontent.com/marlinsr/StatePipes/v<version>/docs/<Document>.md
 ```
 
-If you are working inside the StatePipes repository itself, read them from disk.
+Every skill that cites `docs/StateMachineComposition.md`, `docs/Paper.md` or `docs/SETUP.md` means the document
+at that URL. If you are working inside the StatePipes repository itself, read them from disk.
 
 ## Recipe format
 

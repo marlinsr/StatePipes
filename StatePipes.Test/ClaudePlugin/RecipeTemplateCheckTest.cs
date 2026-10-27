@@ -84,6 +84,17 @@ namespace StatePipes.Test.ClaudePlugin
         }
 
         [TestMethod]
+        public void EveryInstalledExternalToolIsCoveredByTheScaffoldSkill()
+        {
+            var vssettings = Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ServiceCreatorToolSetup", "Resources", "StatePipesExternalToolsSettings.vssettings");
+            var titles = Regex.Matches(File.ReadAllText(vssettings), "<Title>([^<]+)</Title>").Select(m => m.Groups[1].Value.Trim()).ToList();
+            var skill = File.ReadAllText(Path.Combine(PluginPaths.Operations, "..", "SKILL.md"));
+            Assert.IsTrue(titles.Count > 0, "no External Tool titles found in the vssettings file");
+            var missing = titles.Where(t => !skill.Contains(t)).ToList();
+            Assert.AreEqual(0, missing.Count, $"statepipes-scaffold/SKILL.md does not mention installed External Tools: [{string.Join(", ", missing)}]");
+        }
+
+        [TestMethod]
         public void StateMachineGuardRecipesNameTheirGuardTemplate()
         {
             var expected = new Dictionary<string, string[]>

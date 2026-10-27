@@ -10,7 +10,9 @@ triggers it handles as annotated methods. The framework routes each trigger to t
 routing code to write. Keep each state's behavior inside that state's class.
 
 The reference is `docs/StateMachineComposition.md` in the StatePipes repository, and the rationale is
-`docs/Paper.md`. This skill gives the rules and links to those documents rather than repeating them.
+`docs/Paper.md`. A service repository doesn't contain them, so read them from the release URL given in
+`statepipes-scaffold` → "Where the templates and documents are", using the service's StatePipes version. This
+skill gives the rules and links to those documents rather than repeating them.
 
 ## Layout
 
@@ -70,9 +72,16 @@ Put new files where the matching scaffold operation would put them. Don't add be
 
 | Attribute | Returns `true` | Returns `false` |
 |---|---|---|
-| `[PermitIf(typeof(Dest))]` | Transition to `Dest` (`OnExit`, then `Dest.OnEntry`) | Trigger consumed, nothing happens |
-| `[PermitReentryIf]` | Re-enter this state (`OnExit`, then `OnEntry`) | **Runs the method body only.** Use this to handle a command in place |
-| `[IgnoreIf]` | Trigger dropped on purpose | Treated as unhandled (dropped, logged at verbose level) |
+| `[PermitIf(typeof(Dest))]` | Transition to `Dest` (`OnExit`, then `Dest.OnEntry`) | No transition from this state; see below |
+| `[PermitReentryIf]` | Re-enter this state (`OnExit`, then `OnEntry`) | **The method body has already run**, and there is no re-entry. Use this to handle a command in place; see below |
+| `[IgnoreIf]` | Trigger dropped on purpose | No ignore; see below |
+
+**When every guard for the trigger in this state returns `false`**, the trigger goes to the parent state's handlers
+for the same trigger, if the state has a parent (Stateless superstate lookup). If no ancestor handles it, it is
+unhandled: it is dropped and logged at verbose level. So a child's side-effect-only `[PermitReentryIf]` that returns
+`false` for `Stop`, under a parent with `[PermitIf(typeof(Idle))]` for `Stop`, runs its body **and then** the
+parent's transition. To keep a trigger in the child, return `true` from a handler in the child, or don't handle that
+trigger in the parent.
 
 - Generated stubs return `true`. Replace each stub with the condition from the approved model.
 - Guards run when the trigger arrives. Keep them fast and free of blocking calls.
