@@ -22,5 +22,5 @@ External Tool: **Add IgnoreIf** (`-ii <state file>`). Generator: `IgnoreIfGaurdG
 4. The stub returns `true` (always ignore). Replace with a condition if the trigger should be ignored only
    sometimes.
 
-Use IgnoreIf when a trigger is expected in this state and must not be treated as an error; a trigger with no
-handler in the current state is otherwise unhandled.
+A trigger with no handler in the current state is already dropped (the framework logs "Trigger not set" at
+verbose level). Use IgnoreIf to state that dropping it here is intended, or to drop it only under a condition.
