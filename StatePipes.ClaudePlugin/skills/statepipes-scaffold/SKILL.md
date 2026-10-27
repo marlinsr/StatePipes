@@ -69,8 +69,8 @@ a guard operation removes them.
 
 | Placeholder | Value |
 |---|---|
-| `@#$SolutionName@#$` | Solution name without `Packages.` and `.slnx`, e.g. `Acme.Widgets` |
-| `@#$CompanyName@#$` / `@#$ProductName@#$` | First / remaining part of the solution name (`Acme` / `Widgets`) |
+| `@#$SolutionName@#$` | Solution file name without `.slnx`, `Packages.` prefix kept if present, e.g. `Packages.Acme.Widgets` |
+| `@#$CompanyName@#$` / `@#$ProductName@#$` | With `Packages.` removed: first / remaining part of the solution name (`Acme` / `Widgets`) |
 | `@#$ClassLibraryName@#$` | `<Prefix>`, e.g. `Acme.Widgets.Pump` |
 | `@#$StateMachineName@#$` | `<Machine>`; default for a new service `<Component>StateMachine` |
 | `@#$StateName@#$`, `@#$ParentStateName@#$`, `@#$TriggerName@#$`, `@#$TransitionToStateName@#$`, `@#$EventName@#$` | As named in the recipe |

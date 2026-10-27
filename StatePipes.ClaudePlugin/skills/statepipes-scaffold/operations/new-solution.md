@@ -7,14 +7,15 @@ Creates a solution folder and its build and run scripts, then adds a first servi
 
 ## Preferred
 
-Ask the user to run **New StatePipes Sln** (Start menu or Tools menu). It asks for the repo root and a name of the
-form `Packages.<Company>.<Product>`. The folder keeps the `Packages.` prefix; the solution is
-`<Company>.<Product>.slnx`. The tool writes `StatePipesToolConfig` (RabbitMQ or Kafka) and opens Visual Studio.
+Ask the user to run **New StatePipes Sln** (Start menu or Tools menu). It asks whether the broker is RabbitMQ or
+Kafka, the repo root, and a name such as `Packages.<Company>.<Product>`. The entered name, prefix included, becomes
+both the folder and the solution: `Packages.<Company>.<Product>/Packages.<Company>.<Product>.slnx`. `<Company>` and
+`<Product>` are taken from the name with the `Packages.` prefix removed. The tool then opens Visual Studio.
 
 ## By hand (no Visual Studio)
 
-Create these files under `<SolutionDir>` from their templates, with the substitutions in the scaffold skill's
-moniker table (`@#$SolutionName@#$` = `<Company>.<Product>`):
+`<Solution>` is the entered name without `.slnx`. Create these files under `<SolutionDir>` from their templates,
+with the substitutions in the scaffold skill's placeholder table (`@#$SolutionName@#$` = `<Solution>`):
 
 Template: SetupAndRunInstructions_pdf.sample
 Template: SolutionInfo_proj.sample
@@ -37,6 +38,10 @@ Creates: RunScript/DockerInfrastructureStop.ps1
 Creates: RunScript/Start.ps1
 Creates: RunScript/Stop.ps1
 Creates: BuildScript/NugetConfig.xml
+Creates: ToolConfiguration.json
+
+`ToolConfiguration.json` has no template: write `{"UseRabbitMQ": true}` (or `false` for Kafka). `new-service`
+reads it to choose the broker.
 
 `SetupAndRunInstructions_pdf.sample` is binary: copy it unchanged. The solution file and the two run scripts carry
 the marker that `new-service` inserts above:

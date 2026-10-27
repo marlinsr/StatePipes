@@ -8,7 +8,7 @@ Adds three projects (class library, `.Service` host, `.Test`) and their scripts 
 ## Inputs
 
 - Solution directory and `<Solution>.slnx`.
-- `<Prefix>` of the form `<Solution>.<Component>` (for example `Acme.Widgets.Pump`).
+- `<Prefix>` of the form `<Company>.<Product>.<Component>` (for example `Acme.Widgets.Pump`).
 - Default state machine `<Machine>` = `<Component>StateMachine` (the tool names it; it is not asked).
 
 ## Preferred
