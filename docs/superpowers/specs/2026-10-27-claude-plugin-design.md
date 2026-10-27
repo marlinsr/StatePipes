@@ -52,15 +52,17 @@ Flow for extension: `conventions` + `scaffold` → `verify`.
 
 ## Keeping recipes accurate
 
-- A script in the plugin checks the recipes against the repo: every `.sample` file a recipe names must exist, and
-  every injection marker it cites must appear in the templates. It runs in CI, so a template change that breaks a
-  recipe fails the build.
+- Tests in `StatePipes.Test/ClaudePlugin` check the recipes against the repo: every `.sample` file a recipe names
+  must exist, and every injection marker it cites must appear in the templates. They run under `dotnet test` (the
+  repository has no pull-request CI; the release workflow runs only on merge to main), so a template change that
+  breaks a recipe fails the test suite.
 - When the headless tool lands, the script also verifies that the CLI flags a recipe uses exist.
 
 ## Testing the plugin
 
-- **Golden test.** Follow the recipes in a scratch directory to scaffold a reference service, then compare its file
-  tree and key files with the real tool's output. A difference is a recipe bug or a deliberate, documented variance.
+- **Golden test.** Run the real solution and service generators (they need no Visual Studio) in a scratch directory
+  and compare the file tree with the files the `new-solution` and `new-service` recipes declare. A difference is a
+  recipe bug.
 - **Scenario tests** (fixed prompts, scratch solution):
   - Greenfield: a pump controller (idle, running, fault). Must build, pass generated tests, follow conventions.
   - Extension: add a state and a guarded transition to an existing service.
@@ -72,7 +74,8 @@ Flow for extension: `conventions` + `scaffold` → `verify`.
 
 1. Worked examples for `domain-fit` beyond the pump controller (for example the OPC UA bridge). To be chosen during
    implementation planning; the first version ships with a short checklist and is refined from use.
-2. Where the golden-test reference output is stored (checked in versus generated in CI).
+2. ~~Where the golden-test reference output is stored.~~ Resolved: generated at test time from the real
+   generators; nothing is checked in.
 
 ## Follow-ups
 
