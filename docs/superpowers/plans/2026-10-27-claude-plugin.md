@@ -19,7 +19,7 @@
 - Skills link to `docs/StateMachineComposition.md` and `docs/Paper.md`; they do not duplicate them.
 - Operations (exactly these twelve, kebab-case): `new-solution`, `new-service`, `new-proxy`, `update-proxy`, `add-state-machine`, `add-trigger`, `add-state`, `add-permit-if`, `add-permit-reentry-if`, `add-ignore-if`, `add-periodic`, `diagram`.
 - Framework rules every skill must respect: no `.Result`/`.Wait()` in state machine code; fire-and-forget through `TaskWrapper`; run `dotnet format` before finishing; tests run with `dotnet test --settings Tests.runsettings`.
-- Commits end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Work stays on branch `issue-93-claude-plugin`; nothing is pushed until the user asks.
+- Commits end with the `Co-Authored-By:` line for the model doing the work. Work stays on branch `issue-93-claude-plugin`; nothing is pushed until the user asks.
 
 ## Review Focus
 
