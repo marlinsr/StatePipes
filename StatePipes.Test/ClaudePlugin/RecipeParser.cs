@@ -18,8 +18,9 @@ namespace StatePipes.Test.ClaudePlugin
             List<string> templates = [];
             List<string> markers = [];
             List<string> creates = [];
-            foreach (var line in Regex.Split(File.ReadAllText(filePath), "\r?\n"))
+            foreach (var rawLine in Regex.Split(File.ReadAllText(filePath), "\r?\n"))
             {
+                var line = rawLine.TrimStart();
                 if (line.StartsWith(TemplatePrefix, StringComparison.Ordinal)) templates.Add(line[TemplatePrefix.Length..].Trim());
                 else if (line.StartsWith(MarkerPrefix, StringComparison.Ordinal)) markers.Add(line[MarkerPrefix.Length..].Trim());
                 else if (line.StartsWith(CreatesPrefix, StringComparison.Ordinal)) creates.Add(line[CreatesPrefix.Length..].Trim());

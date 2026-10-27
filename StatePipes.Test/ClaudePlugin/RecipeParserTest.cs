@@ -74,6 +74,18 @@ namespace StatePipes.Test.ClaudePlugin
         }
 
         [TestMethod]
+        public void Parse_ReadsIndentedMachineLines()
+        {
+            var path = WriteRecipe("add-ignore-if",
+                "1. Take the snippet from\n\n   Template: IgnoreIfGuard_cs.sample\n\n   Marker: // Injection Point 5, Do Not Delete or Modify\n");
+
+            var recipe = RecipeParser.Parse(path);
+
+            CollectionAssert.AreEqual(new[] { "IgnoreIfGuard_cs.sample" }, recipe.Templates.ToArray());
+            CollectionAssert.AreEqual(new[] { "// Injection Point 5, Do Not Delete or Modify" }, recipe.Markers.ToArray());
+        }
+
+        [TestMethod]
         public void ParseDirectory_ReturnsOneRecipePerMarkdownFileSortedByName()
         {
             WriteRecipe("new-service", "Template: B.sample\n");
