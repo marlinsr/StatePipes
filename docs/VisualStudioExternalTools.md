@@ -37,6 +37,9 @@ The argument strings use standard Visual Studio External Tools macros:
 | Add IgnoreIf | 309 | ServiceCreatorTool | Yes — state class file |
 | Update StatePipes Proxy | 310 | ServiceCreatorTool | Yes — `*Proxy.cs` file |
 | Add Periodic | 311 | ServiceCreatorTool | Yes — state class file |
+| Create StatePipes Proxy From Service | 312 | ServiceCreatorTool | No |
+| Update StatePipes Proxy From Service | 313 | ServiceCreatorTool | Yes — `*Proxy.cs` file |
+| Add Event | 314 | ServiceCreatorTool | No |
 
 ---
 
@@ -326,6 +329,69 @@ The net result is a self-contained polling loop: the timer starts on `OnEntry`, 
 
 ---
 
+### Create StatePipes Proxy From Service
+
+**Menu title:** Create StatePipes Proxy From Service
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-live -r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir)`
+**When to use:** Adding a client proxy for a remote StatePipes service when you don't have its compiled assembly but the service is running and reachable on the broker. Run this with a **service class library project** (not the `.Service` or `.Test` project) active in Solution Explorer. Use **New StatePipes Proxy** instead when you have the service's DLL.
+
+#### What happens
+
+1. Builds the solution.
+2. Opens an **input dialog**: enter a moniker for the proxy (a short identifier, e.g., `Sensor`).
+3. Opens four dialogs in turn to collect the connection details:
+   - **Broker URI.** This is pre-filled from the solution's `ToolConfiguration.json`: `amqps://amqp09-broker/Production` for RabbitMQ or `ssl://kafka-broker:9093` for Kafka.
+   - **Exchange name** of the remote service. This is the exchange name prefix in the service's bus configuration, without any suffix; the tool adds `.commands` itself.
+   - **Client certificate file** (`.p12`).
+   - **Certificate password file** (`.txt`).
+4. Connects to the broker and sends `StatePipes.Messages.GetSelfDescriptionCommand` to `<exchange>.commands`. It then waits up to 30 seconds for the service's self-description reply. If none arrives, the tool reports the timeout and generates nothing.
+5. Generates `<Moniker>Proxy.cs` in `<ClassLibrary>\Proxies\` from the self-description. The proxy has the same strongly typed send-command and subscribe-event members as **New StatePipes Proxy**, derived from the running service's public triggers and events.
+6. If this is a new proxy (the file did not already exist), injects the same wiring as **New StatePipes Proxy**:
+   - `Builders\DefaultSetup.cs`: registration call
+   - `Builders\DefaultServiceConfiguration.cs`: proxy configuration entry
+   - `ValueObjects\ProxyMonikers.cs`: moniker constant
+
+The generated file is not opened automatically; its path is printed to the Output window.
+
+---
+
+### Update StatePipes Proxy From Service
+
+**Menu title:** Update StatePipes Proxy From Service
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-live -r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -u $(ItemPath)`
+**When to use:** Regenerating an existing proxy class from a running service after its public API has changed, when you don't have its updated assembly. **Open or select the existing `<Moniker>Proxy.cs` file in Solution Explorer before running.**
+
+#### What happens
+
+1. Builds the solution.
+2. Extracts the proxy moniker from the selected file name (everything before `Proxy.cs`).
+3. Collects the broker URI, exchange name, certificate file and password file, then fetches the running service's self-description, exactly as **Create StatePipes Proxy From Service** does (steps 3–4).
+4. Overwrites `<Moniker>Proxy.cs` with a freshly generated proxy class reflecting the service's current triggers and events.
+5. Because the proxy file already exists, the `DefaultSetup.cs`, `DefaultServiceConfiguration.cs`, and `ProxyMonikers.cs` injection step is **skipped**, so the existing wiring is preserved.
+
+---
+
+### Add Event
+
+**Menu title:** Add Event
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -e`
+**When to use:** Adding a new event that the service publishes. Run with a **service class library project** active.
+
+#### What happens
+
+1. Builds the solution.
+2. Checks that the active project is a service class library (not a `.Service` project).
+3. Opens an **input dialog**: enter the event name (e.g., `PumpStartedEvent`).
+4. Creates `<ClassLibrary>\Events\<Name>.cs` from the `Event_cs.sample` template: a `public class <Name> : IEvent` in the `<ClassLibrary>.Events` namespace.
+5. Opens the new file in the editor.
+
+Add the event's payload as immutable properties (events are broadcast to every subscriber, see [Event Publishing](StateMachineComposition.md#111-event-publishing)) and publish it from a state with `PublishEvent`.
+
+---
+
 ## Typical Workflow
 
 ```
@@ -338,7 +404,10 @@ New StatePipes Sln          ← once per repository
        │    ├─ Add PermitReentryIf ├─ per guard in a state file
        │    ├─ Add IgnoreIf        ┘
        │    └─ Add Periodic        ← per timed behaviour in a state
-       ├─ New StatePipes Proxy    ← for each remote service dependency
-       ├─ Update StatePipes Proxy ← when a dependency's API changes
+       ├─ Add Event               ← for each event the service publishes
+       ├─ New StatePipes Proxy    ← for each remote service dependency (from its DLL)
+       │    or Create StatePipes Proxy From Service ← (from the running service)
+       ├─ Update StatePipes Proxy ← when a dependency's API changes (from its DLL)
+       │    or Update StatePipes Proxy From Service ← (from the running service)
        └─ StateMachine Diagrammer ← at any time to visualise
 ```
