@@ -57,7 +57,7 @@ The argument strings use standard Visual Studio External Tools macros:
 #### What happens
 
 1. Opens a **folder browser dialog** — select the repo root directory where the new solution folder will be created.
-2. Opens an **input dialog** — enter the solution name in the format `Packages.MyCompany.MyProduct` (the `Packages.` prefix is stripped from the solution name but kept as the directory name).
+2. Opens an **input dialog** — enter the solution name in the format `Packages.MyCompany.MyProduct`.
 3. The tool creates the full solution scaffold:
 
 | Path | Contents |
