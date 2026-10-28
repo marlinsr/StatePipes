@@ -11,7 +11,7 @@ namespace StatePipes.Test.Common
         {
             var originalString = "StatePipes123$";
             var hashedString = PasswordHasher.HashPassword(originalString);
-            Assert.IsTrue(PasswordHasher.VerifyPassword(hashedString,originalString));
+            Assert.IsTrue(PasswordHasher.VerifyPassword(hashedString, originalString));
         }
     }
 }
