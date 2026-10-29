@@ -50,6 +50,14 @@ Marker: # Injection Point 1, Do Not Delete or Modify
 
 Then run `new-service` with `<Prefix>` = `<Company>.<Product>`.
 
+## CLAUDE.md (both routes)
+
+Neither the tool nor the templates above create a `CLAUDE.md`, so always write one. Copy `templates/CLAUDE.md` from
+the `statepipes-scaffold` skill folder (next to its `SKILL.md`) to `<SolutionDir>/CLAUDE.md`. Replace `<Solution>`
+with the solution name and `<version>` with the StatePipes version, and leave `<Prefix>` as written. If a
+`CLAUDE.md` already exists, merge the template's sections into it instead of overwriting it. `new-service` then adds
+the service's row to the Services table.
+
 ## After
 
 Hosts-file entries are needed for `statepipes.explorer`, `step-ca`, `amqp09-broker`, `kafka-broker` and `keycloak`

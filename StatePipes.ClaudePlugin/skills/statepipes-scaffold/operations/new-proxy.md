@@ -7,15 +7,31 @@ A proxy lets this service send the public triggers of another StatePipes service
 ## Who does it
 
 The proxy class is generated from the other service's public triggers and events. Do **not** write it by hand.
-Ask the user to run one of these in Visual Studio with `<Prefix>` (the class library) active, giving the moniker
-`<Moniker>`:
+Run the installed tool headless (no Visual Studio, no dialogs). See "Running the tool headless" in the scaffold
+skill for `<Tool>`, the common arguments and the success check.
 
-- **Tools → New StatePipes Proxy**, when the other service's compiled DLL is available: select that DLL.
-- **Tools → Create StatePipes Proxy From Service** (`-live`), when only the running service is available: enter the
-  broker URI and the service's exchange name, then select the client certificate (`.p12`) and its password file.
-  The service must be running and reachable.
+1. `dotnet build <SolutionDir>/<Solution>.slnx`. The tool reads the built output of this service.
+2. From the other service's compiled DLL (preferred). Use the class library DLL in the other service's
+   **`.Service`** output folder, which also holds `StatePipes.dll`, for example
+   `<OtherSolutionDir>/<OtherPrefix>.Service/bin/Debug/net10.0/<OtherPrefix>.dll`:
 
-Then continue here.
+   ```
+   & "<Tool>" -headless <common arguments> --moniker <Moniker> --dll "<path to other service DLL>"
+   ```
+
+3. Or from the running service (`-live`), when no DLL is available. The service must be running and reachable.
+   Ask the user for the broker URI, the service's exchange name, and the paths of the client certificate (`.p12`)
+   and its password file. Never read or print the certificate password itself:
+
+   ```
+   & "<Tool>" -headless -live <common arguments> --moniker <Moniker> --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>" [--timeout <seconds>]
+   ```
+
+4. `dotnet build` again, then check the result as below.
+
+If the tool isn't installed, or it prints `Incorrect Parameters Specified!` (an installed version older than
+headless support), hand this step to the user: in Visual Studio, with `<Prefix>` active, **Tools → New StatePipes
+Proxy** (select the DLL), or **Tools → Create StatePipes Proxy From Service** for the live route. Then continue here.
 
 ## What the tool produces (to check afterwards)
 

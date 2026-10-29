@@ -37,6 +37,9 @@ per problem. Fix every `FAIL` and run it again.
 
 - Every state, trigger, handler row, event and timer in the approved model exists in the code, and the code has
   nothing that isn't in the model.
+- Every entity in the model's domain model is in `<Prefix>/Entities/` and every value object is in
+  `<Prefix>/ValueObjects/`, with matching namespaces. No domain type is anywhere else (see `statepipes-conventions`
+  → Domain-Driven Design).
 - Adding a state only added classes and handler methods. No existing transition changed unless the user approved
   that change (`docs/Paper.md` section 4).
 - No leftover `@#$` placeholders, except the `//@#$PublicTriggers@#$` and `//@#$InternalTriggers@#$` using

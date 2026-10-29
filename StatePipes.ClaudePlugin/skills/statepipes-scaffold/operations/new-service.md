@@ -90,6 +90,12 @@ Creates: <Prefix>.Test/TestCategories.cs
 `DefaultSetup.cs`, `DefaultServiceConfiguration.cs` and `ProxyMonikers.cs` carry the proxy markers that
 `new-proxy` later inserts above (`// Injection Point 1`, `2`, `4`).
 
+## CLAUDE.md
+
+Add a row for the service to the Services table in `<SolutionDir>/CLAUDE.md`, above the
+`<!-- One row per service ... -->` line: `| <Component> | <Prefix> | <Prefix>/StatePipesModel.md |`. If the solution has
+no `CLAUDE.md` (for example it was created before this rule), write it first, as `new-solution` describes.
+
 ## After
 
 `dotnet build`, then `statepipes-verify`. The `Dummy*` files are examples: replace them with the approved model's

@@ -23,6 +23,14 @@ namespace StatePipes.ServiceCreatorTool
         // Live proxy generation args
         static bool _liveMode = false;
         static int _liveTimeoutSeconds = 30;
+        // Headless args: no Visual Studio, and proxy inputs that replace the dialogs
+        static bool _headless = false;
+        static string? _moniker;
+        static string? _dllPath;
+        static string? _brokerUri;
+        static string? _exchangeName;
+        static string? _certPath;
+        static string? _certPasswordPath;
         private static void ParseArgs(string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -43,6 +51,14 @@ namespace StatePipes.ServiceCreatorTool
                 // Live proxy generation args
                 if (args[i].Equals("-live", StringComparison.CurrentCultureIgnoreCase)) _liveMode = true;
                 if (args[i].Equals("--timeout", StringComparison.CurrentCultureIgnoreCase) && int.TryParse(args[++i], out var t)) _liveTimeoutSeconds = t;
+                // Headless args
+                if (args[i].Equals("-headless", StringComparison.CurrentCultureIgnoreCase)) _headless = true;
+                if (args[i].Equals("--moniker", StringComparison.CurrentCultureIgnoreCase)) _moniker = args[++i];
+                if (args[i].Equals("--dll", StringComparison.CurrentCultureIgnoreCase)) _dllPath = args[++i];
+                if (args[i].Equals("--broker", StringComparison.CurrentCultureIgnoreCase)) _brokerUri = args[++i];
+                if (args[i].Equals("--exchange", StringComparison.CurrentCultureIgnoreCase)) _exchangeName = args[++i];
+                if (args[i].Equals("--cert", StringComparison.CurrentCultureIgnoreCase)) _certPath = args[++i];
+                if (args[i].Equals("--certpw", StringComparison.CurrentCultureIgnoreCase)) _certPasswordPath = args[++i];
             }
         }
         private static void ParameterErrors()
@@ -119,9 +135,9 @@ namespace StatePipes.ServiceCreatorTool
             try { Task.Delay(120000, cts.Token).Wait(); } catch { }
             return buildSucceeded;
         }
-        private static void OpenCodeFileInVS(DTE2 dte, string filePath)
+        private static void OpenCodeFileInVS(DTE2? dte, string filePath)
         {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            if (dte == null || string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
             Window solutionExplorer = dte.Windows.Item(Constants.vsWindowKindSolutionExplorer);
             UIHierarchy hierarchy = (UIHierarchy)solutionExplorer.Object;
             var projectPath = dte.Solution.Properties.Item("Name").Value + "\\" + BaseToolGenerator.GetProjectNameNoExtension(_projectFileName);
@@ -147,6 +163,7 @@ namespace StatePipes.ServiceCreatorTool
                 return false;
             }
         }
+        private static ProxyInputs ProxyInputs() => new(_moniker, _dllPath, _brokerUri, _exchangeName, _certPath, _certPasswordPath, _headless);
         private static bool DetermineCreation()
         {
             if (string.IsNullOrEmpty(_solutionFileName) && string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
@@ -154,9 +171,9 @@ namespace StatePipes.ServiceCreatorTool
                 SolutionGeneratorTool.CreateNewSolution();
                 return true;
             }
-            var dte = GetDTE2();
-            if (dte == null) return false;
-            if (!BuildSolution(dte)) return false;
+            // Headless callers build the solution themselves and have no Visual Studio to attach to
+            var dte = _headless ? null : GetDTE2();
+            if (!_headless && (dte == null || !BuildSolution(dte))) return false;
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
             {
                 ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName);
@@ -208,12 +225,12 @@ namespace StatePipes.ServiceCreatorTool
             }
             if (_liveMode && !string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
             {
-                LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath);
+                LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath, ProxyInputs());
                 return true;
             }
             if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
             {
-                var fileName = ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath);
+                var fileName = ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath, ProxyInputs());
                 OpenCodeFileInVS(dte, fileName);
                 return true;
             }

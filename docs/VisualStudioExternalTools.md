@@ -411,3 +411,33 @@ New StatePipes Sln          ← once per repository
        │    or Update StatePipes Proxy From Service ← (from the running service)
        └─ StateMachine Diagrammer ← at any time to visualise
 ```
+
+## Headless Proxy Generation
+
+The four proxy tools can also run outside Visual Studio, for scripts and coding agents. `-headless` skips attaching
+to Visual Studio, building and opening files, so build the solution with `dotnet build` first. Every value a dialog
+would ask for is passed as an argument instead. In headless mode a missing value is reported as
+`Headless mode needs ...` and no dialog opens.
+
+```powershell
+$tool = "${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe"
+$common = '-r', "$sln\", '-s', 'Packages.Acme.Widgets.slnx', '-p', 'Acme.Widgets.csproj', '-b', "$sln\Acme.Widgets\obj\Debug\net10.0\"
+
+# New StatePipes Proxy (from the other service's DLL in its .Service output folder)
+& $tool -headless @common --moniker Peer --dll "$otherSln\Acme.Peer.Service\bin\Debug\net10.0\Acme.Peer.dll"
+
+# Create StatePipes Proxy From Service (live)
+& $tool -headless -live @common --moniker Peer --broker amqps://amqp09-broker/Production --exchange <exchange> --cert <client.p12> --certpw <password.txt>
+
+# Update: -u names the existing proxy file, which gives the moniker
+& $tool -headless @common -u "$sln\Acme.Widgets\Proxies\PeerProxy.cs" --dll <updated dll>
+```
+
+| Argument | Replaces the dialog for |
+|---|---|
+| `--moniker <name>` | The proxy moniker (not needed with `-u`) |
+| `--dll <path>` | The class library DLL to build the proxy from |
+| `--broker <uri>`, `--exchange <name>` | The broker URI and the service's exchange name (`-live`) |
+| `--cert <path>`, `--certpw <path>` | The client certificate and its password file (`-live`) |
+
+`-b` is the class library's `obj\<configuration>\<framework>\` folder. The tool prints `Finished!!!` on success.

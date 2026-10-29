@@ -6,9 +6,16 @@ Regenerates `<Prefix>/Proxies/<Moniker>Proxy.cs` after the remote service's publ
 
 ## Who does it
 
-Like `new-proxy`, the class is generated, so don't edit it by hand. Ask the user to select `<Moniker>Proxy.cs` and
-run **Tools → Update StatePipes Proxy** (choosing the updated DLL), or **Tools → Update StatePipes Proxy From
-Service** (`-live`, from the running service) when the DLL isn't available.
+Like `new-proxy`, the class is generated, so don't edit it by hand. Build first, then run the tool headless (see
+"Running the tool headless" in the scaffold skill). `-u` names the existing proxy, which gives the moniker:
+
+```
+& "<Tool>" -headless <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --dll "<path to updated DLL>"
+& "<Tool>" -headless -live <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>"
+```
+
+Use the second form when the DLL isn't available. If headless isn't available, ask the user to select
+`<Moniker>Proxy.cs` and run **Tools → Update StatePipes Proxy** or **Tools → Update StatePipes Proxy From Service**.
 
 Because the proxy file already exists, the tool **skips** the `DefaultSetup.cs`, `DefaultServiceConfiguration.cs`
 and `ProxyMonikers.cs` insertions. Nothing else changes.

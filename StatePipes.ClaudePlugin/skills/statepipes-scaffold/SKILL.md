@@ -8,8 +8,8 @@ description: Use when creating or extending a StatePipes service - solution, ser
 Every structural change to a StatePipes service is one of twelve operations. Each mirrors a Visual Studio External
 Tool from `StatePipes.ServiceCreatorTool` and has a recipe in `operations/`. **Follow the recipe exactly**: same
 folders, file names, templates and injection markers as the tool, so the result is indistinguishable from what a
-developer gets in Visual Studio. (A headless ServiceCreatorTool will replace these recipes with CLI calls; the
-operation names will not change.)
+developer gets in Visual Studio. `new-proxy` and `update-proxy` are the exception: Claude runs the installed tool
+headless for them (see "Running the tool headless"), because their output is generated from another service.
 
 Read `statepipes-conventions` before writing code inside the generated files.
 
@@ -41,6 +41,24 @@ The installer registers three more External Tools, which are folded into the ope
 - **Create StatePipes Proxy From Service** and **Update StatePipes Proxy From Service** (`-live`): the same as
   `new-proxy` and `update-proxy`, but the proxy is built from the description a running service publishes on the
   broker, so the other service's DLL isn't needed. See `operations/new-proxy.md`.
+
+## Running the tool headless
+
+`<Tool>` is the installed ServiceCreatorTool, normally
+`${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`. Check that it exists.
+`-headless` skips Visual Studio (it doesn't attach, build or open files), and every input a dialog would ask for is
+given as an argument. A missing input makes the tool print `Headless mode needs ...` rather than open a dialog.
+
+The common arguments name the solution and the class library, the same values Visual Studio passes:
+
+```
+-r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -b "<SolutionDir>\<Prefix>\obj\Debug\net10.0\"
+```
+
+`-b` must be the class library's **`obj`** output folder for the configuration you built. The tool derives
+`<Prefix>.Service/bin/<configuration>/` from it. Run in PowerShell. Success ends with `Finished!!!`. Anything else
+(`Aborting Exception: ...`, `Incorrect Parameters Specified!`, `Headless mode needs ...`) is a failure: report the
+message, and don't write the generated files by hand.
 
 ## The StatePipes version
 
