@@ -69,8 +69,8 @@ Phase: happy path | phase 2: <name> | ...
 |---|---|---|---|
 
 ## Proxies (other services this service uses)
-| Moniker | Remote service | Triggers sent | Events consumed |
-|---|---|---|---|
+| Moniker | Remote service | Target machine | Triggers sent | Events consumed |
+|---|---|---|---|---|
 
 ## Open questions
 - ...
@@ -85,6 +85,9 @@ Rules for filling it in:
 - Classify every domain type as an entity or a value object. Trigger and event payloads use value objects, or
   plain values, never mutable entities. An entity's identity is a value object, for example `PumpId`.
 - Use parent states for handling that several states share, instead of copying the same row into each state.
+- Each proxy has one target machine: the machine whose states handle that service's events
+  (`<Event>From<Moniker>Trigger`) and its connection status (`ProxyConnectionStatusTrigger`). Add those handler rows to
+  the transitions table. `new-proxy` passes the target machine to the tool, so the user is never asked.
 - Proxies list *other* services as given inputs. This skill models one service and doesn't design the others or
   where the boundaries between services fall.
 

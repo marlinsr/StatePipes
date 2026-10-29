@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System.Text;
 
 namespace StatePipes.ServiceCreatorTool
@@ -19,7 +19,7 @@ namespace StatePipes.ServiceCreatorTool
         public Dictionary<string, Dictionary<string, string>> ValueObjectContructorParametersDictionary;
         public string DefaultServiceConfigurationJson { get; }
         // DLL-based constructor (existing path)
-        public ProxyGeneratorCommon(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider)
+        public ProxyGeneratorCommon(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, ProxyInputs? inputs = null)
         {
             ValueObjectContructorParametersDictionary = [];
             PathProvider = pathProvider;
@@ -28,7 +28,7 @@ namespace StatePipes.ServiceCreatorTool
             DllAssemblies = new ReferencedAssemblies(fullPathFileName);
             Source = new DllTypeSource(DllAssemblies);
             if (DllAssemblies.CommandType is null || DllAssemblies.EventType is null) throw new Exception("Command or Event type not found in statepipes!");
-            var stateMachineType = (new StateMachineTypesHelper(codeGenerationBaseNamespace, PathProvider)).GetStateMachineType() ?? throw new Exception("stateMachineType is null");
+            var stateMachineType = (new StateMachineTypesHelper(codeGenerationBaseNamespace, PathProvider)).GetStateMachineType(inputs?.StateMachine, inputs?.Headless ?? false) ?? throw new Exception("stateMachineType is null");
             StateMachineFullName = stateMachineType.FullName!;
             StateMachineNamespace = stateMachineType.Namespace!;
             var targetAssembly = DllAssemblies.GetTargetAssembly() ?? throw new Exception("Target assembly not found");
@@ -39,7 +39,7 @@ namespace StatePipes.ServiceCreatorTool
         }
         // Live constructor — TypeSerializationList comes from a running service
         public ProxyGeneratorCommon(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider
-            , string brokerUri, string exchangeName, string certPath, string certPasswordPath)
+            , string brokerUri, string exchangeName, string certPath, string certPasswordPath, ProxyInputs? inputs = null)
         {
             ValueObjectContructorParametersDictionary = [];
             PathProvider = pathProvider;
@@ -49,7 +49,7 @@ namespace StatePipes.ServiceCreatorTool
             Source = new LiveTypeSource(typeSerializationList);
             TypeSerializations = typeSerializationList;
             Types = [];
-            var stateMachineType = (new StateMachineTypesHelper(codeGenerationBaseNamespace, PathProvider)).GetStateMachineType() ?? throw new Exception("stateMachineType is null");
+            var stateMachineType = (new StateMachineTypesHelper(codeGenerationBaseNamespace, PathProvider)).GetStateMachineType(inputs?.StateMachine, inputs?.Headless ?? false) ?? throw new Exception("stateMachineType is null");
             StateMachineFullName = stateMachineType.FullName!;
             StateMachineNamespace = stateMachineType.Namespace!;
             DefaultServiceConfigurationJson = GetDefaultServiceConfigurationJsonForLive(brokerUri, exchangeName, certPath, certPasswordPath);
@@ -72,7 +72,7 @@ namespace StatePipes.ServiceCreatorTool
                 ContainerSetupClassLibraryTypeFullName = $"{exchangeName}.Builders.DefaultSetup",
                 ProxyConfigurations = Array.Empty<string>(),
                 ProxySubstitutions = Array.Empty<string>(),
-                Args = new 
+                Args = new
                 {
                     Args = (object?)null
                 }

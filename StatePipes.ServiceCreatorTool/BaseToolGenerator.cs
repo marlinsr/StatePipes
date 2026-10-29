@@ -71,11 +71,28 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$EventExchange@#$", $"{projectName}.Service.V1.Event");
             monikers.AddMoniker("@#$InboundExchange@#$", $"{projectName}.Service.V1.Inbound");
             string brokerUri = usingRabbit ? "amqps://amqp09-broker/Production" : "ssl://kafka-broker:9093";
-            monikers.AddMoniker("@#$BrokerUriForStartScript@#$", brokerUri.Replace("/", "%2F")); 
+            monikers.AddMoniker("@#$BrokerUriForStartScript@#$", brokerUri.Replace("/", "%2F"));
             monikers.AddMoniker("@#$BrokerUri@#$", brokerUri);
             monikers.AddMoniker("@#$CertFileName@#$", usingRabbit ? "amqpuser.amqp09-broker.client.p12" : "kafkauser.kafka-broker.client.p12");
             monikers.AddMoniker("@#$StatePipesVersion@#$", Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+').First() ?? string.Empty);
             return monikers;
+        }
+        /// <summary>
+        /// A proxy sends ProxyConnectionStatusTrigger to the state machine it targets. Only the service's first machine
+        /// gets one from New StatePipes Service, so create it for any other machine a proxy is pointed at.
+        /// </summary>
+        protected void EnsureProxyConnectionStatusTrigger(string projectName, string stateMachineName)
+        {
+            var projectDir = _pathProvider.GetPath(PathName.Project);
+            if (File.Exists(Path.Combine(projectDir, "StateMachines", stateMachineName, "Triggers", "Internal", "ProxyConnectionStatusTrigger.cs"))) return;
+            var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
+            monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
+            var helper = new GeneratorHelper(new DirectoryHelper(projectDir), monikers);
+            helper.MoveTo("StateMachines");
+            helper.MoveTo(stateMachineName);
+            helper.MoveTo("Triggers");
+            helper.MoveTo("Internal");
+            Console.WriteLine($"Created {helper.SaveTextFile("ProxyConnectionStatusTrigger_cs.sample", "ProxyConnectionStatusTrigger.cs")}");
         }
         protected static bool IsServiceProject(string projectFileName)
         {
@@ -86,5 +103,5 @@ namespace StatePipes.ServiceCreatorTool
             }
             return true;
         }
-}
+    }
 }

@@ -1,4 +1,4 @@
-namespace StatePipes.ServiceCreatorTool
+﻿namespace StatePipes.ServiceCreatorTool
 {
     internal class ProxyGenerator
     {
@@ -8,9 +8,9 @@ namespace StatePipes.ServiceCreatorTool
         private readonly ProxyEventsGenerator _proxyEventsGenerator;
 
         // DLL-based constructor (existing path)
-        public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider)
+        public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, ProxyInputs? inputs = null)
         {
-            _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider);
+            _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider, inputs);
             _proxyValueObjectsGenerator = new(_proxyGeneratorCommon);
             _proxyTriggersGenerator = new(_proxyGeneratorCommon);
             _proxyEventsGenerator = new(_proxyGeneratorCommon);
@@ -18,9 +18,9 @@ namespace StatePipes.ServiceCreatorTool
         }
 
         // Live constructor — TypeSerializationList comes from a running service
-        public ProxyGenerator(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, string brokerUri, string exchangeName, string certPath, string certPasswordPath)
+        public ProxyGenerator(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, string brokerUri, string exchangeName, string certPath, string certPasswordPath, ProxyInputs? inputs = null)
         {
-            _proxyGeneratorCommon = new(typeSerializationList, codeGenerationBaseNamespace, proxyMoniker, pathProvider, brokerUri, exchangeName, certPath, certPasswordPath);
+            _proxyGeneratorCommon = new(typeSerializationList, codeGenerationBaseNamespace, proxyMoniker, pathProvider, brokerUri, exchangeName, certPath, certPasswordPath, inputs);
             _proxyValueObjectsGenerator = new(_proxyGeneratorCommon);
             _proxyTriggersGenerator = new(_proxyGeneratorCommon);
             _proxyEventsGenerator = new(_proxyGeneratorCommon);
@@ -55,6 +55,7 @@ namespace StatePipes.ServiceCreatorTool
             }
             return usingString;
         }
+        public string StateMachineName => _proxyGeneratorCommon.StateMachineFullName.Split('.')[^1];
         public void SaveToFile(string fileName) => File.WriteAllText(fileName, GetGlobalUsing() + GetString());
         private string GetString() => _proxyGeneratorCommon.CodeGenerationString.ToString();
         private void CreateProxyStart()

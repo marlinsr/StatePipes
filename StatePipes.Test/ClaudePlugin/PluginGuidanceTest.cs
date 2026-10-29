@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace StatePipes.Test.ClaudePlugin
 {
@@ -32,6 +32,7 @@ namespace StatePipes.Test.ClaudePlugin
             StringAssert.Contains(modeling, "## Domain model");
             StringAssert.Contains(modeling, "| Each entity | `Entities/<Entity>.cs`");
             StringAssert.Contains(modeling, "| Each value object | `ValueObjects/<ValueObject>.cs` |");
+            StringAssert.Contains(modeling, "| Moniker | Remote service | Target machine |");
         }
 
         [TestMethod]
@@ -59,7 +60,7 @@ namespace StatePipes.Test.ClaudePlugin
             StringAssert.Contains(Operation("update-proxy"), "-headless");
             var commands = string.Join("\n", Regex.Matches(guidance, "```\\r?\\n(.*?)```", RegexOptions.Singleline).Select(m => m.Groups[1].Value));
             var used = Regex.Matches(commands, "(?<=\\s)(-{1,2}[a-z]+)(?=\\s)").Select(m => m.Groups[1].Value).ToHashSet();
-            Assert.IsTrue(used.Contains("--moniker") && used.Contains("--dll") && used.Contains("--broker"), string.Join(", ", used));
+            Assert.IsTrue(used.Contains("--moniker") && used.Contains("--dll") && used.Contains("--broker") && used.Contains("--statemachine"), string.Join(", ", used));
             var unknown = used.Where(a => !parsed.Contains(a)).ToList();
             Assert.IsEmpty(unknown, $"Arguments in the proxy guidance that Program.cs doesn't parse: {string.Join(", ", unknown)}");
         }

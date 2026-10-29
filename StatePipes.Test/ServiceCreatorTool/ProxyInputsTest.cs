@@ -1,4 +1,4 @@
-using StatePipes.ServiceCreatorTool;
+﻿using StatePipes.ServiceCreatorTool;
 
 namespace StatePipes.Test.ServiceCreatorTool
 {
@@ -36,6 +36,20 @@ namespace StatePipes.Test.ServiceCreatorTool
             Assert.IsTrue(new ProxyInputs(Headless: true).MissingInHeadless(null, "--dll"));
             Assert.IsFalse(new ProxyInputs(Headless: true).MissingInHeadless("a.dll", "--dll"));
             Assert.IsFalse(new ProxyInputs().MissingInHeadless(null, "--dll"));
+        }
+
+        [TestMethod]
+        public void WithStateMachineFromProxyFile_KeepsTheMachineTheExistingProxyTargets()
+        {
+            var proxy = Path.Combine(Path.GetTempPath(), $"PeerProxy_{Guid.NewGuid()}.cs");
+            File.WriteAllText(proxy, "internal class DummyEventFromPeerTrigger: BaseTriggerCommand<Acme.Widgets.StateMachines.Valve.Valve>");
+            try
+            {
+                Assert.AreEqual("Acme.Widgets.StateMachines.Valve.Valve", ProxyGeneratorTool.WithStateMachineFromProxyFile(new ProxyInputs(Headless: true), proxy)!.StateMachine);
+                Assert.AreEqual("Pump", ProxyGeneratorTool.WithStateMachineFromProxyFile(new ProxyInputs(StateMachine: "Pump"), proxy)!.StateMachine);
+                Assert.IsNull(ProxyGeneratorTool.WithStateMachineFromProxyFile(new ProxyInputs(), null)!.StateMachine);
+            }
+            finally { File.Delete(proxy); }
         }
 
         [TestMethod]

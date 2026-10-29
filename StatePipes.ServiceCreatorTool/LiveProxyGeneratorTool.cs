@@ -48,11 +48,12 @@
             _pathProvider.AddPaths(projDir, projectName, targetDirectory);
             var toolConfig = ToolConfigurationUtility.ReadConfiguration(_pathProvider.GetPath(PathName.Solution));
             if (!GetTypeList(out TypeSerializationList? typeList, timeoutSeconds, toolConfig?.UseRabbitMQ ?? true, inputs)) return string.Empty;
-            var proxyCreator = new ProxyGenerator(typeList!, projectName, moniker, _pathProvider, _brokerUri, _exchangeName, _certPath, _certPasswordPath);
+            var proxyCreator = new ProxyGenerator(typeList!, projectName, moniker, _pathProvider, _brokerUri, _exchangeName, _certPath, _certPasswordPath, ProxyGeneratorTool.WithStateMachineFromProxyFile(inputs, updateMonikerFilePath));
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
             string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{ProxyFileNamePostFix}");
             bool outputFileAlreadyExists = File.Exists(outputFile);
             proxyCreator.SaveToFile(outputFile);
+            EnsureProxyConnectionStatusTrigger(projectName, proxyCreator.StateMachineName);
             Console.WriteLine($"Proxy written to: {outputFile}");
             if (outputFileAlreadyExists) return string.Empty;
             var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName, toolConfig?.UseRabbitMQ ?? true);

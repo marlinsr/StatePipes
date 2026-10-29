@@ -1,4 +1,4 @@
-using StatePipes.ServiceCreatorTool;
+﻿using StatePipes.ServiceCreatorTool;
 
 namespace StatePipes.Test.ClaudePlugin
 {
@@ -90,6 +90,33 @@ namespace StatePipes.Test.ClaudePlugin
                 .GenerateStateMachine(_projectDir, Prefix, _targetDir, "Valve", isStateMachine: true));
 
             AssertSameFiles("add-state-machine", Expand(RecipeNamed("add-state-machine"), ("<Prefix>", Prefix), ("<Machine>", "Valve")), created);
+        }
+
+        /// <summary>Exposes the proxy tools' connection-status step, which otherwise needs a built service DLL.</summary>
+        private sealed class ConnectionStatusTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
+        {
+            public void Ensure(string projectDir, string projectName, string targetDir, string machine)
+            {
+                _pathProvider.AddPaths(projectDir, projectName, targetDir);
+                EnsureProxyConnectionStatusTrigger(projectName, machine);
+            }
+        }
+
+        [TestMethod]
+        public void NewProxy_OnASecondMachine_CreatesItsConnectionStatusTrigger()
+        {
+            new StateMachineGeneratorTool(_solutionDir, SolutionName).GenerateStateMachine(_projectDir, Prefix, _targetDir, "Valve", isStateMachine: true);
+
+            var created = CreatedBy(() => new ConnectionStatusTool(_solutionDir, SolutionName).Ensure(_projectDir, Prefix, _targetDir, "Valve"));
+            var again = CreatedBy(() => new ConnectionStatusTool(_solutionDir, SolutionName).Ensure(_projectDir, Prefix, _targetDir, Machine));
+
+            var file = $"{Prefix}/StateMachines/Valve/Triggers/Internal/ProxyConnectionStatusTrigger.cs";
+            CollectionAssert.AreEquivalent(new[] { file }, created.ToList());
+            Assert.IsEmpty(again, "The service's first machine already has the trigger");
+            var text = File.ReadAllText(Path.Combine(_solutionDir, file));
+            StringAssert.Contains(text, $"namespace {Prefix}.StateMachines.Valve.Triggers.Internal");
+            StringAssert.Contains(text, "BaseTriggerCommand<Valve>");
+            StringAssert.Contains(File.ReadAllText(Path.Combine(PluginPaths.Operations, "new-proxy.md")), "StateMachines/<Machine>/Triggers/Internal/ProxyConnectionStatusTrigger.cs");
         }
 
         [TestMethod]

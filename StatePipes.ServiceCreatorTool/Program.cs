@@ -31,6 +31,7 @@ namespace StatePipes.ServiceCreatorTool
         static string? _exchangeName;
         static string? _certPath;
         static string? _certPasswordPath;
+        static string? _stateMachine;
         private static void ParseArgs(string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -59,6 +60,7 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("--exchange", StringComparison.CurrentCultureIgnoreCase)) _exchangeName = args[++i];
                 if (args[i].Equals("--cert", StringComparison.CurrentCultureIgnoreCase)) _certPath = args[++i];
                 if (args[i].Equals("--certpw", StringComparison.CurrentCultureIgnoreCase)) _certPasswordPath = args[++i];
+                if (args[i].Equals("--statemachine", StringComparison.CurrentCultureIgnoreCase)) _stateMachine = args[++i];
             }
         }
         private static void ParameterErrors()
@@ -163,7 +165,7 @@ namespace StatePipes.ServiceCreatorTool
                 return false;
             }
         }
-        private static ProxyInputs ProxyInputs() => new(_moniker, _dllPath, _brokerUri, _exchangeName, _certPath, _certPasswordPath, _headless);
+        private static ProxyInputs ProxyInputs() => new(_moniker, _dllPath, _brokerUri, _exchangeName, _certPath, _certPasswordPath, _headless, _stateMachine);
         private static bool DetermineCreation()
         {
             if (string.IsNullOrEmpty(_solutionFileName) && string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
