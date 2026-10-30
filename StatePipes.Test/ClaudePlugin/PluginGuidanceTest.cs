@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace StatePipes.Test.ClaudePlugin
 {
@@ -63,6 +64,25 @@ namespace StatePipes.Test.ClaudePlugin
             Assert.IsTrue(used.Contains("--moniker") && used.Contains("--dll") && used.Contains("--broker") && used.Contains("--statemachine"), string.Join(", ", used));
             var unknown = used.Where(a => !parsed.Contains(a)).ToList();
             Assert.IsEmpty(unknown, $"Arguments in the proxy guidance that Program.cs doesn't parse: {string.Join(", ", unknown)}");
+        }
+
+        [TestMethod]
+        public void Marketplace_ListsThePluginFolder()
+        {
+            using var marketplace = JsonDocument.Parse(File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), ".claude-plugin", "marketplace.json")));
+            var entry = marketplace.RootElement.GetProperty("plugins").EnumerateArray().Single();
+            var pluginDir = Path.GetFullPath(Path.Combine(PluginPaths.RepoRoot(), entry.GetProperty("source").GetString()!));
+            using var plugin = JsonDocument.Parse(File.ReadAllText(Path.Combine(pluginDir, ".claude-plugin", "plugin.json")));
+
+            Assert.AreEqual(plugin.RootElement.GetProperty("name").GetString(), entry.GetProperty("name").GetString());
+            Assert.IsTrue(Directory.Exists(Path.Combine(pluginDir, "skills")), pluginDir);
+        }
+
+        [TestMethod]
+        public void Verify_RunsTheCheckScriptFromItsOwnSkillFolder()
+        {
+            Assert.IsTrue(File.Exists(Path.Combine(PluginPaths.Skills, "statepipes-verify", "scripts", "Check-StatePipesService.ps1")));
+            StringAssert.Contains(Skill("statepipes-verify"), "\"<skill folder>/scripts/Check-StatePipesService.ps1\"");
         }
     }
 }

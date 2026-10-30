@@ -25,10 +25,11 @@ pattern in the generated `StateMachineDummyTests.cs` (template `StateMachineDumm
 
 ```powershell
 dotnet format <Solution>.slnx
-pwsh <plugin>/scripts/Check-StatePipesService.ps1 -SolutionDir <SolutionDir>
+pwsh "<skill folder>/scripts/Check-StatePipesService.ps1" -SolutionDir <SolutionDir>
 ```
 
-`<plugin>` is the `StatePipes.ClaudePlugin` folder. Freshly generated StatePipes code isn't `dotnet format`-clean,
+`<skill folder>` is this skill's base directory, which Claude Code shows when the skill loads. It is the same
+whether the plugin was loaded with `--plugin-dir` or installed from the marketplace. Freshly generated StatePipes code isn't `dotnet format`-clean,
 so always format first. The script builds, runs the tests with `Tests.runsettings`, rejects `.Result` and
 `.Wait()` under `StateMachines/`, and checks formatting. It prints `PASS`, or one `FAIL <check>: <detail>` line
 per problem. Fix every `FAIL` and run it again.

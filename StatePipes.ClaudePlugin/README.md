@@ -17,11 +17,33 @@ Use StatePipes when a microservice under development has distinct behavior based
 **New service:** `domain-fit` → `domain-modeling` → `scaffold` + `conventions` → `verify`.
 **Extending a service:** `conventions` + `scaffold` → `verify`.
 
-## Loading the plugin locally
+## Installing the plugin
+
+The StatePipes repository is also a Claude Code plugin marketplace (`.claude-plugin/marketplace.json` at its root).
+In an interactive `claude` session:
+
+```
+/plugin marketplace add marlinsr/StatePipes
+/plugin install statepipes@statepipes
+```
+
+To install from a local clone instead, for example to try a branch, give the clone's path:
+
+```
+/plugin marketplace add C:/Users/<you>/source/repos/StatePipes
+/plugin install statepipes@statepipes
+```
+
+Installed plugins are copied into Claude Code's plugin cache. After changing a skill, run
+`/plugin marketplace update statepipes` and reinstall, or restart Claude Code if it doesn't pick the change up.
+
+## Loading the plugin for one session (while editing skills)
 
 ```bash
 claude --plugin-dir StatePipes.ClaudePlugin
 ```
+
+Run from the repository root. Skill edits take effect the next time a session starts this way.
 
 ## Keeping it accurate
 
