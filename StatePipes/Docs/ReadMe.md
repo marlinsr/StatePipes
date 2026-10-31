@@ -71,6 +71,15 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.5 (2026-10-31)
+Merged PR: #96 Run every ServiceCreatorTool operation and the Diagrammer headless
+
+Referenced issues:
+- #95 ServiceCreatorTool: run every operation headless (Claude plugin sub-project 1)
+- #93 Claude Code plugin: guide building StatePipes services (domain fit, modeling, conventions, scaffold, verify)
+- #94 Claude Code plugin for building StatePipes services
+
+
 ### v6.0.4 (2026-10-31)
 Merged PR: #94 Claude Code plugin for building StatePipes services
 
