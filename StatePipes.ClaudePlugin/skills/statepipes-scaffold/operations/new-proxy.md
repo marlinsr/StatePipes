@@ -4,7 +4,7 @@ External Tool: **New StatePipes Proxy**. Generator: `ProxyGeneratorTool.Generate
 
 A proxy lets this service send the public triggers of another StatePipes service and subscribe to its events.
 
-## Who does it
+## Run the tool
 
 The proxy class is generated from the other service's public triggers and events. Do **not** write it by hand.
 Run the installed tool headless (no Visual Studio, no dialogs). See "Running the tool headless" in the scaffold
@@ -13,7 +13,7 @@ skill for `<Tool>`, the common arguments and the success check.
 1. `dotnet build <SolutionDir>/<Solution>.slnx`. The tool reads the built output of this service.
 2. Choose the target machine `<Machine>` (see "Which state machine" below). Always pass it as
    `--statemachine <Machine>`. With more than one machine the tool won't guess, and without the argument it stops
-   with `Headless mode needs --statemachine <name>; one of: ...`.
+   with `Headless mode needs --statemachine.`
 3. From the other service's compiled DLL (preferred). Use the class library DLL in the other service's
    **`.Service`** output folder, which also holds `StatePipes.dll`, for example
    `<OtherSolutionDir>/<OtherPrefix>.Service/bin/Debug/net10.0/<OtherPrefix>.dll`:

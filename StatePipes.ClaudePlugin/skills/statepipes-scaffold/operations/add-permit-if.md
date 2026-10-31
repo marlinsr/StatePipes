@@ -8,7 +8,17 @@ External Tool: **Add PermitIf** (`-pi <state file>`). Generator: `PermitIfGaurdG
 - A trigger `<Trigger>` of the same machine (public or internal; check which folder it is in).
 - The destination state `<Destination>` of the same machine.
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -pi "<state file>" --trigger <Trigger> --transition-to <Destination>
+```
+
+The tool also enables the trigger's using line. Then replace the stub's condition as step 4 describes.
+
+## Fallback (tool without headless support)
 
 1. Take the snippet from
 

@@ -8,7 +8,17 @@ External Tool: **Add PermitReentryIf** (`-pri <state file>`). Generator:
 - The state file `<Prefix>/StateMachines/<Machine>/States/<State>.cs`.
 - A trigger `<Trigger>` of the same machine.
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -pri "<state file>" --trigger <Trigger>
+```
+
+The tool also enables the trigger's using line. Then decide the return value as step 4 describes.
+
+## Fallback (tool without headless support)
 
 1. Take the snippet from
 

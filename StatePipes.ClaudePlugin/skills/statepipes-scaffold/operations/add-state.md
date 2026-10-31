@@ -23,7 +23,17 @@ Template: FirstParentedState_cs.sample
 Template: ParentedState_cs.sample
 Creates: <Prefix>/StateMachines/<Machine>/States/<State>.cs
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -a --statemachine <Machine> --state <State> [--parent-state <Parent>]
+```
+
+Leave out `--parent-state` for an un-parented state. The tool picks the template and detects a first child itself.
+
+## Fallback (tool without headless support)
 
 1. Create the file from the chosen template.
 2. Substitute `@#$ClassLibraryName@#$`, `@#$StateMachineName@#$`, `@#$StateName@#$`, and for parented states

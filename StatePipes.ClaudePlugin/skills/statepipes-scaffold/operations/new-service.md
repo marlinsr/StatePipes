@@ -11,11 +11,17 @@ Adds three projects (class library, `.Service` host, `.Test`) and their scripts 
 - `<Prefix>` of the form `<Company>.<Product>.<Component>` (for example `Acme.Widgets.Pump`).
 - Default state machine `<Machine>` = `<Component>StateMachine` (the tool names it; it is not asked).
 
-## Preferred
+## Run the tool
 
-Ask the user to run **Tools → New StatePipes Service** in Visual Studio, or create the files by hand as below.
+```
+& "<Tool>" -headless -r "<SolutionDir>\" -s <Solution>.slnx --prefix <Prefix>
+```
 
-## By hand
+Then add the CLAUDE.md row below and build.
+
+## Fallback (tool without headless support)
+
+Ask the user to run **Tools → New StatePipes Service** in Visual Studio, or create the files by hand:
 
 1. Insert above the solution file's marker the project entries from
 

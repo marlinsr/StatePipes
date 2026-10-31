@@ -13,7 +13,17 @@ the state handles each tick with a side-effect-only `[PermitReentryIf]`, and it 
 Derived names (the tool capitalises the first letter of the timer name, skipping leading non-letters):
 `<Name>` = capitalised `<Timer>`; trigger `<Name>Trigger`; guard method `<Name>PeriodicWorker`.
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -pti "<state file>" --timer-name <Timer> --timer-period <Ms>
+```
+
+The tool creates the trigger, makes every insertion and enables the using line. Then write the per-tick work as step 4 describes.
+
+## Fallback (tool without headless support)
 
 1. Create the internal trigger exactly as `add-trigger` (internal) does, named `<Name>Trigger`:
 

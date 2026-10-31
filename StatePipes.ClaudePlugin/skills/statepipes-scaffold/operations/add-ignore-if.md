@@ -7,7 +7,17 @@ External Tool: **Add IgnoreIf** (`-ii <state file>`). Generator: `IgnoreIfGaurdG
 - The state file `<Prefix>/StateMachines/<Machine>/States/<State>.cs`.
 - A trigger `<Trigger>` of the same machine that this state must silently drop.
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -ii "<state file>" --trigger <Trigger>
+```
+
+The tool also enables the trigger's using line. Then set the condition as step 4 describes.
+
+## Fallback (tool without headless support)
 
 1. Take the snippet from
 

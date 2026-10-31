@@ -4,7 +4,7 @@ External Tool: **Update StatePipes Proxy** (`-u <proxy file>`). Generator: `Prox
 
 Regenerates `<Prefix>/Proxies/<Moniker>Proxy.cs` after the remote service's public triggers or events changed.
 
-## Who does it
+## Run the tool
 
 Like `new-proxy`, the class is generated, so don't edit it by hand. Build first, then run the tool headless (see
 "Running the tool headless" in the scaffold skill). `-u` names the existing proxy, which gives the moniker. The tool also keeps the
