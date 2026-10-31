@@ -1,4 +1,4 @@
-# StatePipes Visual Studio External Tools
+﻿# StatePipes Visual Studio External Tools
 
 These tools are registered in Visual Studio by importing `StatePipesExternalToolsSettings.vssettings` (found in `StatePipes.ServiceCreatorToolSetup\Resources\`). They appear in the Visual Studio **Tools** menu and accelerate scaffolding and diagramming workflows without leaving the IDE.
 
@@ -419,13 +419,13 @@ Visual Studio, building and opening files, so build the solution with `dotnet bu
 the built service (Add State, Add Trigger, the guards, Add Periodic, the proxies and the Diagrammer). Every value a
 dialog would ask for is passed as an argument instead. Arguments given without `-headless` also replace their dialog.
 
-The tools print `Finished!!!` and exit with code 0 on success. Any failure exits with code 1 and writes no file:
+The tools print `Finished!!!` and exit with code 0 on success. Any failure exits with code 1. An input error writes no file; an `Aborting Exception` part-way through generating can leave the files written so far:
 
 | Message | Meaning |
 |---|---|
 | `Headless mode needs <arg>.` | A required argument is missing |
 | `<arg> <value> not found; one of: ...` | The value isn't one of the choices the dialog would offer, for example a trigger that isn't in the last build |
-| `... already exists.` | The state, trigger, event, state machine, timer, service or solution already exists (this applies in Visual Studio too, where the generators used to overwrite the file) |
+| `... already exists.` | The state, trigger, event, state machine, service or solution already exists (a timer that another state already has reuses its trigger) (this applies in Visual Studio too, where the generators used to overwrite the file) |
 | `<arg> must be ...` | The value is invalid; names must be C# identifiers, and `--timer-period` a positive number |
 | `Unknown argument <arg>.`, `<arg> needs a value.` | The argument isn't one listed below, or has no value |
 
@@ -461,7 +461,7 @@ dotnet build "$sln\Packages.Acme.Widgets.slnx"
 
 # StateMachine Diagrammer: one PDF per state machine
 dotnet build "$sln\Packages.Acme.Widgets.slnx"
-& $diagrammer -headless -r "$sln\" -s Packages.Acme.Widgets.slnx -p Acme.Widgets.csproj -c "$sln\Acme.Widgets\obj\Debug\net10.0\" --out "$sln\Acme.Widgets\Diagrams"
+& $diagrammer -headless -r "$sln\" -s Packages.Acme.Widgets.slnx -p Acme.Widgets.csproj -c "$sln\Acme.Widgets\obj\Debug\net10.0\" --out "$sln\Acme.Widgets\obj\Diagrams"
 ```
 
 | Tool | Argument | Replaces the dialog for |

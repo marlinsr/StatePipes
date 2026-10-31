@@ -1,4 +1,4 @@
----
+﻿---
 name: statepipes-scaffold
 description: Use when creating or extending a StatePipes service - solution, service, state machine, state, trigger, guard (PermitIf, PermitReentryIf, IgnoreIf), periodic timer, proxy, or diagram. Gives the exact files, templates and injection points the StatePipes Visual Studio External Tools would produce.
 ---
@@ -78,7 +78,7 @@ service, so run `dotnet build <SolutionDir>\<Solution>.slnx` before them. A stat
 the last build isn't visible yet, and the tool says `... not found; one of: ... If it was just added, build the
 solution first.`
 
-**Success** is `Finished!!!` and exit code 0 (`$LASTEXITCODE`). Every failure exits with 1 and changes no files:
+**Success** is `Finished!!!` and exit code 0 (`$LASTEXITCODE`). Every failure exits with 1. An input error writes no file; after `Aborting Exception` part-way through generating, check `git status` for files the run already wrote:
 
 | Output | Meaning and what to do |
 |---|---|

@@ -86,6 +86,31 @@ namespace StatePipes.Test.ClaudePlugin
         }
 
         [TestMethod]
+        public void Diagram_WritesOutputUnderTheIgnoredObjFolder()
+        {
+            // The Diagrammer also writes a modified DLL and .dot files next to the PDFs; obj/ is in every generated .gitignore
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+
+            StringAssert.Contains(Operation("diagram"), "--out \"<SolutionDir>\\<Prefix>\\obj\\Diagrams\"");
+            StringAssert.Contains(docs, "--out \"$sln\\Acme.Widgets\\obj\\Diagrams\"");
+            Assert.IsFalse(Operation("diagram").Contains("%ProgramData%\\StatePipes\\StatePipes.Diagrammer\\`.\n"), "stale intro");
+        }
+
+        [TestMethod]
+        public void HeadlessGuidance_PromisesNoWritesOnlyForInputErrors()
+        {
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+
+            Assert.IsFalse(Skill("statepipes-scaffold").Contains("changes no files"), "SKILL.md overstates");
+            StringAssert.Contains(Skill("statepipes-scaffold"), "An input error writes no file");
+            StringAssert.Contains(docs, "An input error writes no file");
+        }
+
+        [TestMethod]
+        public void UpdateProxy_NamesTheProxyFileByItsFullPath() =>
+            StringAssert.Contains(Operation("update-proxy"), "-u \"<SolutionDir>\\<Prefix>\\Proxies\\<Moniker>Proxy.cs\"");
+
+        [TestMethod]
         public void Marketplace_ListsThePluginFolder()
         {
             using var marketplace = JsonDocument.Parse(File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), ".claude-plugin", "marketplace.json")));

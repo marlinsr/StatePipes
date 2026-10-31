@@ -12,8 +12,25 @@ namespace StatePipes.Test.ServiceCreatorTool
             Assert.AreEqual("Peer", ProxyGeneratorTool.GetProxyMoniker(null, Headless(("--moniker", "Peer"))));
 
         [TestMethod]
-        public void GetProxyMoniker_WithUpdateFile_TakesMonikerFromFileName() =>
-            Assert.AreEqual("Peer", ProxyGeneratorTool.GetProxyMoniker(@"C:\x\Proxies\PeerProxy.cs", Headless()));
+        public void GetProxyMoniker_WithUpdateFile_TakesMonikerFromFileName()
+        {
+            var dir = Directory.CreateTempSubdirectory().FullName;
+            var proxy = Path.Combine(dir, "PeerProxy.cs");
+            File.WriteAllText(proxy, "");
+            try { Assert.AreEqual("Peer", ProxyGeneratorTool.GetProxyMoniker(proxy, Headless())); }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [TestMethod]
+        public void GetProxyMoniker_MissingUpdateFile_FailsAndNamesIt()
+        {
+            // Otherwise -u silently loses the existing proxy's state machine
+            var missing = Path.Combine(Path.GetTempPath(), $"Missing_{Guid.NewGuid()}", "PeerProxy.cs");
+
+            var output = Capture(() => Assert.IsNull(ProxyGeneratorTool.GetProxyMoniker(missing, Headless())));
+
+            StringAssert.Contains(output, $"Proxy file not found: {missing}");
+        }
 
         [TestMethod]
         public void GetProxyMoniker_HeadlessWithoutMoniker_IsNullAndNamesTheArgument()

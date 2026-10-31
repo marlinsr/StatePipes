@@ -183,6 +183,25 @@ namespace StatePipes.Test.ServiceCreatorTool
         }
 
         [TestMethod]
+        public void Periodic_SameTimerOnASecondState_InjectsAndKeepsTheTrigger()
+        {
+            const string machine = "WidgetsStateMachine";
+            string AddState(string name) => new StateGeneratorTool(_solutionDir, SolutionName).GenerateState(_projectDir, Prefix, _targetDir, machine, name, parentStateName: null, isFirstChild: false);
+            var idle = AddState("Idle");
+            var running = AddState("Running");
+            ToolResult Periodic(string stateFile) => PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension,
+                Prefix + ".csproj", _targetDir, stateFile, Headless(("--timer-name", "Poll"), ("--timer-period", "500")));
+            Assert.IsTrue(Periodic(idle).Succeeded);
+            var trigger = Path.Combine(_projectDir, "StateMachines", machine, "Triggers", "Internal", "PollTrigger.cs");
+            File.AppendAllText(trigger, "// edited by the developer\n");
+
+            Assert.IsTrue(Periodic(running).Succeeded);
+
+            StringAssert.Contains(File.ReadAllText(running), "PollPeriodicWorker");
+            StringAssert.Contains(File.ReadAllText(trigger), "// edited by the developer");
+        }
+
+        [TestMethod]
         public void Event_Existing_Refuses()
         {
             Run(EventGeneratorTool.CreateNewEvent, ("--event", "StatusEvent"));

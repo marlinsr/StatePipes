@@ -1,21 +1,20 @@
-# diagram
+﻿# diagram
 
 External Tool: **StateMachine Diagrammer** (`StatePipes.Diagrammer.exe`).
 
-Renders one PDF per state machine of the service, from the built `.Service` assembly, into
-`%ProgramData%\StatePipes\StatePipes.Diagrammer\`.
+Renders one PDF per state machine of the service, from the built `.Service` assembly, into the `--out` folder.
 
 ## Run the tool
 
 Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
 
 ```
-& "<Diagrammer>" -headless -r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -c "<SolutionDir>\<Prefix>\obj\Debug\net10.0\" --out "<SolutionDir>\<Prefix>\Diagrams"
+& "<Diagrammer>" -headless -r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -c "<SolutionDir>\<Prefix>\obj\Debug\net10.0\" --out "<SolutionDir>\<Prefix>\obj\Diagrams"
 ```
 
 It prints `Diagram written: <path>` for each PDF. Read each PDF and compare it with the approved model from
 `statepipes-domain-modeling`: every state, transition, guard and published event in the model should appear. The PDFs
-are generated output; don't commit them unless the user asks.
+and the Diagrammer's working files (a modified DLL, `.dot` files) stay under `obj`, which `.gitignore` excludes.
 
 ## Fallback (tool without headless support)
 

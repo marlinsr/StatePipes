@@ -15,7 +15,9 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$TimerPeriod@#$", timerPeriod);
             monikers.AddMoniker("@#$PeriodicGuard@#$", periodicGuard);
             var triggerHelper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
-            TriggerGeneratorTool.GenerateTriggerFile(true, triggerHelper);
+            // The same timer in another state of the machine reuses its trigger rather than overwriting it
+            var triggerFile = Path.Combine(projectDir, "StateMachines", stateMachineName, "Triggers", "Internal", $"{triggerName}.cs");
+            if (!File.Exists(triggerFile)) TriggerGeneratorTool.GenerateTriggerFile(true, triggerHelper);
             StateFileInjection(stateFilePath, monikers);
         }
         private static void StateFileInjection(string stateFilePath, MonikerSubstitution monikers)
@@ -48,8 +50,6 @@ namespace StatePipes.ServiceCreatorTool
             if (timerName == null) return ToolResult.Failed;
             var timerPeriod = input.PositiveInt("--timer-period", $"Enter the period in milliseconds for {timerName}");
             if (timerPeriod == null) return ToolResult.Failed;
-            var triggerFile = Path.Combine(projDir, "StateMachines", stateMachineName, "Triggers", "Internal", $"{NormalizeName(timerName)}Trigger.cs");
-            if (AlreadyExists(solutionDir, triggerFile)) return ToolResult.Failed;
             (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod.Value.ToString());
             return ToolResult.Ok();
         }

@@ -61,6 +61,11 @@
         {
             if (!string.IsNullOrEmpty(updateMonikerFilePath))
             {
+                if (!File.Exists(updateMonikerFilePath))
+                {
+                    Console.WriteLine($"Proxy file not found: {updateMonikerFilePath}");
+                    return null;
+                }
                 var fileName = Path.GetFileName(updateMonikerFilePath)!;
                 var postFixIndex = fileName.IndexOf(ProxyFileNamePostFix);
                 if (postFixIndex > 0) return Path.GetFileName(updateMonikerFilePath)[..postFixIndex];

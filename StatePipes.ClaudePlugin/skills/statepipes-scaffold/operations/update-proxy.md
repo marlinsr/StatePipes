@@ -1,4 +1,4 @@
-# update-proxy
+﻿# update-proxy
 
 External Tool: **Update StatePipes Proxy** (`-u <proxy file>`). Generator: `ProxyGeneratorTool.GenerateProxy`.
 
@@ -12,8 +12,8 @@ state machine the existing proxy targets, so don't pass `--statemachine` unless 
 another machine:
 
 ```
-& "<Tool>" -headless <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --dll "<path to updated DLL>"
-& "<Tool>" -headless -live <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>"
+& "<Tool>" -headless <common arguments> -u "<SolutionDir>\<Prefix>\Proxies\<Moniker>Proxy.cs" --dll "<path to updated DLL>"
+& "<Tool>" -headless -live <common arguments> -u "<SolutionDir>\<Prefix>\Proxies\<Moniker>Proxy.cs" --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>"
 ```
 
 Use the second form when the DLL isn't available. If headless isn't available, ask the user to select
