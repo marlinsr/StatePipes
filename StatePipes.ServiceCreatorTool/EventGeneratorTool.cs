@@ -1,4 +1,4 @@
-namespace StatePipes.ServiceCreatorTool
+﻿namespace StatePipes.ServiceCreatorTool
 {
     internal class EventGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
@@ -13,14 +13,14 @@ namespace StatePipes.ServiceCreatorTool
             helper.MoveTo("Events");
             return helper.SaveTextFile("Event_cs.sample", "@#$EventName@#$.cs");
         }
-        public static string CreateNewEvent(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
+        public static ToolResult CreateNewEvent(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return string.Empty;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            var eventName = "";
-            if (!SelectionDialog.GetUserInput(ref eventName, "Enter the name for the new event")) return string.Empty;
-            return (new EventGeneratorTool(solutionDir, solutionFileName)).GenerateEvent(projDir, projectName, targetDirectory, eventName);
+            var eventName = input.Name("--event", "Enter the name for the new event");
+            if (eventName == null || AlreadyExists(solutionDir, Path.Combine(projDir, "Events", $"{eventName}.cs"))) return ToolResult.Failed;
+            return ToolResult.Ok((new EventGeneratorTool(solutionDir, solutionFileName)).GenerateEvent(projDir, projectName, targetDirectory, eventName));
         }
     }
 }

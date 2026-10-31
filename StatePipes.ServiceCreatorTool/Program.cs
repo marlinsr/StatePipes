@@ -211,10 +211,10 @@ namespace StatePipes.ServiceCreatorTool
                 PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _periodicTriggerStateFilePath);
                 return ToolResult.Ok();
             }
-            if (_addState) return Opened(dte, ToolResult.Ok(StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
-            if (_addTrigger) return Opened(dte, ToolResult.Ok(TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
-            if (_addEvent) return Opened(dte, ToolResult.Ok(EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
-            if (_addStateMachine) return Opened(dte, ToolResult.Ok(StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
+            if (_addState) return Opened(dte, StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
+            if (_addTrigger) return Opened(dte, TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
+            if (_addEvent) return Opened(dte, EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
+            if (_addStateMachine) return Opened(dte, StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_liveMode) return Opened(dte, LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath, input));
             return Opened(dte, ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath, input));
         }
