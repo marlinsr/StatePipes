@@ -34,7 +34,7 @@
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
-            var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName();
+            var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName(ToolInput.Dialogs());
             if (string.IsNullOrEmpty(selectedStateMachine)) return string.Empty;
             var scopeOptions = new List<string> { "Public", "Internal" };
             var selectedScope = SelectionDialog.ShowListSelection(scopeOptions, "Select the trigger scope");

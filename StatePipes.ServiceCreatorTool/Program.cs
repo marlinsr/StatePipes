@@ -23,19 +23,21 @@ namespace StatePipes.ServiceCreatorTool
         // Live proxy generation args
         static bool _liveMode = false;
         static int _liveTimeoutSeconds = 30;
-        // Headless args: no Visual Studio, and proxy inputs that replace the dialogs
+        // Headless: no Visual Studio, and --name value arguments replace the dialogs
         static bool _headless = false;
-        static string? _moniker;
-        static string? _dllPath;
-        static string? _brokerUri;
-        static string? _exchangeName;
-        static string? _certPath;
-        static string? _certPasswordPath;
-        static string? _stateMachine;
-        private static void ParseArgs(string[] args)
+        static Dictionary<string, string> _values = [];
+        private static bool ParseArgs(string[] args)
         {
+            _solutionDir = _solutionFileName = _projectFileName = _targetDirectory = string.Empty;
+            _permitIfStateFilePath = _permitReentryIfStateFilePath = _ignoreIfStateFilePath = _periodicTriggerStateFilePath = _updateProxyFilePath = string.Empty;
+            _addStateMachine = _addTrigger = _addEvent = _addState = _liveMode = _headless = false;
+            _liveTimeoutSeconds = 30;
+            var values = ToolArguments.Parse(args);
+            if (values == null) return false;
+            _values = values;
             for (int i = 0; i < args.Length; i++)
             {
+                if (args[i].StartsWith("--")) { i++; continue; }
                 if (args[i].Equals("-r", StringComparison.CurrentCultureIgnoreCase)) _solutionDir = args[++i];
                 if (args[i].Equals("-s", StringComparison.CurrentCultureIgnoreCase)) _solutionFileName = args[++i];
                 if (args[i].Equals("-p", StringComparison.CurrentCultureIgnoreCase)) _projectFileName = args[++i];
@@ -44,25 +46,19 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("-t", StringComparison.CurrentCultureIgnoreCase)) _addTrigger = true;
                 if (args[i].Equals("-e", StringComparison.CurrentCultureIgnoreCase)) _addEvent = true;
                 if (args[i].Equals("-a", StringComparison.CurrentCultureIgnoreCase)) _addState = true;
-                if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = args[++i];
-                if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = args[++i];
-                if (args[i].Equals("-ii", StringComparison.CurrentCultureIgnoreCase)) _ignoreIfStateFilePath = args[++i];
-                if (args[i].Equals("-pti", StringComparison.CurrentCultureIgnoreCase)) _periodicTriggerStateFilePath = args[++i];
-                if (args[i].Equals("-u", StringComparison.CurrentCultureIgnoreCase)) _updateProxyFilePath = args[++i];
-                // Live proxy generation args
+                if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = FullPath(args[++i]);
+                if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = FullPath(args[++i]);
+                if (args[i].Equals("-ii", StringComparison.CurrentCultureIgnoreCase)) _ignoreIfStateFilePath = FullPath(args[++i]);
+                if (args[i].Equals("-pti", StringComparison.CurrentCultureIgnoreCase)) _periodicTriggerStateFilePath = FullPath(args[++i]);
+                if (args[i].Equals("-u", StringComparison.CurrentCultureIgnoreCase)) _updateProxyFilePath = FullPath(args[++i]);
                 if (args[i].Equals("-live", StringComparison.CurrentCultureIgnoreCase)) _liveMode = true;
-                if (args[i].Equals("--timeout", StringComparison.CurrentCultureIgnoreCase) && int.TryParse(args[++i], out var t)) _liveTimeoutSeconds = t;
-                // Headless args
                 if (args[i].Equals("-headless", StringComparison.CurrentCultureIgnoreCase)) _headless = true;
-                if (args[i].Equals("--moniker", StringComparison.CurrentCultureIgnoreCase)) _moniker = args[++i];
-                if (args[i].Equals("--dll", StringComparison.CurrentCultureIgnoreCase)) _dllPath = args[++i];
-                if (args[i].Equals("--broker", StringComparison.CurrentCultureIgnoreCase)) _brokerUri = args[++i];
-                if (args[i].Equals("--exchange", StringComparison.CurrentCultureIgnoreCase)) _exchangeName = args[++i];
-                if (args[i].Equals("--cert", StringComparison.CurrentCultureIgnoreCase)) _certPath = args[++i];
-                if (args[i].Equals("--certpw", StringComparison.CurrentCultureIgnoreCase)) _certPasswordPath = args[++i];
-                if (args[i].Equals("--statemachine", StringComparison.CurrentCultureIgnoreCase)) _stateMachine = args[++i];
             }
+            if (_values.TryGetValue("--timeout", out var timeout) && int.TryParse(timeout, out var t)) _liveTimeoutSeconds = t;
+            return true;
         }
+        // State and proxy file paths may be relative to the current directory
+        private static string FullPath(string path) => string.IsNullOrEmpty(path) ? path : Path.GetFullPath(path);
         private static void ParameterErrors()
         {
             Console.WriteLine("Incorrect Parameters Specified!");
@@ -74,19 +70,26 @@ namespace StatePipes.ServiceCreatorTool
             Console.WriteLine($"projectName {projectNameStr}");
         }
         [STAThread]
-        static void Main(string[] args)
+        internal static int Main(string[] args)
         {
             try
             {
-                ParseArgs(args);
-                if (DetermineCreation())
+                if (!ParseArgs(args)) return 1;
+                var result = DetermineCreation();
+                if (result == null)
                 {
-                    Console.WriteLine("Finished!!!");
-                    return;
+                    ParameterErrors();
+                    return 1;
                 }
-                ParameterErrors();
+                if (!result.Succeeded) return 1;
+                Console.WriteLine("Finished!!!");
+                return 0;
             }
-            catch (Exception e) { Console.WriteLine($"Aborting Exception: {e.Message}"); }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Aborting Exception: {e.Message}");
+                return 1;
+            }
         }
         private static int GetParentPid()
         {
@@ -165,79 +168,55 @@ namespace StatePipes.ServiceCreatorTool
                 return false;
             }
         }
-        private static ProxyInputs ProxyInputs() => new(_moniker, _dllPath, _brokerUri, _exchangeName, _certPath, _certPasswordPath, _headless, _stateMachine);
-        private static bool DetermineCreation()
+        private static ToolResult Opened(DTE2? dte, ToolResult result)
         {
+            if (result.FileToOpen != null) OpenCodeFileInVS(dte, result.FileToOpen);
+            return result;
+        }
+        private static ToolResult? DetermineCreation()
+        {
+            var input = new ToolInput(_values, _headless, new SelectionDialogPrompt());
             if (string.IsNullOrEmpty(_solutionFileName) && string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
             {
                 SolutionGeneratorTool.CreateNewSolution();
-                return true;
+                return ToolResult.Ok();
             }
             // Headless callers build the solution themselves and have no Visual Studio to attach to
             var dte = _headless ? null : GetDTE2();
-            if (!_headless && (dte == null || !BuildSolution(dte))) return false;
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
+            if (!_headless && (dte == null || !BuildSolution(dte))) return null;
+            bool haveSolution = !string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir);
+            if (haveSolution && string.IsNullOrEmpty(_projectFileName))
             {
                 ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName);
-                return true;
+                return ToolResult.Ok();
             }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_permitIfStateFilePath))
+            if (!haveSolution || string.IsNullOrEmpty(_projectFileName) || string.IsNullOrEmpty(_targetDirectory)) return null;
+            if (!string.IsNullOrEmpty(_permitIfStateFilePath))
             {
                 PermitIfGaurdGeneratorTool.CreatePermitIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitIfStateFilePath);
-                return true;
+                return ToolResult.Ok();
             }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_permitReentryIfStateFilePath))
+            if (!string.IsNullOrEmpty(_permitReentryIfStateFilePath))
             {
                 PermitReentryIfGaurdGeneratorTool.CreatePermitReentryIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitReentryIfStateFilePath);
-                return true;
+                return ToolResult.Ok();
             }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_ignoreIfStateFilePath))
+            if (!string.IsNullOrEmpty(_ignoreIfStateFilePath))
             {
                 IgnoreIfGaurdGeneratorTool.CreateIgnoreIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _ignoreIfStateFilePath);
-                return true;
+                return ToolResult.Ok();
             }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && !string.IsNullOrEmpty(_periodicTriggerStateFilePath))
+            if (!string.IsNullOrEmpty(_periodicTriggerStateFilePath))
             {
                 PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _periodicTriggerStateFilePath);
-                return true;
+                return ToolResult.Ok();
             }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addState)
-            {
-                var fileName = StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
-                OpenCodeFileInVS(dte, fileName);
-                return true;
-            }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addTrigger)
-            {
-                var fileName = TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
-                OpenCodeFileInVS(dte, fileName);
-                return true;
-            }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addEvent)
-            {
-                var fileName = EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
-                OpenCodeFileInVS(dte, fileName);
-                return true;
-            }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory) && _addStateMachine)
-            {
-                var fileName = StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory);
-                OpenCodeFileInVS(dte, fileName);
-                return true;
-            }
-            if (_liveMode && !string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
-            {
-                LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath, ProxyInputs());
-                return true;
-            }
-            if (!string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir) && !string.IsNullOrEmpty(_projectFileName) && !string.IsNullOrEmpty(_targetDirectory))
-            {
-                var fileName = ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath, ProxyInputs());
-                OpenCodeFileInVS(dte, fileName);
-                return true;
-            }
-
-            return false;
+            if (_addState) return Opened(dte, ToolResult.Ok(StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
+            if (_addTrigger) return Opened(dte, ToolResult.Ok(TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
+            if (_addEvent) return Opened(dte, ToolResult.Ok(EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
+            if (_addStateMachine) return Opened(dte, ToolResult.Ok(StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory)));
+            if (_liveMode) return Opened(dte, LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath, input));
+            return Opened(dte, ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath, input));
         }
     }
 }

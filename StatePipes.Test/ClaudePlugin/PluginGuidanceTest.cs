@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using StatePipes.ServiceCreatorTool;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace StatePipes.Test.ClaudePlugin
@@ -54,7 +55,7 @@ namespace StatePipes.Test.ClaudePlugin
         public void ProxyRecipes_RunTheToolHeadlessWithArgumentsItParses()
         {
             var program = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ServiceCreatorTool", "Program.cs"));
-            var parsed = Regex.Matches(program, "args\\[i\\]\\.Equals\\(\"([^\"]+)\"").Select(m => m.Groups[1].Value).ToHashSet();
+            var parsed = Regex.Matches(program, "args\\[i\\]\\.Equals\\(\"([^\"]+)\"").Select(m => m.Groups[1].Value).Concat(ToolArguments.Known).ToHashSet();
             var guidance = Operation("new-proxy") + Operation("update-proxy") + Skill("statepipes-scaffold");
 
             StringAssert.Contains(Operation("new-proxy"), "-headless");

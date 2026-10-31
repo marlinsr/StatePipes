@@ -2,7 +2,7 @@
 {
     internal class StateGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
-        public string GenerateState(string projectDir, string projectName, string targetDirectory, string stateMachineName, 
+        public string GenerateState(string projectDir, string projectName, string targetDirectory, string stateMachineName,
             string stateName, string? parentStateName, bool isFirstChild)
         {
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);
@@ -24,14 +24,14 @@
             else if (isFirstChild) return helper.SaveTextFile("FirstParentedState_cs.sample", "@#$StateName@#$.cs");
             else return helper.SaveTextFile("ParentedState_cs.sample", "@#$StateName@#$.cs");
         }
-        private static string CreateStateClass(string solutionDir, string solutionFileName, string projDir, string projectName, 
+        private static string CreateStateClass(string solutionDir, string solutionFileName, string projDir, string projectName,
             string targetDirectory, string selectedStateMachine, bool isFirstChild = false, string? parentedStateName = null)
         {
             string stateName = "";
             if (!SelectionDialog.GetUserInput(ref stateName, $"Enter the name for the new state on {selectedStateMachine}")) return string.Empty;
             return (new StateGeneratorTool(solutionDir, solutionFileName)).GenerateState(projDir, projectName, targetDirectory, selectedStateMachine, stateName, parentStateName: parentedStateName, isFirstChild: isFirstChild);
         }
-        private static string CreateParentedState(string solutionDir, string solutionFileName, string projDir, string projectName, 
+        private static string CreateParentedState(string solutionDir, string solutionFileName, string projDir, string projectName,
             string targetDirectory, string selectedStateMachine, StateMachineTypesHelper stateMachineTypesHelper)
         {
             var stateTypes = stateMachineTypesHelper.GetStateTypes(selectedStateMachine);
@@ -48,7 +48,7 @@
                 var genArgs = t.BaseType?.GetGenericArguments();
                 return genArgs != null && genArgs.Length >= 2 && genArgs[1].Name == selectedParent;
             });
-            return CreateStateClass(solutionDir, solutionFileName, projDir, projectName, targetDirectory, selectedStateMachine, 
+            return CreateStateClass(solutionDir, solutionFileName, projDir, projectName, targetDirectory, selectedStateMachine,
                 isFirstChild: isFirstChild, parentedStateName: selectedParent);
         }
         public static string CreateNewState(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
@@ -57,7 +57,7 @@
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
-            var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName();
+            var selectedStateMachine = stateMachineTypesHelper.GetStateMachineName(ToolInput.Dialogs());
             if (selectedStateMachine == null) return string.Empty;
             var stateTypeOptions = new List<string> { "Un-parented", "Parented" };
             var selectedStateType = SelectionDialog.ShowListSelection(stateTypeOptions, "Select the state type");

@@ -7,28 +7,22 @@
         private string _exchangeName = string.Empty;
         private string _certPath = string.Empty;
         private string _certPasswordPath = string.Empty;
-        private bool GetCommsParamsFromUser(bool useRabbitMQ, ProxyInputs? inputs)
+        private bool GetCommsParamsFromUser(bool useRabbitMQ, IToolInput input)
         {
-            if (inputs?.HasLiveConnection == true)
-            {
-                _brokerUri = inputs.BrokerUri!;
-                _exchangeName = inputs.ExchangeName!;
-                _certPath = inputs.CertPath!;
-                _certPasswordPath = inputs.CertPasswordPath!;
-                return true;
-            }
-            if (inputs?.MissingInHeadless(null, "--broker, --exchange, --cert and --certpw") == true) return false;
-            _brokerUri = useRabbitMQ ? "amqps://amqp09-broker/Production" : "ssl://kafka-broker:9093";
-            _exchangeName = string.Empty;
-            if (!SelectionDialog.GetUserInput(ref _brokerUri, $"Enter Broker URI")) return false;
-            if (!SelectionDialog.GetUserInput(ref _exchangeName, $"Enter Exchange Name")) return false;
-            if (!SelectionDialog.SelectFile(out _certPath, "Select Certificate File", "p12 files (*.p12)|*.p12|All files (*.*)|*.*")) return false;
-            if (!SelectionDialog.SelectFile(out _certPasswordPath, "Select Password File", "txt files (*.txt)|*.txt|All files (*.*)|*.*")) return false;
+            var brokerUri = input.Text("--broker", "Enter Broker URI", useRabbitMQ ? "amqps://amqp09-broker/Production" : "ssl://kafka-broker:9093");
+            if (brokerUri == null) return false;
+            var exchangeName = input.Text("--exchange", "Enter Exchange Name");
+            if (exchangeName == null) return false;
+            var certPath = input.File("--cert", "Select Certificate File", "p12 files (*.p12)|*.p12|All files (*.*)|*.*");
+            if (certPath == null) return false;
+            var certPasswordPath = input.File("--certpw", "Select Password File", "txt files (*.txt)|*.txt|All files (*.*)|*.*");
+            if (certPasswordPath == null) return false;
+            (_brokerUri, _exchangeName, _certPath, _certPasswordPath) = (brokerUri, exchangeName, certPath, certPasswordPath);
             return true;
         }
-        private bool GetTypeList(out TypeSerializationList? typeList, int timeoutSeconds, bool useRabbitMQ, ProxyInputs? inputs)
+        private bool GetTypeList(out TypeSerializationList? typeList, int timeoutSeconds, bool useRabbitMQ, IToolInput input)
         {
-            if (!GetCommsParamsFromUser(useRabbitMQ, inputs))
+            if (!GetCommsParamsFromUser(useRabbitMQ, input))
             {
                 typeList = null;
                 return false;
@@ -38,40 +32,40 @@
             if (typeList == null) Console.Error.WriteLine("Failed to retrieve self-description from the running service.");
             return !(typeList == null);
         }
-        public string GenerateProxy(
+        public ToolResult GenerateProxy(
             string projDir, string projectFileName, string targetDirectory,
-            int timeoutSeconds, string? updateMonikerFilePath, ProxyInputs? inputs = null)
+            int timeoutSeconds, string? updateMonikerFilePath, IToolInput input)
         {
-            var moniker = ProxyGeneratorTool.GetProxyMoniker(updateMonikerFilePath, inputs);
-            if (string.IsNullOrEmpty(moniker)) return string.Empty;
+            var moniker = ProxyGeneratorTool.GetProxyMoniker(updateMonikerFilePath, input);
+            if (string.IsNullOrEmpty(moniker)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             _pathProvider.AddPaths(projDir, projectName, targetDirectory);
             var toolConfig = ToolConfigurationUtility.ReadConfiguration(_pathProvider.GetPath(PathName.Solution));
-            if (!GetTypeList(out TypeSerializationList? typeList, timeoutSeconds, toolConfig?.UseRabbitMQ ?? true, inputs)) return string.Empty;
-            var proxyCreator = new ProxyGenerator(typeList!, projectName, moniker, _pathProvider, _brokerUri, _exchangeName, _certPath, _certPasswordPath, ProxyGeneratorTool.WithStateMachineFromProxyFile(inputs, updateMonikerFilePath));
+            if (!GetTypeList(out TypeSerializationList? typeList, timeoutSeconds, toolConfig?.UseRabbitMQ ?? true, input)) return ToolResult.Failed;
+            var proxyCreator = new ProxyGenerator(typeList!, projectName, moniker, _pathProvider, _brokerUri, _exchangeName, _certPath, _certPasswordPath, ProxyGeneratorTool.WithStateMachineFromProxyFile(input, updateMonikerFilePath));
             if (!Directory.Exists(_pathProvider.GetPath(PathName.Proxies))) Directory.CreateDirectory(_pathProvider.GetPath(PathName.Proxies));
             string outputFile = Path.Combine(_pathProvider.GetPath(PathName.Proxies), $"{moniker}{ProxyFileNamePostFix}");
             bool outputFileAlreadyExists = File.Exists(outputFile);
             proxyCreator.SaveToFile(outputFile);
             EnsureProxyConnectionStatusTrigger(projectName, proxyCreator.StateMachineName);
             Console.WriteLine($"Proxy written to: {outputFile}");
-            if (outputFileAlreadyExists) return string.Empty;
+            if (outputFileAlreadyExists) return ToolResult.Ok();
             var monikers = CreateMonikers(SolutionNameNoExtension, projectFileName, toolConfig?.UseRabbitMQ ?? true);
             monikers.AddMoniker("@#$ProxyName@#$", moniker);
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             ProxyGeneratorTool.GenerateProxyFiles(helper);
-            return outputFile;
+            return ToolResult.Ok(outputFile);
         }
-        public static string CreateNewLiveProxy(
+        public static ToolResult CreateNewLiveProxy(
             string solutionDir, string solutionFileName, string projectFileName, string targetDirectory,
-            int timeoutSeconds, string? updateMonikerFilePath, ProxyInputs? inputs = null)
+            int timeoutSeconds, string? updateMonikerFilePath, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return string.Empty;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             return new LiveProxyGeneratorTool(solutionDir, solutionFileName).GenerateProxy(
                 projDir, projectName, targetDirectory,
-                timeoutSeconds, updateMonikerFilePath, inputs);
+                timeoutSeconds, updateMonikerFilePath, input);
         }
     }
 }
