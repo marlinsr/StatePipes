@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.4 (2026-10-31)
+Merged PR: #94 Claude Code plugin for building StatePipes services
+
+Referenced issues:
+- #93 Claude Code plugin: guide building StatePipes services (domain fit, modeling, conventions, scaffold, verify)
+
+
 ### v6.0.3 (2026-10-22)
 Merged PR: #92 Migrate StatePipes.sln to StatePipes.slnx
 
