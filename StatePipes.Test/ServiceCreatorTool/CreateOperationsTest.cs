@@ -105,6 +105,84 @@ namespace StatePipes.Test.ServiceCreatorTool
         }
 
         [TestMethod]
+        public void NewSolution_Headless_CreatesSolutionWithoutVisualStudio()
+        {
+            var repo = Path.Combine(_root, "repo");
+            Directory.CreateDirectory(repo);
+            ToolResult result = ToolResult.Failed;
+
+            var output = Capture(() => result = SolutionGeneratorTool.CreateNewSolution(Headless(("--repo", repo), ("--solution-name", "Packages.Acme.Gadgets"), ("--transport", "kafka"))));
+
+            Assert.IsTrue(result.Succeeded, output);
+            var slnx = Path.Combine(repo, "Packages.Acme.Gadgets", "Packages.Acme.Gadgets.slnx");
+            Assert.IsTrue(File.Exists(slnx));
+            StringAssert.Contains(output, $"Solution created: {slnx}");
+            StringAssert.Contains(File.ReadAllText(Path.Combine(repo, "Packages.Acme.Gadgets", "Acme.Gadgets", "Builders", "DefaultServiceConfiguration.cs")), "kafka-broker");
+        }
+
+        [TestMethod]
+        public void NewSolution_DefaultName_Fails()
+        {
+            var output = Capture(() => Assert.IsFalse(SolutionGeneratorTool.CreateNewSolution(
+                Headless(("--repo", _root), ("--solution-name", "Packages.MyCompany.MyProduct"), ("--transport", "rabbitmq"))).Succeeded));
+
+            StringAssert.Contains(output, "Bad solution name");
+        }
+
+        [TestMethod]
+        public void NewSolution_Existing_Refuses()
+        {
+            var before = Snapshot();
+
+            var output = Capture(() => Assert.IsFalse(SolutionGeneratorTool.CreateNewSolution(
+                Headless(("--repo", _root), ("--solution-name", SolutionName), ("--transport", "rabbitmq"))).Succeeded));
+
+            StringAssert.Contains(output, "already exists.");
+            AssertUnchanged(before);
+        }
+
+        [TestMethod]
+        public void NewSolution_MissingTransport_FailsWithNeeds()
+        {
+            var output = Capture(() => Assert.IsFalse(SolutionGeneratorTool.CreateNewSolution(
+                Headless(("--repo", _root), ("--solution-name", "Packages.Acme.Gadgets"))).Succeeded));
+
+            StringAssert.Contains(output, "Headless mode needs --transport.");
+            Assert.IsFalse(Directory.Exists(Path.Combine(_root, "Packages.Acme.Gadgets")));
+        }
+
+        [TestMethod]
+        public void NewService_Headless_AddsProject()
+        {
+            Assert.IsTrue(ProjectGeneratorTool.CreateNewProjects(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension, Headless(("--prefix", "Acme.Widgets.Pump"))).Succeeded);
+
+            Assert.IsTrue(File.Exists(Path.Combine(_solutionDir, "Acme.Widgets.Pump", "Acme.Widgets.Pump.csproj")));
+            StringAssert.Contains(File.ReadAllText(Path.Combine(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension)), "Acme.Widgets.Pump");
+        }
+
+        [TestMethod]
+        public void NewService_Existing_Refuses()
+        {
+            var before = Snapshot();
+
+            var output = Capture(() => Assert.IsFalse(ProjectGeneratorTool.CreateNewProjects(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension, Headless(("--prefix", Prefix))).Succeeded));
+
+            StringAssert.Contains(output, "already exists.");
+            AssertUnchanged(before);
+        }
+
+        [TestMethod]
+        public void NewService_MissingPrefix_FailsWithNeeds()
+        {
+            var before = Snapshot();
+
+            var output = Capture(() => Assert.IsFalse(ProjectGeneratorTool.CreateNewProjects(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension, Headless()).Succeeded));
+
+            StringAssert.Contains(output, "Headless mode needs --prefix.");
+            AssertUnchanged(before);
+        }
+
+        [TestMethod]
         public void Event_Existing_Refuses()
         {
             Run(EventGeneratorTool.CreateNewEvent, ("--event", "StatusEvent"));

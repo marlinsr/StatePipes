@@ -177,19 +177,12 @@ namespace StatePipes.ServiceCreatorTool
         {
             var input = new ToolInput(_values, _headless, new SelectionDialogPrompt());
             if (string.IsNullOrEmpty(_solutionFileName) && string.IsNullOrEmpty(_solutionDir) && string.IsNullOrEmpty(_projectFileName))
-            {
-                SolutionGeneratorTool.CreateNewSolution();
-                return ToolResult.Ok();
-            }
+                return SolutionGeneratorTool.CreateNewSolution(input);
             // Headless callers build the solution themselves and have no Visual Studio to attach to
             var dte = _headless ? null : GetDTE2();
             if (!_headless && (dte == null || !BuildSolution(dte))) return null;
             bool haveSolution = !string.IsNullOrEmpty(_solutionFileName) && !string.IsNullOrEmpty(_solutionDir);
-            if (haveSolution && string.IsNullOrEmpty(_projectFileName))
-            {
-                ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName);
-                return ToolResult.Ok();
-            }
+            if (haveSolution && string.IsNullOrEmpty(_projectFileName)) return ProjectGeneratorTool.CreateNewProjects(_solutionDir, _solutionFileName, input);
             if (!haveSolution || string.IsNullOrEmpty(_projectFileName) || string.IsNullOrEmpty(_targetDirectory)) return null;
             if (!string.IsNullOrEmpty(_permitIfStateFilePath)) return PermitIfGaurdGeneratorTool.CreatePermitIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitIfStateFilePath, input);
             if (!string.IsNullOrEmpty(_permitReentryIfStateFilePath)) return PermitReentryIfGaurdGeneratorTool.CreatePermitReentryIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitReentryIfStateFilePath, input);

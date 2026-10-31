@@ -71,21 +71,21 @@
             _ = helper.SaveTextFile("StateMachineDummyTests_cs.sample", "StateMachineDummyTests.cs");
             _ = helper.SaveTextFile("TestCategories_cs.sample", "TestCategories.cs");
         }
-        public static void CreateNewProjects(string solutionDir, string solutionFileName)
+        public static ToolResult CreateNewProjects(string solutionDir, string solutionFileName, IToolInput input)
         {
             var solutionName = GetSolutionNameNoExtension(solutionFileName);
             var projectName = GetSolutionNameNoPackages(solutionName);
             var defaultAnswer = $"{projectName}.";
-            string answer = defaultAnswer;
-            if (SelectionDialog.ShowInputDialog(ref answer, $"Enter the name of the project prefix for the service (no extension), ie: {projectName}.Vhw") == DialogResult.OK)
+            var answer = input.Text("--prefix", $"Enter the name of the project prefix for the service (no extension), ie: {projectName}.Vhw", defaultAnswer);
+            if (answer == null) return ToolResult.Failed;
+            if (answer == defaultAnswer || answer.TrimEnd().EndsWith('.'))
             {
-                if (answer == defaultAnswer || string.IsNullOrEmpty(answer) || answer.TrimEnd().EndsWith('.'))
-                {
-                    Console.WriteLine($"Bad project name: {answer}");
-                    return;
-                }
-                (new ProjectGeneratorTool(solutionDir, solutionFileName)).GenerateProject(answer);
+                Console.WriteLine($"Bad project name: {answer}");
+                return ToolResult.Failed;
             }
+            if (AlreadyExists(solutionDir, Path.Combine(solutionDir, answer))) return ToolResult.Failed;
+            (new ProjectGeneratorTool(solutionDir, solutionFileName)).GenerateProject(answer);
+            return ToolResult.Ok();
         }
     }
 }

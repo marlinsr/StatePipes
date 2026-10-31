@@ -31,53 +31,45 @@ namespace StatePipes.ServiceCreatorTool
             helper.MoveTo("BuildScript");
             _ = helper.SaveTextFile("NugetConfig_xml.sample", "NugetConfig.xml");
         }
-        public static void CreateNewSolution()
+        public static ToolResult CreateNewSolution(IToolInput input)
         {
-            FolderBrowserDialog dialog = new()
-            {
-                Description = "Repo root directory to place new solution folder"
-            };
-            string? repoDirectory;
-            if (DialogResult.OK == dialog.ShowDialog())
-            {
-                repoDirectory = dialog.SelectedPath;
-            }
-            else
-            {
-                Console.WriteLine("Action canceled.");
-                return;
-            }
-            if (string.IsNullOrEmpty(repoDirectory))
-            {
-                Console.WriteLine("Empty path to repo root directory! Terminating.");
-                return;
-            }
-            CreateNewSolutionAndLaunch(repoDirectory);
-        }
-        private static void CreateNewSolutionAndLaunch(string repoDirectory)
-        {
-            var isRabbitMQ = SelectionDialog.GetUserConfirmation("Are you using RabbitMQ? [select yes if RabbitMQ, select no if using Kafka]");
+            var repoDirectory = input.Folder("--repo", "Repo root directory to place new solution folder");
+            if (repoDirectory == null) return ToolResult.Failed;
+            var isRabbitMQ = input.Confirm("--transport", "rabbitmq", "kafka", "Are you using RabbitMQ? [select yes if RabbitMQ, select no if using Kafka]");
+            if (isRabbitMQ == null) return ToolResult.Failed;
             const string defaultAnswer = "Packages.MyCompany.MyProduct";
-            string answer = defaultAnswer;
-            if (SelectionDialog.ShowInputDialog(ref answer, "Enter the name of the solution directory [Prefix of 'Packages.' will be omitted in the solution name]") == DialogResult.OK)
+            var answer = input.Text("--solution-name", "Enter the name of the solution directory [Prefix of 'Packages.' will be omitted in the solution name]", defaultAnswer);
+            if (answer == null) return ToolResult.Failed;
+            if (answer == defaultAnswer || answer.TrimEnd().EndsWith('.'))
             {
-                if (answer == defaultAnswer || string.IsNullOrEmpty(answer) || answer.TrimEnd().EndsWith('.'))
-                {
-                    Console.WriteLine($"Bad solution name: {answer}");
-                    return;
-                }
-                if (answer.EndsWith(solutionExtension) == false)
-                {
-                    answer += solutionExtension;
-                }
-                var sc = new SolutionGeneratorTool(Path.Combine(repoDirectory, BaseToolGenerator.GetSolutionNameNoExtension(answer)), answer, isRabbitMQ);
-                sc.GenerateSolution();
-                bool missingHostFileEntries = HostFileReminder();
-                if (missingHostFileEntries) PdfOpener.OpenPdfFile(Path.Combine(sc.SolutionDir, "SetupAndRunInstructions.pdf"));
-                VisualStudioLauncher.LaunchSolution(sc.SolutionFullPath);
+                Console.WriteLine($"Bad solution name: {answer}");
+                return ToolResult.Failed;
             }
+            if (answer.EndsWith(solutionExtension) == false)
+            {
+                answer += solutionExtension;
+            }
+            var solutionDir = Path.Combine(repoDirectory, BaseToolGenerator.GetSolutionNameNoExtension(answer));
+            if (AlreadyExists(repoDirectory, solutionDir)) return ToolResult.Failed;
+            var sc = new SolutionGeneratorTool(solutionDir, answer, isRabbitMQ.Value);
+            sc.GenerateSolution();
+            var hostsText = MissingHostEntries();
+            if (input.Headless)
+            {
+                if (hostsText != null) Console.WriteLine(hostsText);
+                Console.WriteLine($"Solution created: {sc.SolutionFullPath}");
+                return ToolResult.Ok();
+            }
+            if (hostsText != null)
+            {
+                MessageBox.Show(hostsText);
+                PdfOpener.OpenPdfFile(Path.Combine(sc.SolutionDir, "SetupAndRunInstructions.pdf"));
+            }
+            VisualStudioLauncher.LaunchSolution(sc.SolutionFullPath);
+            return ToolResult.Ok();
         }
-        private static bool HostFileReminder()
+        /// <summary>The hosts file reminder, or null when every StatePipes host name resolves.</summary>
+        private static string? MissingHostEntries()
         {
             var statePipesHostName = "statepipes.explorer";
             var stepCaHostName = "step-ca";
@@ -100,8 +92,7 @@ namespace StatePipes.ServiceCreatorTool
                 $"\t127.0.0.1 {brokerHostName}\n" +
                 $"\t127.0.0.1 {kafkaHostName}\n" +
                 $"\t127.0.0.1 {keycloakHostName}\n";
-            if (showReminder) MessageBox.Show(hostsText);
-            return showReminder;
+            return showReminder ? hostsText : null;
         }
     }
 }
