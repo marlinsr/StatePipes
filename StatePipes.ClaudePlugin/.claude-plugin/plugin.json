@@ -1,6 +1,6 @@
 {
   "name": "statepipes",
-  "version": "0.1.0",
+  "version": "6.0.3",
   "description": "Guides Claude Code to design, scaffold, extend and verify StatePipes services that use the state-scoped command handler pattern.",
   "author": {
     "name": "marlinsr"

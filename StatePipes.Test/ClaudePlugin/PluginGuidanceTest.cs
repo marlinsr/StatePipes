@@ -79,6 +79,16 @@ namespace StatePipes.Test.ClaudePlugin
         }
 
         [TestMethod]
+        public void PluginVersion_MatchesTheSolutionVersion()
+        {
+            var solutionInfo = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "SolutionInfo.proj"));
+            var versionPrefix = Regex.Match(solutionInfo, "<VersionPrefix>([^<]+)</VersionPrefix>").Groups[1].Value;
+            using var plugin = JsonDocument.Parse(File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ClaudePlugin", ".claude-plugin", "plugin.json")));
+
+            Assert.AreEqual(versionPrefix, plugin.RootElement.GetProperty("version").GetString(), "The release workflow keeps plugin.json at the SolutionInfo.proj version.");
+        }
+
+        [TestMethod]
         public void Verify_RunsTheCheckScriptFromItsOwnSkillFolder()
         {
             Assert.IsTrue(File.Exists(Path.Combine(PluginPaths.Skills, "statepipes-verify", "scripts", "Check-StatePipesService.ps1")));
