@@ -412,34 +412,85 @@ New StatePipes Sln          ← once per repository
        └─ StateMachine Diagrammer ← at any time to visualise
 ```
 
-## Headless Proxy Generation
+## Headless Mode
 
-The four proxy tools can also run outside Visual Studio, for scripts and coding agents. `-headless` skips attaching
-to Visual Studio, building and opening files, so build the solution with `dotnet build` first. Every value a dialog
-would ask for is passed as an argument instead. In headless mode a missing value is reported as
-`Headless mode needs ...` and no dialog opens.
+Every tool can also run outside Visual Studio, for scripts, CI and coding agents. `-headless` skips attaching to
+Visual Studio, building and opening files, so build the solution with `dotnet build` first whenever the operation reads
+the built service (Add State, Add Trigger, the guards, Add Periodic, the proxies and the Diagrammer). Every value a
+dialog would ask for is passed as an argument instead. Arguments given without `-headless` also replace their dialog.
+
+The tools print `Finished!!!` and exit with code 0 on success. Any failure exits with code 1 and writes no file:
+
+| Message | Meaning |
+|---|---|
+| `Headless mode needs <arg>.` | A required argument is missing |
+| `<arg> <value> not found; one of: ...` | The value isn't one of the choices the dialog would offer, for example a trigger that isn't in the last build |
+| `... already exists.` | The state, trigger, event, state machine, timer, service or solution already exists (this applies in Visual Studio too, where the generators used to overwrite the file) |
+| `<arg> must be ...` | The value is invalid; names must be C# identifiers, and `--timer-period` a positive number |
+| `Unknown argument <arg>.`, `<arg> needs a value.` | The argument isn't one listed below, or has no value |
 
 ```powershell
 $tool = "${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe"
+$diagrammer = "${env:ProgramFiles(x86)}\StatePipes\Diagrammer\StatePipes.Diagrammer.exe"
+
+# New StatePipes Sln (also creates the first service, Acme.Widgets), then New StatePipes Service
+& $tool -headless --repo C:\src --solution-name Packages.Acme.Widgets --transport rabbitmq
+$sln = 'C:\src\Packages.Acme.Widgets'
+& $tool -headless -r "$sln\" -s Packages.Acme.Widgets.slnx --prefix Acme.Widgets.Pump
+
 $common = '-r', "$sln\", '-s', 'Packages.Acme.Widgets.slnx', '-p', 'Acme.Widgets.csproj', '-b', "$sln\Acme.Widgets\obj\Debug\net10.0\"
+$states = "$sln\Acme.Widgets\StateMachines\Valve\States"
 
-# New StatePipes Proxy (from the other service's DLL in its .Service output folder)
+& $tool -headless @common -m --statemachine-name Valve
+dotnet build "$sln\Packages.Acme.Widgets.slnx"
+& $tool -headless @common -t --statemachine Valve --trigger-name Open --trigger-scope public
+& $tool -headless @common -a --statemachine Valve --state Closed
+& $tool -headless @common -a --statemachine Valve --state Opened
+& $tool -headless @common -e --event ValveOpenedEvent
+dotnet build "$sln\Packages.Acme.Widgets.slnx"
+& $tool -headless @common -a --statemachine Valve --state Draining --parent-state Opened
+& $tool -headless @common -pi "$states\Closed.cs" --trigger Open --transition-to Opened
+& $tool -headless @common -pri "$states\Opened.cs" --trigger Open
+& $tool -headless @common -ii "$states\Closed.cs" --trigger Open
+& $tool -headless @common -pti "$states\Opened.cs" --timer-name Poll --timer-period 500
+
+# New StatePipes Proxy (from the other service's DLL in its .Service output folder), live, and update
 & $tool -headless @common --moniker Peer --statemachine Valve --dll "$otherSln\Acme.Peer.Service\bin\Debug\net10.0\Acme.Peer.dll"
-
-# Create StatePipes Proxy From Service (live)
 & $tool -headless -live @common --moniker Peer --statemachine Valve --broker amqps://amqp09-broker/Production --exchange <exchange> --cert <client.p12> --certpw <password.txt>
-
-# Update: -u names the existing proxy file, which gives the moniker
 & $tool -headless @common -u "$sln\Acme.Widgets\Proxies\PeerProxy.cs" --dll <updated dll>
+
+# StateMachine Diagrammer: one PDF per state machine
+dotnet build "$sln\Packages.Acme.Widgets.slnx"
+& $diagrammer -headless -r "$sln\" -s Packages.Acme.Widgets.slnx -p Acme.Widgets.csproj -c "$sln\Acme.Widgets\obj\Debug\net10.0\" --out "$sln\Acme.Widgets\Diagrams"
 ```
 
-| Argument | Replaces the dialog for |
-|---|---|
-| `--moniker <name>` | The proxy moniker (not needed with `-u`) |
-| `--statemachine <name>` | The state machine that receives the proxy's event and connection status triggers (needed when the service has more than one; `-u` keeps the existing proxy's machine) |
-| `--dll <path>` | The class library DLL to build the proxy from |
-| `--broker <uri>`, `--exchange <name>` | The broker URI and the service's exchange name (`-live`) |
-| `--cert <path>`, `--certpw <path>` | The client certificate and its password file (`-live`) |
+| Tool | Argument | Replaces the dialog for |
+|---|---|---|
+| New StatePipes Sln | `--repo <dir>` | The repo root folder |
+| | `--transport rabbitmq\|kafka` | "Are you using RabbitMQ?" |
+| | `--solution-name <name>` | The solution directory name, for example `Packages.Acme.Widgets` |
+| New StatePipes Service | `--prefix <prefix>` | The project prefix, for example `Acme.Widgets.Pump` |
+| Add StateMachine (`-m`) | `--statemachine-name <name>` | The new state machine's name |
+| Add State (`-a`) | `--statemachine <name>` | The state machine (needed when the service has more than one) |
+| | `--parent-state <state>` | The parent state; leave it out for an un-parented state |
+| | `--state <name>` | The new state's name |
+| Add Trigger (`-t`) | `--statemachine <name>` | The state machine (needed when the service has more than one) |
+| | `--trigger-scope public\|internal` | The trigger scope |
+| | `--trigger-name <name>` | The new trigger's name |
+| Add Event (`-e`) | `--event <name>` | The new event's name |
+| Add PermitIf (`-pi <state file>`) | `--trigger <name>` | The trigger |
+| | `--transition-to <state>` | The state to transition to |
+| Add PermitReentryIf (`-pri`), Add IgnoreIf (`-ii`) | `--trigger <name>` | The trigger |
+| Add Periodic (`-pti <state file>`) | `--timer-name <name>` | The timer name |
+| | `--timer-period <ms>` | The period in milliseconds |
+| Proxy tools | `--moniker <name>` | The proxy moniker (not needed with `-u`) |
+| | `--statemachine <name>` | The state machine that receives the proxy's event and connection status triggers (needed when the service has more than one; `-u` keeps the existing proxy's machine) |
+| | `--dll <path>` | The class library DLL to build the proxy from |
+| | `--broker <uri>`, `--exchange <name>` | The broker URI and the service's exchange name (`-live`) |
+| | `--cert <path>`, `--certpw <path>` | The client certificate and its password file (`-live`) |
+| StateMachine Diagrammer | `--out <dir>` | Where the PDFs go (default `%ProgramData%\StatePipes\StatePipes.Diagrammer`) |
 
-If the chosen state machine has no `Triggers\Internal\ProxyConnectionStatusTrigger.cs`, the proxy tools create it,
-from Visual Studio as well as headless. `-b` is the class library's `obj\<configuration>\<framework>\` folder. The tool prints `Finished!!!` on success.
+`-b` (and the Diagrammer's `-c`) is the class library's `obj\<configuration>\<framework>\` folder; the tools derive
+the `.Service` output folder from it. State file paths may be relative to the current directory. If the chosen state
+machine has no `Triggers\Internal\ProxyConnectionStatusTrigger.cs`, the proxy tools create it, from Visual Studio as
+well as headless.

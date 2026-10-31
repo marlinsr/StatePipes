@@ -65,7 +65,9 @@ namespace StatePipes.Test.ClaudePlugin
             var diagrammer = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.Diagrammer", "Program.cs"));
             var parsed = Regex.Matches(program + diagrammer, "args\\[i\\]\\.Equals\\(\"([^\"]+)\"").Select(m => m.Groups[1].Value).Concat(ToolArguments.Known).ToHashSet();
             var recipes = Directory.GetFiles(PluginPaths.Operations, "*.md");
-            var guidance = string.Join("\n", recipes.Select(File.ReadAllText)) + Skill("statepipes-scaffold");
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+            StringAssert.Contains(docs, "## Headless Mode");
+            var guidance = string.Join("\n", recipes.Select(File.ReadAllText)) + Skill("statepipes-scaffold") + docs[docs.IndexOf("## Headless Mode")..];
 
             foreach (var recipe in recipes)
             {
