@@ -1,4 +1,4 @@
-﻿namespace StatePipes.ServiceCreatorTool
+namespace StatePipes.ServiceCreatorTool
 {
     internal class EventGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {

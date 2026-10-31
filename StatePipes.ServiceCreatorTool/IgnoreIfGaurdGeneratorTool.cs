@@ -15,7 +15,7 @@ namespace StatePipes.ServiceCreatorTool
             else helper.ReplaceInFile(stateFileName, publicTriggerUsingCommentMoniker, string.Empty);
         }
 
-        private static string? SelectTrigger(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName)
+        private static string? SelectTrigger(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName, IToolInput input)
         {
             var triggerTypes = stateMachineTypesHelper.GetTriggerTypes(stateMachineName);
             if (triggerTypes.Count == 0)
@@ -24,20 +24,21 @@ namespace StatePipes.ServiceCreatorTool
                 return null;
             }
             var triggerNames = triggerTypes.Select(t => t.Name).ToList();
-            return SelectionDialog.ShowListSelection(triggerNames, "Select the trigger for the IgnoreIf guard:");
+            return input.Choose("--trigger", triggerNames, "Select the trigger for the IgnoreIf guard:", fromBuild: true);
         }
 
-        public static void CreateIgnoreIfGuard(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath)
+        public static ToolResult CreateIgnoreIfGuard(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineName = StateMachineTypesHelper.GetStateMachineNameFromSourceFile(stateFilePath);
-            if (string.IsNullOrEmpty(stateMachineName)) return;
+            if (string.IsNullOrEmpty(stateMachineName)) return ToolResult.Failed;
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
-            var selectedTrigger = SelectTrigger(stateMachineTypesHelper, stateMachineName);
-            if (string.IsNullOrEmpty(selectedTrigger)) return;
+            var selectedTrigger = SelectTrigger(stateMachineTypesHelper, stateMachineName, input);
+            if (string.IsNullOrEmpty(selectedTrigger)) return ToolResult.Failed;
             (new IgnoreIfGaurdGeneratorTool(solutionDir, solutionFileName)).GenerateIgnoreIfGuard(projectName, stateFilePath, selectedTrigger, stateMachineTypesHelper.IsTriggerInternal(selectedTrigger));
+            return ToolResult.Ok();
         }
     }
 }

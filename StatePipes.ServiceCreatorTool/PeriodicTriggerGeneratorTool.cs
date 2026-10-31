@@ -37,19 +37,21 @@ namespace StatePipes.ServiceCreatorTool
             if (i >= input.Length) return string.Empty;
             return char.ToUpper(input[i]) + input[(i + 1)..];
         }
-        public static void CreatePeriodicTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath)
+        public static ToolResult CreatePeriodicTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineName = StateMachineTypesHelper.GetStateMachineNameFromSourceFile(stateFilePath);
-            if (string.IsNullOrEmpty(stateMachineName)) return;
-            string timerName = "";
-            if (!SelectionDialog.GetUserInput(ref timerName, $"Enter the timer name for {stateMachineName}")) return;
-            string timerPeriod = "";
-            if (!SelectionDialog.GetUserInput(ref timerPeriod, $"Enter the period in milliseconds for {timerName}")) return;
-            if (string.IsNullOrEmpty(timerPeriod)) return;
-            (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod);
+            if (string.IsNullOrEmpty(stateMachineName)) return ToolResult.Failed;
+            var timerName = input.Name("--timer-name", $"Enter the timer name for {stateMachineName}");
+            if (timerName == null) return ToolResult.Failed;
+            var timerPeriod = input.PositiveInt("--timer-period", $"Enter the period in milliseconds for {timerName}");
+            if (timerPeriod == null) return ToolResult.Failed;
+            var triggerFile = Path.Combine(projDir, "StateMachines", stateMachineName, "Triggers", "Internal", $"{NormalizeName(timerName)}Trigger.cs");
+            if (AlreadyExists(solutionDir, triggerFile)) return ToolResult.Failed;
+            (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod.Value.ToString());
+            return ToolResult.Ok();
         }
     }
 }

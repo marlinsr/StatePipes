@@ -191,26 +191,10 @@ namespace StatePipes.ServiceCreatorTool
                 return ToolResult.Ok();
             }
             if (!haveSolution || string.IsNullOrEmpty(_projectFileName) || string.IsNullOrEmpty(_targetDirectory)) return null;
-            if (!string.IsNullOrEmpty(_permitIfStateFilePath))
-            {
-                PermitIfGaurdGeneratorTool.CreatePermitIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitIfStateFilePath);
-                return ToolResult.Ok();
-            }
-            if (!string.IsNullOrEmpty(_permitReentryIfStateFilePath))
-            {
-                PermitReentryIfGaurdGeneratorTool.CreatePermitReentryIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitReentryIfStateFilePath);
-                return ToolResult.Ok();
-            }
-            if (!string.IsNullOrEmpty(_ignoreIfStateFilePath))
-            {
-                IgnoreIfGaurdGeneratorTool.CreateIgnoreIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _ignoreIfStateFilePath);
-                return ToolResult.Ok();
-            }
-            if (!string.IsNullOrEmpty(_periodicTriggerStateFilePath))
-            {
-                PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _periodicTriggerStateFilePath);
-                return ToolResult.Ok();
-            }
+            if (!string.IsNullOrEmpty(_permitIfStateFilePath)) return PermitIfGaurdGeneratorTool.CreatePermitIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitIfStateFilePath, input);
+            if (!string.IsNullOrEmpty(_permitReentryIfStateFilePath)) return PermitReentryIfGaurdGeneratorTool.CreatePermitReentryIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _permitReentryIfStateFilePath, input);
+            if (!string.IsNullOrEmpty(_ignoreIfStateFilePath)) return IgnoreIfGaurdGeneratorTool.CreateIgnoreIfGuard(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _ignoreIfStateFilePath, input);
+            if (!string.IsNullOrEmpty(_periodicTriggerStateFilePath)) return PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _periodicTriggerStateFilePath, input);
             if (_addState) return Opened(dte, StateGeneratorTool.CreateNewState(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_addTrigger) return Opened(dte, TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_addEvent) return Opened(dte, EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
