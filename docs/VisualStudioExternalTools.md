@@ -37,6 +37,9 @@ The argument strings use standard Visual Studio External Tools macros:
 | Add IgnoreIf | 309 | ServiceCreatorTool | Yes — state class file |
 | Update StatePipes Proxy | 310 | ServiceCreatorTool | Yes — `*Proxy.cs` file |
 | Add Periodic | 311 | ServiceCreatorTool | Yes — state class file |
+| Create StatePipes Proxy From Service | 312 | ServiceCreatorTool | No |
+| Update StatePipes Proxy From Service | 313 | ServiceCreatorTool | Yes — `*Proxy.cs` file |
+| Add Event | 314 | ServiceCreatorTool | No |
 
 ---
 
@@ -54,7 +57,7 @@ The argument strings use standard Visual Studio External Tools macros:
 #### What happens
 
 1. Opens a **folder browser dialog** — select the repo root directory where the new solution folder will be created.
-2. Opens an **input dialog** — enter the solution name in the format `Packages.MyCompany.MyProduct` (the `Packages.` prefix is stripped from the solution name but kept as the directory name).
+2. Opens an **input dialog** — enter the solution name in the format `Packages.MyCompany.MyProduct`.
 3. The tool creates the full solution scaffold:
 
 | Path | Contents |
@@ -326,6 +329,69 @@ The net result is a self-contained polling loop: the timer starts on `OnEntry`, 
 
 ---
 
+### Create StatePipes Proxy From Service
+
+**Menu title:** Create StatePipes Proxy From Service
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-live -r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir)`
+**When to use:** Adding a client proxy for a remote StatePipes service when you don't have its compiled assembly but the service is running and reachable on the broker. Run this with a **service class library project** (not the `.Service` or `.Test` project) active in Solution Explorer. Use **New StatePipes Proxy** instead when you have the service's DLL.
+
+#### What happens
+
+1. Builds the solution.
+2. Opens an **input dialog**: enter a moniker for the proxy (a short identifier, e.g., `Sensor`).
+3. Opens four dialogs in turn to collect the connection details:
+   - **Broker URI.** This is pre-filled from the solution's `ToolConfiguration.json`: `amqps://amqp09-broker/Production` for RabbitMQ or `ssl://kafka-broker:9093` for Kafka.
+   - **Exchange name** of the remote service. This is the exchange name prefix in the service's bus configuration, without any suffix; the tool adds `.commands` itself.
+   - **Client certificate file** (`.p12`).
+   - **Certificate password file** (`.txt`).
+4. Connects to the broker and sends `StatePipes.Messages.GetSelfDescriptionCommand` to `<exchange>.commands`. It then waits up to 30 seconds for the service's self-description reply. If none arrives, the tool reports the timeout and generates nothing.
+5. Generates `<Moniker>Proxy.cs` in `<ClassLibrary>\Proxies\` from the self-description. The proxy has the same strongly typed send-command and subscribe-event members as **New StatePipes Proxy**, derived from the running service's public triggers and events.
+6. If this is a new proxy (the file did not already exist), injects the same wiring as **New StatePipes Proxy**:
+   - `Builders\DefaultSetup.cs`: registration call
+   - `Builders\DefaultServiceConfiguration.cs`: proxy configuration entry
+   - `ValueObjects\ProxyMonikers.cs`: moniker constant
+
+The generated file is not opened automatically; its path is printed to the Output window.
+
+---
+
+### Update StatePipes Proxy From Service
+
+**Menu title:** Update StatePipes Proxy From Service
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-live -r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -u $(ItemPath)`
+**When to use:** Regenerating an existing proxy class from a running service after its public API has changed, when you don't have its updated assembly. **Open or select the existing `<Moniker>Proxy.cs` file in Solution Explorer before running.**
+
+#### What happens
+
+1. Builds the solution.
+2. Extracts the proxy moniker from the selected file name (everything before `Proxy.cs`).
+3. Collects the broker URI, exchange name, certificate file and password file, then fetches the running service's self-description, exactly as **Create StatePipes Proxy From Service** does (steps 3–4).
+4. Overwrites `<Moniker>Proxy.cs` with a freshly generated proxy class reflecting the service's current triggers and events.
+5. Because the proxy file already exists, the `DefaultSetup.cs`, `DefaultServiceConfiguration.cs`, and `ProxyMonikers.cs` injection step is **skipped**, so the existing wiring is preserved.
+
+---
+
+### Add Event
+
+**Menu title:** Add Event
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -e`
+**When to use:** Adding a new event that the service publishes. Run with a **service class library project** active.
+
+#### What happens
+
+1. Builds the solution.
+2. Checks that the active project is a service class library (not a `.Service` project).
+3. Opens an **input dialog**: enter the event name (e.g., `PumpStartedEvent`).
+4. Creates `<ClassLibrary>\Events\<Name>.cs` from the `Event_cs.sample` template: a `public class <Name> : IEvent` in the `<ClassLibrary>.Events` namespace.
+5. Opens the new file in the editor.
+
+Add the event's payload as immutable properties (events are broadcast to every subscriber, see [Event Publishing](StateMachineComposition.md#111-event-publishing)) and publish it from a state with `PublishEvent`.
+
+---
+
 ## Typical Workflow
 
 ```
@@ -338,7 +404,42 @@ New StatePipes Sln          ← once per repository
        │    ├─ Add PermitReentryIf ├─ per guard in a state file
        │    ├─ Add IgnoreIf        ┘
        │    └─ Add Periodic        ← per timed behaviour in a state
-       ├─ New StatePipes Proxy    ← for each remote service dependency
-       ├─ Update StatePipes Proxy ← when a dependency's API changes
+       ├─ Add Event               ← for each event the service publishes
+       ├─ New StatePipes Proxy    ← for each remote service dependency (from its DLL)
+       │    or Create StatePipes Proxy From Service ← (from the running service)
+       ├─ Update StatePipes Proxy ← when a dependency's API changes (from its DLL)
+       │    or Update StatePipes Proxy From Service ← (from the running service)
        └─ StateMachine Diagrammer ← at any time to visualise
 ```
+
+## Headless Proxy Generation
+
+The four proxy tools can also run outside Visual Studio, for scripts and coding agents. `-headless` skips attaching
+to Visual Studio, building and opening files, so build the solution with `dotnet build` first. Every value a dialog
+would ask for is passed as an argument instead. In headless mode a missing value is reported as
+`Headless mode needs ...` and no dialog opens.
+
+```powershell
+$tool = "${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe"
+$common = '-r', "$sln\", '-s', 'Packages.Acme.Widgets.slnx', '-p', 'Acme.Widgets.csproj', '-b', "$sln\Acme.Widgets\obj\Debug\net10.0\"
+
+# New StatePipes Proxy (from the other service's DLL in its .Service output folder)
+& $tool -headless @common --moniker Peer --statemachine Valve --dll "$otherSln\Acme.Peer.Service\bin\Debug\net10.0\Acme.Peer.dll"
+
+# Create StatePipes Proxy From Service (live)
+& $tool -headless -live @common --moniker Peer --statemachine Valve --broker amqps://amqp09-broker/Production --exchange <exchange> --cert <client.p12> --certpw <password.txt>
+
+# Update: -u names the existing proxy file, which gives the moniker
+& $tool -headless @common -u "$sln\Acme.Widgets\Proxies\PeerProxy.cs" --dll <updated dll>
+```
+
+| Argument | Replaces the dialog for |
+|---|---|
+| `--moniker <name>` | The proxy moniker (not needed with `-u`) |
+| `--statemachine <name>` | The state machine that receives the proxy's event and connection status triggers (needed when the service has more than one; `-u` keeps the existing proxy's machine) |
+| `--dll <path>` | The class library DLL to build the proxy from |
+| `--broker <uri>`, `--exchange <name>` | The broker URI and the service's exchange name (`-live`) |
+| `--cert <path>`, `--certpw <path>` | The client certificate and its password file (`-live`) |
+
+If the chosen state machine has no `Triggers\Internal\ProxyConnectionStatusTrigger.cs`, the proxy tools create it,
+from Visual Studio as well as headless. `-b` is the class library's `obj\<configuration>\<framework>\` folder. The tool prints `Finished!!!` on success.

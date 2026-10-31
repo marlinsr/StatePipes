@@ -13,7 +13,7 @@ namespace StatePipes.ServiceCreatorTool
         private readonly IEnumerable<Type> _commonTypes;
         private readonly Assembly _assemblies;
         private readonly IEnumerable<Type> _types;
-        public StateMachineTypesHelper(string projectName, PathHelper pathProvider) 
+        public StateMachineTypesHelper(string projectName, PathHelper pathProvider)
         {
             try
             {
@@ -33,10 +33,21 @@ namespace StatePipes.ServiceCreatorTool
         }
         public string? GetStateMachineName() => GetStateMachineType()?.Name;
 
-        public Type? GetStateMachineType()
+        public Type? GetStateMachineType(string? stateMachineName = null, bool headless = false)
         {
             var stateMachineOptions = GetStateMachineTypes();
+            if (!string.IsNullOrEmpty(stateMachineName))
+            {
+                var named = stateMachineOptions.FirstOrDefault(t => t.Name == stateMachineName || t.FullName == stateMachineName);
+                if (named == null) Console.WriteLine($"State machine {stateMachineName} not found; one of: {string.Join(", ", stateMachineOptions.Select(t => t.Name))}");
+                return named;
+            }
             if (stateMachineOptions.Count == 1) return stateMachineOptions[0];
+            if (stateMachineOptions.Count > 1 && headless)
+            {
+                Console.WriteLine($"Headless mode needs --statemachine <name>; one of: {string.Join(", ", stateMachineOptions.Select(t => t.Name))}");
+                return null;
+            }
             if (stateMachineOptions.Count > 1)
             {
                 var typeMap = stateMachineOptions.ToDictionary(t => t.Name!, t => t);

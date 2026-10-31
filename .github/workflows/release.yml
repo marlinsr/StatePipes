@@ -2,7 +2,7 @@
 #
 # StatePipes — automated build & release.
 # Triggered on every merge to `main`. Mirrors the manual checklist:
-#   1. Bump VersionPrefix in SolutionInfo.proj
+#   1. Bump VersionPrefix in SolutionInfo.proj and the Claude Code plugin's version to match
 #   2. Append release notes (with closing-issue info from the merged PR) to README.md
 #   3. Build the solution as Release  (Windows runner)
 #   4. Build the StatePipes.Explorer, StatePipes.BrokerProxy and StatePipes.OpcUaBridge Docker images,
@@ -81,7 +81,7 @@ jobs:
             // Body is passed via file because it can be large / contain odd chars.
             require('fs').writeFileSync('/tmp/pr_body.txt', prBody);
 
-      - name: Compute next version & update SolutionInfo.proj
+      - name: Compute next version & update SolutionInfo.proj and plugin.json
         id: bump
         run: |
           set -euo pipefail
@@ -97,6 +97,9 @@ jobs:
           sed -i "0,/<VersionPrefix>${current}<\/VersionPrefix>/s||<VersionPrefix>${new}</VersionPrefix>|" SolutionInfo.proj
           # Sanity check
           grep -q "<VersionPrefix>${new}</VersionPrefix>" SolutionInfo.proj
+          # The Claude Code plugin shares the version, so its skills match the ServiceCreatorTool they drive.
+          sed -i -E "s|(\"version\": *\")[^\"]+\"|\1${new}\"|" StatePipes.ClaudePlugin/.claude-plugin/plugin.json
+          grep -q "\"version\": \"${new}\"" StatePipes.ClaudePlugin/.claude-plugin/plugin.json
           echo "version=$new"  >> "$GITHUB_OUTPUT"
           echo "tag=v$new"     >> "$GITHUB_OUTPUT"
 
@@ -163,7 +166,7 @@ jobs:
           set -euo pipefail
           git config user.name  "release-bot"
           git config user.email "actions@github.com"
-          git add SolutionInfo.proj StatePipes/Docs/ReadMe.md
+          git add SolutionInfo.proj StatePipes/Docs/ReadMe.md StatePipes.ClaudePlugin/.claude-plugin/plugin.json
           git commit -m "chore(release): v${{ steps.bump.outputs.version }} [release-bot] [skip ci]"
           git push origin HEAD:main
 
