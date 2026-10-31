@@ -6,7 +6,15 @@ External Tool: **Add StateMachine** (`-m`). Generator: `StateMachineGeneratorToo
 
 - Service class library `<Prefix>`; new machine name `<Machine>` (PascalCase, unique in the service).
 
-## Steps
+## Run the tool
+
+```
+& "<Tool>" -headless <common arguments> -m --statemachine-name <Machine>
+```
+
+It creates both files below. Then build, so later operations can see `<Machine>`, and read step 3.
+
+## Fallback (tool without headless support)
 
 1. Create the marker type and the first state:
 

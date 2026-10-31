@@ -1,4 +1,4 @@
----
+﻿---
 name: statepipes-scaffold
 description: Use when creating or extending a StatePipes service - solution, service, state machine, state, trigger, guard (PermitIf, PermitReentryIf, IgnoreIf), periodic timer, proxy, or diagram. Gives the exact files, templates and injection points the StatePipes Visual Studio External Tools would produce.
 ---
@@ -6,10 +6,12 @@ description: Use when creating or extending a StatePipes service - solution, ser
 # StatePipes scaffold operations
 
 Every structural change to a StatePipes service is one of twelve operations. Each mirrors a Visual Studio External
-Tool from `StatePipes.ServiceCreatorTool` and has a recipe in `operations/`. **Follow the recipe exactly**: same
-folders, file names, templates and injection markers as the tool, so the result is indistinguishable from what a
-developer gets in Visual Studio. `new-proxy` and `update-proxy` are the exception: Claude runs the installed tool
-headless for them (see "Running the tool headless"), because their output is generated from another service.
+Tool from `StatePipes.ServiceCreatorTool` and has a recipe in `operations/`. **Run the installed tool headless**, as
+each recipe's "Run the tool" section shows (see "Running the tool headless" below). The real generators then write
+exactly what a developer gets in Visual Studio. Each recipe's Fallback section builds the same files by hand from the
+templates; use it only when the installed tool is older than headless support for that operation. Never hand-write
+a proxy: `new-proxy` and `update-proxy` have no hand-built fallback, because their output is generated from another
+service.
 
 Read `statepipes-conventions` before writing code inside the generated files.
 
@@ -37,17 +39,30 @@ microservice → per machine `add-state-machine`, then `add-state` / `add-trigge
 The installer registers three more External Tools, which are folded into the operations above:
 
 - **Add Event** (`-e`): creates `<Prefix>/Events/<Event>.cs` from `Event_cs.sample` (`@#$EventName@#$` = `<Event>`).
-  Do this by hand exactly as `EventGeneratorTool` does, then publish the event from a state with `PublishEvent`.
+  Run the tool, then publish the event from a state with `PublishEvent`:
+
+  ```
+  & "<Tool>" -headless <common arguments> -e --event <Event>
+  ```
+
+  Fallback: create the file by hand exactly as `EventGeneratorTool` does.
 - **Create StatePipes Proxy From Service** and **Update StatePipes Proxy From Service** (`-live`): the same as
   `new-proxy` and `update-proxy`, but the proxy is built from the description a running service publishes on the
   broker, so the other service's DLL isn't needed. See `operations/new-proxy.md`.
 
 ## Running the tool headless
 
-`<Tool>` is the installed ServiceCreatorTool, normally
-`${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`. Check that it exists.
-`-headless` skips Visual Studio (it doesn't attach, build or open files), and every input a dialog would ask for is
-given as an argument. A missing input makes the tool print `Headless mode needs ...` rather than open a dialog.
+Two installed programs, run from PowerShell:
+
+- `<Tool>`: `${env:ProgramFiles(x86)}\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+- `<Diagrammer>`: `${env:ProgramFiles(x86)}\StatePipes\Diagrammer\StatePipes.Diagrammer.exe`
+
+Check that they exist, and check the version with `(Get-Item "<Tool>").VersionInfo.FileVersion`. Every operation
+runs headless only in versions **newer than 6.0.4**. Version 6.0.4 runs only `new-proxy` and `update-proxy`
+headless; its other operations would open dialogs on the user's screen, so with 6.0.4 use the other recipes'
+Fallback sections. `-headless` skips Visual Studio (they don't attach, build or open files), and every input a
+dialog would ask for is given as an argument. Names (states, triggers, events, machines, timers, monikers) must be C#
+identifiers.
 
 The common arguments name the solution and the class library, the same values Visual Studio passes:
 
@@ -56,16 +71,31 @@ The common arguments name the solution and the class library, the same values Vi
 ```
 
 `-b` must be the class library's **`obj`** output folder for the configuration you built. The tool derives
-`<Prefix>.Service/bin/<configuration>/` from it. Run in PowerShell. Success ends with `Finished!!!`. Anything else
-(`Aborting Exception: ...`, `Incorrect Parameters Specified!`, `Headless mode needs ...`) is a failure: report the
-message, and don't write the generated files by hand.
+`<Prefix>.Service/bin/<configuration>/` from it.
+
+**Build first.** `add-state`, `add-trigger`, the guards, `add-periodic`, the proxies and `diagram` read the built
+service, so run `dotnet build <SolutionDir>\<Solution>.slnx` before them. A state machine, state or trigger added since
+the last build isn't visible yet, and the tool says `... not found; one of: ... If it was just added, build the
+solution first.`
+
+**Success** is `Finished!!!` and exit code 0 (`$LASTEXITCODE`). Every failure exits with 1. An input error writes no file; after `Aborting Exception` part-way through generating, check `git status` for files the run already wrote:
+
+| Output | Meaning and what to do |
+|---|---|
+| `Headless mode needs <arg>.` | An argument is missing. Add it and run again. |
+| `<arg> <value> not found; one of: ...` | Pick one of the listed values, or build first. |
+| `... already exists.` | The name is taken. Choose another name; never delete the existing file to make room. |
+| `<arg> must be ...` | The value is invalid (for example not a C# identifier). Fix it. |
+| `Aborting Exception: ...`, other messages | Report the message to the user. |
+| `Unknown argument --...`, `Incorrect Parameters Specified!` | Check the arguments against the recipe. If they match, the installed tool is too old: use the recipe's Fallback section, and tell the user to install the latest StatePipes release. |
 
 ## The StatePipes version
 
 Templates and documents must come from the same StatePipes release that the service references.
 
 - **Existing service:** use the `StatePipes` `PackageReference` version in `<Prefix>.csproj`, for example `6.0.3`.
-- **New solution or first service (no csproj yet):** use the latest release tag of
+- **New solution or first service (no csproj yet):** the tool references its own version. For the Fallback, use
+  the latest release tag of
   `https://github.com/marlinsr/StatePipes` (`v<version>`, for example `v6.0.3`). Use that same `<version>` for
   `@#$StatePipesVersion@#$`, so the new csproj references the package that matches the templates. Tell the user
   which version you picked.

@@ -15,7 +15,7 @@ namespace StatePipes.ServiceCreatorTool
             else helper.ReplaceInFile(stateFileName, publicTriggerUsingCommentMoniker, string.Empty);
         }
 
-        private static string? SelectState(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName)
+        private static string? SelectState(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName, IToolInput input)
         {
             var stateTypes = stateMachineTypesHelper.GetStateTypes(stateMachineName);
             if (stateTypes.Count == 0)
@@ -24,9 +24,9 @@ namespace StatePipes.ServiceCreatorTool
                 return null;
             }
             var stateNames = stateTypes.Select(t => t.Name).ToList();
-            return SelectionDialog.ShowListSelection(stateNames, "Select the transition-to state:");    
+            return input.Choose("--transition-to", stateNames, "Select the transition-to state:", fromBuild: true);
         }
-        private static string? SelectTrigger(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName)
+        private static string? SelectTrigger(StateMachineTypesHelper stateMachineTypesHelper, string stateMachineName, IToolInput input)
         {
             var triggerTypes = stateMachineTypesHelper.GetTriggerTypes(stateMachineName);
             if (triggerTypes.Count == 0)
@@ -35,21 +35,22 @@ namespace StatePipes.ServiceCreatorTool
                 return null;
             }
             var triggerNames = triggerTypes.Select(t => t.Name).ToList();
-            return SelectionDialog.ShowListSelection(triggerNames, "Select the trigger for the PermitIf guard:");
+            return input.Choose("--trigger", triggerNames, "Select the trigger for the PermitIf guard:", fromBuild: true);
         }
-        public static void CreatePermitIfGuard(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath)
+        public static ToolResult CreatePermitIfGuard(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineName = StateMachineTypesHelper.GetStateMachineNameFromSourceFile(stateFilePath);
-            if(string.IsNullOrEmpty(stateMachineName)) return;
+            if (string.IsNullOrEmpty(stateMachineName)) return ToolResult.Failed;
             var stateMachineTypesHelper = new StateMachineTypesHelper(projectName, new PathHelper(solutionDir, projDir, projectName, targetDirectory));
-            var selectedTrigger = SelectTrigger(stateMachineTypesHelper, stateMachineName);
-            if (string.IsNullOrEmpty(selectedTrigger)) return;      
-            var selectedState = SelectState(stateMachineTypesHelper, stateMachineName);
-            if (string.IsNullOrEmpty(selectedState)) return;
+            var selectedTrigger = SelectTrigger(stateMachineTypesHelper, stateMachineName, input);
+            if (string.IsNullOrEmpty(selectedTrigger)) return ToolResult.Failed;
+            var selectedState = SelectState(stateMachineTypesHelper, stateMachineName, input);
+            if (string.IsNullOrEmpty(selectedState)) return ToolResult.Failed;
             (new PermitIfGaurdGeneratorTool(solutionDir, solutionFileName)).GeneratePermitIfGuard(projectName, stateFilePath, selectedTrigger, stateMachineTypesHelper.IsTriggerInternal(selectedTrigger), selectedState);
+            return ToolResult.Ok();
         }
     }
 }

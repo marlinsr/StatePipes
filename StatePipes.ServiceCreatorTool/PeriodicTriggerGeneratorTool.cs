@@ -15,7 +15,9 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$TimerPeriod@#$", timerPeriod);
             monikers.AddMoniker("@#$PeriodicGuard@#$", periodicGuard);
             var triggerHelper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
-            TriggerGeneratorTool.GenerateTriggerFile(true, triggerHelper);
+            // The same timer in another state of the machine reuses its trigger rather than overwriting it
+            var triggerFile = Path.Combine(projectDir, "StateMachines", stateMachineName, "Triggers", "Internal", $"{triggerName}.cs");
+            if (!File.Exists(triggerFile)) TriggerGeneratorTool.GenerateTriggerFile(true, triggerHelper);
             StateFileInjection(stateFilePath, monikers);
         }
         private static void StateFileInjection(string stateFilePath, MonikerSubstitution monikers)
@@ -37,19 +39,19 @@ namespace StatePipes.ServiceCreatorTool
             if (i >= input.Length) return string.Empty;
             return char.ToUpper(input[i]) + input[(i + 1)..];
         }
-        public static void CreatePeriodicTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath)
+        public static ToolResult CreatePeriodicTrigger(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, string stateFilePath, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
             var stateMachineName = StateMachineTypesHelper.GetStateMachineNameFromSourceFile(stateFilePath);
-            if (string.IsNullOrEmpty(stateMachineName)) return;
-            string timerName = "";
-            if (!SelectionDialog.GetUserInput(ref timerName, $"Enter the timer name for {stateMachineName}")) return;
-            string timerPeriod = "";
-            if (!SelectionDialog.GetUserInput(ref timerPeriod, $"Enter the period in milliseconds for {timerName}")) return;
-            if (string.IsNullOrEmpty(timerPeriod)) return;
-            (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod);
+            if (string.IsNullOrEmpty(stateMachineName)) return ToolResult.Failed;
+            var timerName = input.Name("--timer-name", $"Enter the timer name for {stateMachineName}");
+            if (timerName == null) return ToolResult.Failed;
+            var timerPeriod = input.PositiveInt("--timer-period", $"Enter the period in milliseconds for {timerName}");
+            if (timerPeriod == null) return ToolResult.Failed;
+            (new PeriodicTriggerGeneratorTool(solutionDir, solutionFileName)).GeneratePeriodicTrigger(projDir, projectName, targetDirectory, stateFilePath, stateMachineName, timerName, timerPeriod.Value.ToString());
+            return ToolResult.Ok();
         }
     }
 }

@@ -10,7 +10,17 @@ External Tool: **Add Trigger** (`-t`). Generator: `TriggerGeneratorTool.Generate
   for example timers, proxy status, cross-machine signals). See `statepipes-conventions` → Triggers.
 - Trigger name `<Trigger>`, PascalCase, no `Trigger` suffix required (timer triggers from `add-periodic` get one).
 
-## Steps
+## Run the tool
+
+Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
+
+```
+& "<Tool>" -headless <common arguments> -t --statemachine <Machine> --trigger-name <Trigger> --trigger-scope public|internal
+```
+
+Then add any payload as step 3 describes.
+
+## Fallback (tool without headless support)
 
 1. Public: create the file from
 

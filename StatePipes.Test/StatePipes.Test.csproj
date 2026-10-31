@@ -29,6 +29,8 @@
     <ProjectReference Include="..\StatePipes\StatePipes.csproj" />
     <ProjectReference Include="..\StatePipes.OpcUaBridge\StatePipes.OpcUaBridge.csproj" />
     <ProjectReference Include="..\OpcUaServer\OpcUaServer.csproj" />
+    <!-- Built first so HeadlessEndToEndTest can run it from its own output folder; nothing is referenced or copied -->
+    <ProjectReference Include="..\StatePipes.Diagrammer\StatePipes.Diagrammer.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

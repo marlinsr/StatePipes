@@ -5,14 +5,22 @@ External Tool: **New StatePipes Sln** (no arguments). Generator: `SolutionGenera
 Creates a solution folder and its build and run scripts, then adds a first service exactly as `new-service` does
 (service name = the product part of the solution name).
 
-## Preferred
+## Run the tool
+
+```
+& "<Tool>" -headless --repo "<RepoRoot>" --solution-name Packages.<Company>.<Product> --transport rabbitmq|kafka
+```
+
+It prints `Solution created: <path>`, and the hosts-file reminder when entries are missing. It also creates the first service, `<Prefix>` = `<Company>.<Product>`, exactly as `new-service` does. Then write the CLAUDE.md below.
+
+## Fallback: Visual Studio
 
 Ask the user to run **New StatePipes Sln** (Start menu or Tools menu). It asks whether the broker is RabbitMQ or
 Kafka, the repo root, and a name such as `Packages.<Company>.<Product>`. The entered name, prefix included, becomes
 both the folder and the solution: `Packages.<Company>.<Product>/Packages.<Company>.<Product>.slnx`. `<Company>` and
 `<Product>` are taken from the name with the `Packages.` prefix removed. The tool then opens Visual Studio.
 
-## By hand (no Visual Studio)
+## Fallback: by hand
 
 `<Solution>` is the entered name without `.slnx`. Create these files under `<SolutionDir>` from their templates,
 with the substitutions in the scaffold skill's placeholder table (`@#$SolutionName@#$` = `<Solution>`):

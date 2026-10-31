@@ -21,14 +21,14 @@
             helper.MoveTo("States");
             return helper.SaveTextFile("TopLevelState_cs.sample", "TopLevelState.cs");
         }
-        public static string CreateNewStateMachine(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory)
+        public static ToolResult CreateNewStateMachine(string solutionDir, string solutionFileName, string projectFileName, string targetDirectory, IToolInput input)
         {
-            if (!IsServiceProject(projectFileName)) return string.Empty;
+            if (!IsServiceProject(projectFileName)) return ToolResult.Failed;
             var projectName = GetProjectNameNoExtension(projectFileName);
             var projDir = Path.Combine(solutionDir, projectName);
-            string stateMachineName = "";
-            if (!SelectionDialog.GetUserInput(ref stateMachineName, "Enter the name for the new state machine")) return string.Empty;
-            return (new StateMachineGeneratorTool(solutionDir, solutionFileName)).GenerateStateMachine(projDir, projectName, targetDirectory, stateMachineName, isStateMachine: true);
+            var stateMachineName = input.Name("--statemachine-name", "Enter the name for the new state machine");
+            if (stateMachineName == null || AlreadyExists(solutionDir, Path.Combine(projDir, "StateMachines", stateMachineName, $"{stateMachineName}.cs"))) return ToolResult.Failed;
+            return ToolResult.Ok((new StateMachineGeneratorTool(solutionDir, solutionFileName)).GenerateStateMachine(projDir, projectName, targetDirectory, stateMachineName, isStateMachine: true));
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using StatePipes.ServiceCreatorTool;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace StatePipes.Test.ClaudePlugin
@@ -50,21 +51,64 @@ namespace StatePipes.Test.ClaudePlugin
             StringAssert.Contains(Operation("new-service"), "Services table in `<SolutionDir>/CLAUDE.md`");
         }
 
+        /// <summary>Every argument in a fenced command of the given guidance, single-dash flags included.</summary>
+        internal static HashSet<string> CommandArguments(string guidance)
+        {
+            var commands = string.Join("\n", Regex.Matches(guidance, "```\\r?\\n(.*?)```", RegexOptions.Singleline).Select(m => m.Groups[1].Value));
+            return Regex.Matches(commands, "(?<=[\\s\\[])(-{1,2}[a-z][a-z-]*)(?=[\\s|\\]])").Select(m => m.Groups[1].Value).ToHashSet();
+        }
+
         [TestMethod]
-        public void ProxyRecipes_RunTheToolHeadlessWithArgumentsItParses()
+        public void Recipes_RunTheToolHeadlessWithArgumentsItParses()
         {
             var program = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ServiceCreatorTool", "Program.cs"));
-            var parsed = Regex.Matches(program, "args\\[i\\]\\.Equals\\(\"([^\"]+)\"").Select(m => m.Groups[1].Value).ToHashSet();
-            var guidance = Operation("new-proxy") + Operation("update-proxy") + Skill("statepipes-scaffold");
+            var diagrammer = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.Diagrammer", "Program.cs"));
+            var parsed = Regex.Matches(program + diagrammer, "args\\[i\\]\\.Equals\\(\"([^\"]+)\"").Select(m => m.Groups[1].Value).Concat(ToolArguments.Known).ToHashSet();
+            var recipes = Directory.GetFiles(PluginPaths.Operations, "*.md");
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+            StringAssert.Contains(docs, "## Headless Mode");
+            var guidance = string.Join("\n", recipes.Select(File.ReadAllText)) + Skill("statepipes-scaffold") + docs[docs.IndexOf("## Headless Mode")..];
 
-            StringAssert.Contains(Operation("new-proxy"), "-headless");
-            StringAssert.Contains(Operation("update-proxy"), "-headless");
-            var commands = string.Join("\n", Regex.Matches(guidance, "```\\r?\\n(.*?)```", RegexOptions.Singleline).Select(m => m.Groups[1].Value));
-            var used = Regex.Matches(commands, "(?<=\\s)(-{1,2}[a-z]+)(?=\\s)").Select(m => m.Groups[1].Value).ToHashSet();
-            Assert.IsTrue(used.Contains("--moniker") && used.Contains("--dll") && used.Contains("--broker") && used.Contains("--statemachine"), string.Join(", ", used));
+            foreach (var recipe in recipes)
+            {
+                var text = File.ReadAllText(recipe);
+                StringAssert.Contains(text, "## Run the tool", Path.GetFileName(recipe));
+                StringAssert.Contains(text, "-headless", Path.GetFileName(recipe));
+            }
+            var used = CommandArguments(guidance);
+            string[] required = ["--moniker", "--dll", "--broker", "--statemachine", "--statemachine-name", "--state", "--parent-state", "--trigger-name",
+                "--trigger-scope", "--event", "--trigger", "--transition-to", "--timer-name", "--timer-period", "--prefix", "--solution-name", "--repo",
+                "--transport", "--out"];
+            var missing = required.Where(a => !used.Contains(a)).ToList();
+            Assert.IsEmpty(missing, $"Arguments no recipe uses: {string.Join(", ", missing)}");
             var unknown = used.Where(a => !parsed.Contains(a)).ToList();
-            Assert.IsEmpty(unknown, $"Arguments in the proxy guidance that Program.cs doesn't parse: {string.Join(", ", unknown)}");
+            Assert.IsEmpty(unknown, $"Arguments in the recipes that the tools don't parse: {string.Join(", ", unknown)}");
         }
+
+        [TestMethod]
+        public void Diagram_WritesOutputUnderTheIgnoredObjFolder()
+        {
+            // The Diagrammer also writes a modified DLL and .dot files next to the PDFs; obj/ is in every generated .gitignore
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+
+            StringAssert.Contains(Operation("diagram"), "--out \"<SolutionDir>\\<Prefix>\\obj\\Diagrams\"");
+            StringAssert.Contains(docs, "--out \"$sln\\Acme.Widgets\\obj\\Diagrams\"");
+            Assert.IsFalse(Operation("diagram").Contains("%ProgramData%\\StatePipes\\StatePipes.Diagrammer\\`.\n"), "stale intro");
+        }
+
+        [TestMethod]
+        public void HeadlessGuidance_PromisesNoWritesOnlyForInputErrors()
+        {
+            var docs = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "docs", "VisualStudioExternalTools.md"));
+
+            Assert.IsFalse(Skill("statepipes-scaffold").Contains("changes no files"), "SKILL.md overstates");
+            StringAssert.Contains(Skill("statepipes-scaffold"), "An input error writes no file");
+            StringAssert.Contains(docs, "An input error writes no file");
+        }
+
+        [TestMethod]
+        public void UpdateProxy_NamesTheProxyFileByItsFullPath() =>
+            StringAssert.Contains(Operation("update-proxy"), "-u \"<SolutionDir>\\<Prefix>\\Proxies\\<Moniker>Proxy.cs\"");
 
         [TestMethod]
         public void Marketplace_ListsThePluginFolder()

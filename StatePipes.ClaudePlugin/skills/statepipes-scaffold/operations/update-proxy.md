@@ -1,10 +1,10 @@
-# update-proxy
+﻿# update-proxy
 
 External Tool: **Update StatePipes Proxy** (`-u <proxy file>`). Generator: `ProxyGeneratorTool.GenerateProxy`.
 
 Regenerates `<Prefix>/Proxies/<Moniker>Proxy.cs` after the remote service's public triggers or events changed.
 
-## Who does it
+## Run the tool
 
 Like `new-proxy`, the class is generated, so don't edit it by hand. Build first, then run the tool headless (see
 "Running the tool headless" in the scaffold skill). `-u` names the existing proxy, which gives the moniker. The tool also keeps the
@@ -12,8 +12,8 @@ state machine the existing proxy targets, so don't pass `--statemachine` unless 
 another machine:
 
 ```
-& "<Tool>" -headless <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --dll "<path to updated DLL>"
-& "<Tool>" -headless -live <common arguments> -u "<Prefix>/Proxies/<Moniker>Proxy.cs" --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>"
+& "<Tool>" -headless <common arguments> -u "<SolutionDir>\<Prefix>\Proxies\<Moniker>Proxy.cs" --dll "<path to updated DLL>"
+& "<Tool>" -headless -live <common arguments> -u "<SolutionDir>\<Prefix>\Proxies\<Moniker>Proxy.cs" --broker <uri> --exchange <name> --cert "<.p12>" --certpw "<password file>"
 ```
 
 Use the second form when the DLL isn't available. If headless isn't available, ask the user to select

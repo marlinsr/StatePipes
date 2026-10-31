@@ -8,9 +8,9 @@
         private readonly ProxyEventsGenerator _proxyEventsGenerator;
 
         // DLL-based constructor (existing path)
-        public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, ProxyInputs? inputs = null)
+        public ProxyGenerator(string fullPathFileName, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, IToolInput? input = null)
         {
-            _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider, inputs);
+            _proxyGeneratorCommon = new(fullPathFileName, codeGenerationBaseNamespace, proxyMoniker, pathProvider, input);
             _proxyValueObjectsGenerator = new(_proxyGeneratorCommon);
             _proxyTriggersGenerator = new(_proxyGeneratorCommon);
             _proxyEventsGenerator = new(_proxyGeneratorCommon);
@@ -18,9 +18,9 @@
         }
 
         // Live constructor — TypeSerializationList comes from a running service
-        public ProxyGenerator(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, string brokerUri, string exchangeName, string certPath, string certPasswordPath, ProxyInputs? inputs = null)
+        public ProxyGenerator(TypeSerializationList typeSerializationList, string codeGenerationBaseNamespace, string proxyMoniker, PathHelper pathProvider, string brokerUri, string exchangeName, string certPath, string certPasswordPath, IToolInput? input = null)
         {
-            _proxyGeneratorCommon = new(typeSerializationList, codeGenerationBaseNamespace, proxyMoniker, pathProvider, brokerUri, exchangeName, certPath, certPasswordPath, inputs);
+            _proxyGeneratorCommon = new(typeSerializationList, codeGenerationBaseNamespace, proxyMoniker, pathProvider, brokerUri, exchangeName, certPath, certPasswordPath, input);
             _proxyValueObjectsGenerator = new(_proxyGeneratorCommon);
             _proxyTriggersGenerator = new(_proxyGeneratorCommon);
             _proxyEventsGenerator = new(_proxyGeneratorCommon);

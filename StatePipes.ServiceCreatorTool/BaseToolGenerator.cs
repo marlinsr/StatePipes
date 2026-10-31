@@ -103,5 +103,12 @@ namespace StatePipes.ServiceCreatorTool
             }
             return true;
         }
+        /// <summary>Generators overwrite their files, so a Create operation refuses a name that is already taken.</summary>
+        protected static bool AlreadyExists(string solutionDir, string path)
+        {
+            if (!File.Exists(path) && !Directory.Exists(path)) return false;
+            Console.WriteLine($"{Path.GetRelativePath(solutionDir, path)} already exists.");
+            return true;
+        }
     }
 }

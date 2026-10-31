@@ -8,33 +8,56 @@ string classLibraryPath = string.Empty;
 string solutionDir = string.Empty;
 string solutionFileName = string.Empty;
 string projectName = string.Empty;
+// Headless: no Visual Studio build, and --out replaces the ProgramData output folder
+bool headless = false;
+string? outputDirectory = null;
 
 try
 {
     for (int i = 0; i < args.Length; i++)
     {
         if (args[i].Equals("-c", StringComparison.CurrentCultureIgnoreCase)) classLibraryPath = args[++i];
-        if (args[i].Equals("-r", StringComparison.CurrentCultureIgnoreCase)) solutionDir = args[++i];
-        if (args[i].Equals("-s", StringComparison.CurrentCultureIgnoreCase)) solutionFileName = args[++i];
-        if (args[i].Equals("-p", StringComparison.CurrentCultureIgnoreCase)) projectName = args[++i];
+        else if (args[i].Equals("-r", StringComparison.CurrentCultureIgnoreCase)) solutionDir = args[++i];
+        else if (args[i].Equals("-s", StringComparison.CurrentCultureIgnoreCase)) solutionFileName = args[++i];
+        else if (args[i].Equals("-p", StringComparison.CurrentCultureIgnoreCase)) projectName = args[++i];
+        else if (args[i].Equals("-headless", StringComparison.CurrentCultureIgnoreCase)) headless = true;
+        else if (args[i].Equals("--out", StringComparison.CurrentCultureIgnoreCase))
+        {
+            if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
+            {
+                Console.WriteLine("--out needs a value.");
+                return 1;
+            }
+            outputDirectory = Path.GetFullPath(args[++i]);
+        }
+        else if (args[i].StartsWith("--"))
+        {
+            Console.WriteLine($"Unknown argument {args[i]}.");
+            return 1;
+        }
     }
     if (projectName.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)) projectName = Path.GetFileNameWithoutExtension(projectName);
     System.Console.WriteLine($"Class Library Path = {classLibraryPath}");
     System.Console.WriteLine($"Solution Directory = {solutionDir}");
-    System.Console.WriteLine($"Solution File Name = {solutionFileName}");   
+    System.Console.WriteLine($"Solution File Name = {solutionFileName}");
     System.Console.WriteLine($"Project Name = {projectName}");
-    if (!string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(solutionFileName)) 
-        if(!BuildSolution()) return;
+    if (!headless && !string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(solutionFileName))
+        if (!BuildSolution()) return 1;
     if (!string.IsNullOrEmpty(solutionDir) && !string.IsNullOrEmpty(projectName)) classLibraryPath = RepointToServiceDirectory(solutionDir, projectName, classLibraryPath) ?? classLibraryPath;
     Console.WriteLine($"Target = {classLibraryPath}");
-    var programDataDirectory = $@"{Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)}\StatePipes\{Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly()!.Location)}";
-    Directory.CreateDirectory(programDataDirectory);
-    Console.WriteLine($"Ouput Path = {programDataDirectory}");
-    StateMachinePdfCreator.CreateStateMachineDiagrams(programDataDirectory, classLibraryPath);
+    outputDirectory ??= $@"{Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)}\StatePipes\{Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly()!.Location)}";
+    Directory.CreateDirectory(outputDirectory);
+    Console.WriteLine($"Ouput Path = {outputDirectory}");
+    var started = DateTime.UtcNow.AddSeconds(-1);
+    StateMachinePdfCreator.CreateStateMachineDiagrams(outputDirectory, classLibraryPath);
+    foreach (var pdf in Directory.GetFiles(outputDirectory, "*.pdf").Where(f => File.GetLastWriteTimeUtc(f) >= started)) Console.WriteLine($"Diagram written: {pdf}");
+    Console.WriteLine("Finished!!!");
+    return 0;
 }
 catch (Exception e)
 {
     Console.WriteLine(e.Message.ToString());
+    return 1;
 }
 
 static string? RepointToServiceDirectory(string solutionDir, string projectName, string targetDirectory)

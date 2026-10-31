@@ -31,30 +31,20 @@ namespace StatePipes.ServiceCreatorTool
                 throw;
             }
         }
-        public string? GetStateMachineName() => GetStateMachineType()?.Name;
+        public string? GetStateMachineName(IToolInput input) => GetStateMachineType(input)?.Name;
 
-        public Type? GetStateMachineType(string? stateMachineName = null, bool headless = false)
+        /// <summary>One state machine is used without asking; otherwise --statemachine, or the selection dialog, names it.</summary>
+        public Type? GetStateMachineType(IToolInput input)
         {
             var stateMachineOptions = GetStateMachineTypes();
-            if (!string.IsNullOrEmpty(stateMachineName))
+            if (stateMachineOptions.Count == 0)
             {
-                var named = stateMachineOptions.FirstOrDefault(t => t.Name == stateMachineName || t.FullName == stateMachineName);
-                if (named == null) Console.WriteLine($"State machine {stateMachineName} not found; one of: {string.Join(", ", stateMachineOptions.Select(t => t.Name))}");
-                return named;
-            }
-            if (stateMachineOptions.Count == 1) return stateMachineOptions[0];
-            if (stateMachineOptions.Count > 1 && headless)
-            {
-                Console.WriteLine($"Headless mode needs --statemachine <name>; one of: {string.Join(", ", stateMachineOptions.Select(t => t.Name))}");
+                Console.WriteLine("No state machines found in the built service.");
                 return null;
             }
-            if (stateMachineOptions.Count > 1)
-            {
-                var typeMap = stateMachineOptions.ToDictionary(t => t.Name!, t => t);
-                var selected = SelectionDialog.ShowListSelection([.. typeMap.Keys], "Select State Machine:");
-                if (selected != null) return typeMap[selected];
-            }
-            return null;
+            if (stateMachineOptions.Count == 1 && !input.Supplied("--statemachine")) return stateMachineOptions[0];
+            var selected = input.Choose("--statemachine", [.. stateMachineOptions.Select(t => t.Name)], "Select State Machine:", fromBuild: true);
+            return selected == null ? null : stateMachineOptions.First(t => t.Name == selected);
         }
         public List<Type> GetStateMachineTypes()
         {
