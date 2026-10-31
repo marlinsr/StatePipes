@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.6 (2026-10-31)
+Merged PR: #98 Updated Nugets
+
+Referenced issues:
+- #97 Update Nugets
+
+
 ### v6.0.5 (2026-10-31)
 Merged PR: #96 Run every ServiceCreatorTool operation and the Diagrammer headless
 
