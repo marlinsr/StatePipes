@@ -55,6 +55,11 @@ namespace StatePipes.Test.ClaudePlugin
         }
 
         [TestMethod]
+        public void Readme_SaysRegistrationIsForTheInstallingAccount() =>
+            StringAssert.Contains(File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ClaudePlugin", "README.md")),
+                "Registration is for the Windows account the Installer runs as");
+
+        [TestMethod]
         public void Installer_ClearsOldPluginBeforeCopying()
         {
             var lines = Lines(InstallSection);
@@ -69,7 +74,8 @@ namespace StatePipes.Test.ClaudePlugin
         {
             var lines = Lines(InstallSection);
             var lastCopy = Array.FindLastIndex(lines, l => l.StartsWith("File") && l.Contains("ClaudePlugin"));
-            var setup = Array.FindIndex(lines, l => l.StartsWith("ExecWait") && l.Contains("StatePipes.ServiceCreatorToolSetup.exe"));
+            // nsExec::ExecToLog shows the Setup messages (such as the manual commands) in the install details
+            var setup = Array.FindIndex(lines, l => l.StartsWith("nsExec::ExecToLog") && l.Contains("StatePipes.ServiceCreatorToolSetup.exe"));
 
             Assert.IsTrue(lastCopy >= 0 && setup > lastCopy, $"last copy {lastCopy}, setup {setup}");
         }
@@ -78,7 +84,7 @@ namespace StatePipes.Test.ClaudePlugin
         public void Uninstaller_RemovesPluginBeforeDeletingSetup()
         {
             var lines = Lines(UninstallSection);
-            var remove = Array.FindIndex(lines, l => l.StartsWith("ExecWait") && l.Contains("--remove-plugin"));
+            var remove = Array.FindIndex(lines, l => l.StartsWith("nsExec::ExecToLog") && l.Contains("--remove-plugin"));
             var deleteSetup = Array.FindIndex(lines, l => l.StartsWith(@"Delete ""$INSTDIR\ServiceCreatorToolSetup\"));
 
             Assert.IsTrue(remove >= 0 && deleteSetup > remove, $"remove {remove}, delete setup {deleteSetup}");

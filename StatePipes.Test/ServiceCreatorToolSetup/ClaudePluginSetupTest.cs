@@ -73,6 +73,16 @@ namespace StatePipes.Test.ServiceCreatorToolSetup
         }
 
         [TestMethod]
+        public void Register_JsonWithStderrWarning_StillInstalls()
+        {
+            _runner.Answers[ListMarketplaces] = new(0, "[]", "warning: a newer Claude Code is available");
+
+            Setup().Register();
+
+            CollectionAssert.AreEqual(new[] { ListMarketplaces, AddMarketplace, Install }, _runner.Ran);
+        }
+
+        [TestMethod]
         public void Register_GitHubMarketplace_SwitchesToLocal()
         {
             _runner.Answers[ListMarketplaces] = new(0, GitHubMarketplace);
@@ -105,6 +115,17 @@ namespace StatePipes.Test.ServiceCreatorToolSetup
             StringAssert.Contains(_output.ToString(), "boom");
             AssertManualCommands();
             CollectionAssert.DoesNotContain(_runner.Ran, Install);
+        }
+
+        [TestMethod]
+        public void Register_FailingCommand_ShowsItsStderr()
+        {
+            _runner.Answers[ListMarketplaces] = new(0, "[]");
+            _runner.Answers[AddMarketplace] = new(1, "", "path not found");
+
+            Setup().Register();
+
+            StringAssert.Contains(_output.ToString(), "path not found");
         }
 
         [TestMethod]

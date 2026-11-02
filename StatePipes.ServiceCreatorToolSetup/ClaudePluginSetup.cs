@@ -82,7 +82,7 @@ namespace StatePipes.ServiceCreatorToolSetup
         private string Claude(params string[] arguments)
         {
             var result = runner.Run(claudePath!, arguments);
-            if (result.ExitCode != 0) throw Failed(arguments, result.Output);
+            if (result.ExitCode != 0) throw Failed(arguments, $"{result.Output} {result.Error}");
             return result.Output;
         }
         private static CommandFailedException Failed(string[] arguments, string reason) =>

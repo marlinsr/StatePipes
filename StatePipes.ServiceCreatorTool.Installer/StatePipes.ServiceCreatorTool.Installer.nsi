@@ -166,7 +166,9 @@ Section "MainSection" SEC01
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.exe"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.pdb"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.runtimeconfig.json"
-  ExecWait '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe"'
+  ; ExecToLog waits, hides the console, and shows the Setup messages (such as the manual plugin commands) in the details
+  nsExec::ExecToLog '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe"'
+  Pop $0
 SectionEnd
 
 Section -Post
@@ -192,7 +194,8 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
-  ExecWait '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe" --remove-plugin'
+  nsExec::ExecToLog '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe" --remove-plugin'
+  Pop $0
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.runtimeconfig.json"
   Delete "$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.pdb"

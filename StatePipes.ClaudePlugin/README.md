@@ -43,7 +43,8 @@ The StatePipes Installer copies the plugin to `Program Files (x86)\StatePipes\Cl
 `claude`, registers that folder as the `statepipes` marketplace and installs `statepipes@statepipes`. A `statepipes`
 marketplace added from GitHub is switched to the installed folder, so the plugin always matches the installed tool
 and updates when the Installer runs. Without `claude`, the Installer prints the two commands to run later. The
-uninstaller removes the plugin from Claude Code.
+uninstaller removes the plugin from Claude Code. Registration is for the Windows account the Installer runs as: if you
+approved the Installer with another account's credentials, run the two install commands above yourself.
 
 To go back to the GitHub marketplace, run `/plugin uninstall statepipes@statepipes` and
 `/plugin marketplace remove statepipes`, then the install commands above.
