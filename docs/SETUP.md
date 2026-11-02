@@ -13,7 +13,7 @@ Place the file at:
 
 Commit and push it to `main`.
 
-## 2. Add three repository secrets
+## 2. Add two repository secrets and one variable
 
 Go to **Settings → Secrets and variables → Actions → New repository secret** and add:
 
@@ -21,9 +21,27 @@ Go to **Settings → Secrets and variables → Actions → New repository secret
 | --------------------- | -------------------------------------------------------------------- |
 | `DOCKERHUB_USERNAME`  | The Docker Hub account that owns `bigfish88/*` (usually `bigfish88`) |
 | `DOCKERHUB_TOKEN`     | A Docker Hub **access token** (Account Settings → Security)          |
-| `NUGET_API_KEY`       | A nuget.org API key scoped to push `StatePipes` (and `*` of future versions) |
+
+Then, on the **Variables** tab, add:
+
+| Variable name | Value                                                                  |
+| ------------- | ---------------------------------------------------------------------- |
+| `NUGET_USER`  | The nuget.org **profile name** (not email) of the `StatePipes` owner   |
 
 `GITHUB_TOKEN` is provided automatically — nothing to add for it.
+
+## 2a. Set up nuget.org Trusted Publishing
+
+The publish job gets a short-lived nuget.org API key through `NuGet/login`
+using GitHub's OIDC token, so there is no long-lived NuGet API key to expire.
+
+On nuget.org, signed in as the package owner, open the account menu →
+**Trusted Publishing** and add a **GitHub Actions** policy:
+
+- Repository owner: `marlinsr`
+- Repository: `StatePipes`
+- Workflow file: `release.yml`
+- Environment: leave blank
 
 ## 3. (Optional but recommended) Add three PR labels
 
@@ -62,6 +80,8 @@ Create them under **Issues → Labels → New label**.
      - `bigfish88/statepipesbrokerproxy:v<version>` + `:latest`
 
 4. **publish** (Linux runner, after both)
+   - Exchanges the job's OIDC token for a short-lived nuget.org API key
+     (`NuGet/login`, Trusted Publishing).
    - Pushes the `.nupkg` to nuget.org (`--skip-duplicate` so re-runs are safe).
    - Creates a GitHub Release `v<version>` targeting `main`, with
      auto-generated notes plus the closing-issue block, and the installer `.exe`
@@ -76,10 +96,10 @@ Create them under **Issues → Labels → New label**.
 Before the first merge that uses this workflow:
 
 - [ ] `release.yml` lives at `.github/workflows/release.yml` on `main`
-- [ ] Three secrets added (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `NUGET_API_KEY`)
+- [ ] Two secrets added (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`) and the `NUGET_USER` variable
 - [ ] The Docker Hub token has *Write* permission on `bigfish88/statepipesexplorer`
       and `bigfish88/statepipesbrokerproxy`
-- [ ] The NuGet API key is valid and scoped to push `StatePipes`
+- [ ] The nuget.org Trusted Publishing policy exists for `marlinsr/StatePipes`, `release.yml`
 - [ ] `SolutionInfo.proj` currently shows the *last released* version — the next
       merge will bump from there. Right now it's `4.0.12`, so the next merge
       (with no label) will publish `v4.0.13`.
