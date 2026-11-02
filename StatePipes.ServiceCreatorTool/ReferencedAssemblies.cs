@@ -39,7 +39,7 @@ namespace StatePipes.ServiceCreatorTool
         public string GetDefaultServiceConfigurationJson()
         {
             const string emptyJson = "{}";
-            if(_assembly == null) return emptyJson;
+            if (_assembly == null) return emptyJson;
             var defaultServiceConfiguration = _assembly.GetTypesNoExceptions().FirstOrDefault(t => t.Name == "DefaultServiceConfiguration");
             MethodInfo? methodInfo = defaultServiceConfiguration?.GetMethod("Get");
             object? result = methodInfo?.Invoke(null, null);
@@ -57,7 +57,7 @@ namespace StatePipes.ServiceCreatorTool
             var dllFiles = Directory.GetFiles(Path.GetDirectoryName(dllFullFilePath)!).Where(f => f.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase)).ToList();
             foreach (var dllFile in dllFiles)
             {
-                try 
+                try
                 {
                     var fileName = Path.GetFileName(dllFile);
                     if (fileName == "StatePipes.dll")
@@ -69,7 +69,8 @@ namespace StatePipes.ServiceCreatorTool
                     if (assm == null) continue;
                     if (dllFile.Equals(dllFullFilePath, StringComparison.InvariantCultureIgnoreCase)) targetAssembly = assm;
                     _assemblyDictionary.Add(assm.GetName().Name!, assm);
-                } catch { }
+                }
+                catch { }
             }
         }
         private void LoadTypes(TypeSerializationConverter typeSerializationConverter)
@@ -94,7 +95,7 @@ namespace StatePipes.ServiceCreatorTool
             {
                 try
                 {
-                    if (tsi.HasTypeDescription(typeFullName)) 
+                    if (tsi.HasTypeDescription(typeFullName))
                         return tsi.GetTypeDescription(typeFullName);
                 }
                 catch { }

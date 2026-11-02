@@ -41,4 +41,3 @@ namespace StatePipes.ServiceCreatorTool
         private static bool IsPreRelease(ISetupInstance setupInstance) => ((ISetupInstanceCatalog)setupInstance).IsPrerelease();
     }
 }
- 

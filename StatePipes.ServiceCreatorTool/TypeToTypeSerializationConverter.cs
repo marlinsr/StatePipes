@@ -108,7 +108,8 @@ internal class TypeToTypeSerializationConverter(TypeRepo typeRepo,
     private List<AttributeDescription> CreatePropertyAttributeList(PropertyInfo p, TypeSerialization ts)
     {
         List<AttributeDescription> attributeDescriptions = [];
-        FilterAttributes(p.CustomAttributes).ForEach(t => {
+        FilterAttributes(p.CustomAttributes).ForEach(t =>
+        {
             var customAttr = p.GetCustomAttribute(t.AttributeType);
             if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
         });
@@ -117,7 +118,8 @@ internal class TypeToTypeSerializationConverter(TypeRepo typeRepo,
     private List<AttributeDescription> CreateFieldAttributeList(FieldInfo f, TypeSerialization ts)
     {
         List<AttributeDescription> attributeDescriptions = [];
-        FilterAttributes(f.CustomAttributes).ForEach(t => {
+        FilterAttributes(f.CustomAttributes).ForEach(t =>
+        {
             var customAttr = f.GetCustomAttribute(t.AttributeType);
             if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
         });
@@ -126,7 +128,8 @@ internal class TypeToTypeSerializationConverter(TypeRepo typeRepo,
     private List<AttributeDescription> CreateClassAttributeList(Type decoratedObjectType, TypeSerialization ts)
     {
         List<AttributeDescription> attributeDescriptions = [];
-        FilterAttributes(decoratedObjectType.CustomAttributes).ForEach(t => {
+        FilterAttributes(decoratedObjectType.CustomAttributes).ForEach(t =>
+        {
             var customAttr = decoratedObjectType.GetCustomAttribute(t.AttributeType);
             if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
         });

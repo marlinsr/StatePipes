@@ -9,7 +9,7 @@ namespace StatePipes.ServiceCreatorTool
         public static DTE2? GetDTE2(int processId)
         {
             IMoniker[] moniker = new IMoniker[1];
-            _=GetRunningObjectTable(0, out IRunningObjectTable rot);
+            _ = GetRunningObjectTable(0, out IRunningObjectTable rot);
             rot.EnumRunning(out IEnumMoniker enumMoniker);
             enumMoniker.Reset();
             while (enumMoniker.Next(1, moniker, out _) == 0)

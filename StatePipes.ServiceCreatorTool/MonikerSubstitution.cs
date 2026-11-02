@@ -3,7 +3,7 @@
     internal class MonikerSubstitution
     {
         private readonly Dictionary<string, string> _replacementDictionary = [];
-        public void AddMoniker(string moniker, string replacement) =>_replacementDictionary[moniker] = replacement;
+        public void AddMoniker(string moniker, string replacement) => _replacementDictionary[moniker] = replacement;
         public string Replace(string contents)
         {
             string ret = contents;
