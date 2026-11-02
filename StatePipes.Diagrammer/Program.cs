@@ -8,7 +8,7 @@ string classLibraryPath = string.Empty;
 string solutionDir = string.Empty;
 string solutionFileName = string.Empty;
 string projectName = string.Empty;
-// Headless: no Visual Studio build, and --out replaces the ProgramData output folder
+// Headless: no Visual Studio build, no PDF viewer, and --out replaces the ProgramData output folder
 bool headless = false;
 string? outputDirectory = null;
 
@@ -49,7 +49,7 @@ try
     Directory.CreateDirectory(outputDirectory);
     Console.WriteLine($"Ouput Path = {outputDirectory}");
     var started = DateTime.UtcNow.AddSeconds(-1);
-    StateMachinePdfCreator.CreateStateMachineDiagrams(outputDirectory, classLibraryPath);
+    StateMachinePdfCreator.CreateStateMachineDiagrams(outputDirectory, classLibraryPath, openPdfs: !headless);
     foreach (var pdf in Directory.GetFiles(outputDirectory, "*.pdf").Where(f => File.GetLastWriteTimeUtc(f) >= started)) Console.WriteLine($"Diagram written: {pdf}");
     Console.WriteLine("Finished!!!");
     return 0;

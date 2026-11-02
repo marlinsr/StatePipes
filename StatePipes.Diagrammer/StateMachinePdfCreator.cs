@@ -26,7 +26,7 @@ namespace StatePipes.Diagrammer
             assembly.Write(dllFullPathFileName);
             return AssemblyLoadContext.Default.LoadFromAssemblyPath(dllFullPathFileName);
         }
-        private static void BuildContainerAndDiagramsForAssembly(Assembly assembly, string outputPath, AssemblyManager assemblies)
+        private static void BuildContainerAndDiagramsForAssembly(Assembly assembly, string outputPath, AssemblyManager assemblies, bool openPdfs)
         {
             var allStateMachineDummyContainerSetupType = assemblies.GetTypeFromAssemblies("StatePipes.StateMachine.Internal.AllStateMachineDummyContainerSetup")!;
             ContainerBuilder containerBuilder = new();
@@ -46,24 +46,24 @@ namespace StatePipes.Diagrammer
             var stateMachineManager = container.Resolve(stateMachineManagerContainerSetupType);
             var stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod = stateMachineManagerContainerSetupType.GetMethod("SaveAllStateMachineDotGraphToPath", BindingFlags.Public | BindingFlags.Instance, System.Type.DefaultBinder, [typeof(string)], null);
             var files = (List<string>)stateMachineManagerContainerSetupSaveAllStateMachineDotGraphToPathMethod?.Invoke(stateMachineManager, [outputPath])!;
-            GraphGenerator graphGenerator = new(outputPath);
+            GraphGenerator graphGenerator = new(outputPath, openPdfs);
             files.ForEach(file => graphGenerator.GraphStateMachine(file));
         }
-        private static void CreateStateMachineDiagramsForAssembly(Assembly? assembly, string outputPath, string servicePath, AssemblyManager assemblies)
+        private static void CreateStateMachineDiagramsForAssembly(Assembly? assembly, string outputPath, string servicePath, AssemblyManager assemblies, bool openPdfs)
         {
             if (assembly == null) return;
             var assemblyName = assembly.GetName().Name;
             if (string.IsNullOrEmpty(assemblyName)) return;
             var dll = LoadDll(Path.Combine(servicePath, assemblyName + ".dll"), outputPath);
             if (dll == null) return;
-            BuildContainerAndDiagramsForAssembly(dll, outputPath, assemblies);
+            BuildContainerAndDiagramsForAssembly(dll, outputPath, assemblies, openPdfs);
         }
-        public static void CreateStateMachineDiagrams(string outputPath, string servicePath)
+        public static void CreateStateMachineDiagrams(string outputPath, string servicePath, bool openPdfs)
         {
             AssemblyManager assemblies = new(servicePath);
             var iStateMachineType = assemblies.GetTypeFromAssemblies("StatePipes.Interfaces.IStateMachine")!;
             var classLibraryAssemblies = assemblies.GetAssembliesContainingType(iStateMachineType).ToList();
-            classLibraryAssemblies.ForEach(classLibraryAssembly => CreateStateMachineDiagramsForAssembly(classLibraryAssembly, outputPath, servicePath, assemblies));
+            classLibraryAssemblies.ForEach(classLibraryAssembly => CreateStateMachineDiagramsForAssembly(classLibraryAssembly, outputPath, servicePath, assemblies, openPdfs));
         }
     }
 }

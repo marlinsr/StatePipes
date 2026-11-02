@@ -116,6 +116,8 @@ namespace StatePipes.Test.ServiceCreatorTool
             Assert.AreEqual(0, exitCode, output);
             StringAssert.Contains(output, "Finished!!!");
             Assert.IsNotEmpty(Directory.GetFiles(diagrams, "*.pdf"), output);
+            // Headless never opens the PDFs in the user's viewer
+            Assert.IsFalse(output.Contains("Opening "), output);
         }
 
         [TestMethod]
