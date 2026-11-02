@@ -73,6 +73,9 @@ namespace StatePipes.Test.ServiceCreatorTool
             // New solution already creates the first service, Acme.E2e; new service adds another
             Succeeds("-headless", "-r", _solutionDir + "\\", "-s", SolutionName + ".slnx", "--prefix", Prefix + ".Pump");
             Assert.IsTrue(File.Exists(Path.Combine(_solutionDir, Prefix + ".Pump", Prefix + ".Pump.csproj")));
+            var claudeMd = File.ReadAllText(Path.Combine(_solutionDir, "CLAUDE.md"));
+            StringAssert.Contains(claudeMd, "| E2e | Acme.E2e | Acme.E2e/StatePipesModel.md |");
+            StringAssert.Contains(claudeMd, "| Pump | Acme.E2e.Pump | Acme.E2e.Pump/StatePipesModel.md |");
             Succeeds(Common("-m", "--statemachine-name", "Valve"));
             Build();
         }

@@ -31,6 +31,8 @@
     <PackageReference Include="System.Management" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The plugin's template is the only copy; New StatePipes Sln writes it as CLAUDE.md -->
+    <EmbeddedResource Include="..\StatePipes.ClaudePlugin\skills\statepipes-scaffold\templates\CLAUDE.md" LogicalName="StatePipes.ServiceCreatorTool.Resources.CLAUDE_md.sample" Link="Resources\CLAUDE_md.sample" />
     <EmbeddedResource Include="Resources\Event_cs.sample" />
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />
     <EmbeddedResource Include="Resources\TopLevelState_cs.sample" />

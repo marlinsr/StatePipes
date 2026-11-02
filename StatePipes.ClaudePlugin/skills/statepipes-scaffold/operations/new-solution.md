@@ -11,7 +11,8 @@ Creates a solution folder and its build and run scripts, then adds a first servi
 & "<Tool>" -headless --repo "<RepoRoot>" --solution-name Packages.<Company>.<Product> --transport rabbitmq|kafka
 ```
 
-It prints `Solution created: <path>`, and the hosts-file reminder when entries are missing. It also creates the first service, `<Prefix>` = `<Company>.<Product>`, exactly as `new-service` does. Then write the CLAUDE.md below.
+It prints `Solution created: <path>`, and the hosts-file reminder when entries are missing. It also creates the first service, `<Prefix>` = `<Company>.<Product>`, exactly as `new-service` does, and writes `<SolutionDir>/CLAUDE.md` with that service's row. Then check CLAUDE.md as
+below.
 
 ## Fallback: Visual Studio
 
@@ -47,6 +48,7 @@ Creates: RunScript/Start.ps1
 Creates: RunScript/Stop.ps1
 Creates: BuildScript/NugetConfig.xml
 Creates: ToolConfiguration.json
+Creates: CLAUDE.md
 
 `ToolConfiguration.json` has no template: write `{"UseRabbitMQ": true}` (or `false` for Kafka). `new-service`
 reads it to choose the broker.
@@ -60,8 +62,9 @@ Then run `new-service` with `<Prefix>` = `<Company>.<Product>`.
 
 ## CLAUDE.md (both routes)
 
-Neither the tool nor the templates above create a `CLAUDE.md`, so always write one. Copy `templates/CLAUDE.md` from
-the `statepipes-scaffold` skill folder (next to its `SKILL.md`) to `<SolutionDir>/CLAUDE.md`. Replace `<Solution>`
+The tool writes `<SolutionDir>/CLAUDE.md` from the same template (versions newer than 6.0.6). If it doesn't exist
+after the tool runs, or on the by-hand route, copy `templates/CLAUDE.md` from the `statepipes-scaffold` skill folder
+(next to its `SKILL.md`) to `<SolutionDir>/CLAUDE.md`. Replace `<Solution>`
 with the solution name and `<version>` with the StatePipes version, and leave `<Prefix>` as written. If a
 `CLAUDE.md` already exists, merge the template's sections into it instead of overwriting it. `new-service` then adds
 the service's row to the Services table.

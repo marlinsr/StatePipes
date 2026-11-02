@@ -8,7 +8,7 @@ class library, as listed in the Services table.
 
 | Service | Class library | Model |
 |---|---|---|
-<!-- One row per service. statepipes-scaffold new-service adds rows above this line. -->
+<!-- One row per service. New StatePipes Service adds rows above this line. -->
 
 ## Dev & Test Commands
 

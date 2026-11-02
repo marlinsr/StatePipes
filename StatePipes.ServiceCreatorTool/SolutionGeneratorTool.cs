@@ -10,8 +10,10 @@ namespace StatePipes.ServiceCreatorTool
             var slnDir = _pathProvider.GetPath(PathName.Solution);
             var helper = new GeneratorHelper(new DirectoryHelper(slnDir), monikers);
             GenerateSolutionFiles(helper);
+            ClaudeMdWriter.WriteNew(slnDir, SolutionNameNoExtension, StatePipesVersion());
             ToolConfigurationUtility.WriteConfiguration(slnDir, new ToolConfiguration { UseRabbitMQ = usingRabbit });
             ProjectGeneratorTool.GenerateProjectFiles(helper);
+            ClaudeMdWriter.AddServiceRow(slnDir, projectName);
         }
         public static void GenerateSolutionFiles(GeneratorHelper helper)
         {

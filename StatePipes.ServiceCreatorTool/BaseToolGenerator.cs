@@ -74,9 +74,11 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$BrokerUriForStartScript@#$", brokerUri.Replace("/", "%2F"));
             monikers.AddMoniker("@#$BrokerUri@#$", brokerUri);
             monikers.AddMoniker("@#$CertFileName@#$", usingRabbit ? "amqpuser.amqp09-broker.client.p12" : "kafkauser.kafka-broker.client.p12");
-            monikers.AddMoniker("@#$StatePipesVersion@#$", Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+').First() ?? string.Empty);
+            monikers.AddMoniker("@#$StatePipesVersion@#$", StatePipesVersion());
             return monikers;
         }
+        internal static string StatePipesVersion() =>
+            Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+').First() ?? string.Empty;
         /// <summary>
         /// A proxy sends ProxyConnectionStatusTrigger to the state machine it targets. Only the service's first machine
         /// gets one from New StatePipes Service, so create it for any other machine a proxy is pointed at.
