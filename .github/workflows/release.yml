@@ -17,7 +17,13 @@
 # Required repository secrets:
 #   DOCKERHUB_USERNAME   Docker Hub username (the account that owns bigfish88/*)
 #   DOCKERHUB_TOKEN      Docker Hub access token with write to bigfish88/*
-#   NUGET_API_KEY        API key for nuget.org for the StatePipes package
+#
+# Required repository variables:
+#   NUGET_USER           nuget.org profile name (not email) of the StatePipes package owner
+#
+# nuget.org uses Trusted Publishing, so there is no NuGet API key secret. The package owner's
+# nuget.org account needs a GitHub Actions Trusted Publishing policy for
+# marlinsr/StatePipes, workflow file release.yml, with no environment.
 
 name: Release
 
@@ -293,6 +299,10 @@ jobs:
     name: Publish NuGet & GitHub Release
     needs: [bump-version, build-windows, docker]
     runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow's, so contents: write is repeated for the GitHub Release.
+    permissions:
+      contents: write
+      id-token: write   # OIDC token for nuget.org Trusted Publishing
     env:
       VERSION: ${{ needs.bump-version.outputs.version }}
       TAG:     ${{ needs.bump-version.outputs.tag }}
@@ -319,6 +329,12 @@ jobs:
           name: installer
           path: ./artifacts/installer
 
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
       - name: Push to nuget.org
         run: |
           set -euo pipefail
@@ -327,7 +343,7 @@ jobs:
           for f in ./artifacts/nupkg/*.nupkg; do
             echo "Pushing $f"
             dotnet nuget push "$f" \
-              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
               --source https://api.nuget.org/v3/index.json \
               --skip-duplicate
             pushed=1
