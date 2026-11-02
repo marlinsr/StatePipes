@@ -37,6 +37,17 @@ To install from a local clone instead, for example to try a branch, give the clo
 Installed plugins are copied into Claude Code's plugin cache. After changing a skill, run
 `/plugin marketplace update statepipes` and reinstall, or restart Claude Code if it doesn't pick the change up.
 
+## Installed by the StatePipes Installer
+
+The StatePipes Installer copies the plugin to `Program Files (x86)\StatePipes\ClaudePlugin` and, when it finds
+`claude`, registers that folder as the `statepipes` marketplace and installs `statepipes@statepipes`. A `statepipes`
+marketplace added from GitHub is switched to the installed folder, so the plugin always matches the installed tool
+and updates when the Installer runs. Without `claude`, the Installer prints the two commands to run later. The
+uninstaller removes the plugin from Claude Code.
+
+To go back to the GitHub marketplace, run `/plugin uninstall statepipes@statepipes` and
+`/plugin marketplace remove statepipes`, then the install commands above.
+
 ## Loading the plugin for one session (while editing skills)
 
 ```bash
