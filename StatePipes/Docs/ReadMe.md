@@ -71,6 +71,15 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v6.0.7 (2026-11-02)
+Merged PR: #99 Installer ships the Claude Code plugin, and New StatePipes Sln writes CLAUDE.md
+
+Referenced issues:
+- #93 Claude Code plugin: guide building StatePipes services (domain fit, modeling, conventions, scaffold, verify)
+- #94 Claude Code plugin for building StatePipes services
+- #95 ServiceCreatorTool: run every operation headless (Claude plugin sub-project 1)
+
+
 ### v6.0.6 (2026-10-31)
 Merged PR: #98 Updated Nugets
 
