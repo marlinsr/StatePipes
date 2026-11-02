@@ -60,8 +60,8 @@ namespace StatePipes.ServiceCreatorTool
             contents = contents.Replace(moniker, injectionContents);
             File.WriteAllText(filePath, contents);
         }
-        public void MoveToRootDirectory() => dm.MoveToRootDirectory(); 
-        public void MoveUp() => dm.MoveUp(); 
+        public void MoveToRootDirectory() => dm.MoveToRootDirectory();
+        public void MoveUp() => dm.MoveUp();
         public void MoveTo(string directoryName)
         {
             directoryName = monikers.Replace(directoryName);

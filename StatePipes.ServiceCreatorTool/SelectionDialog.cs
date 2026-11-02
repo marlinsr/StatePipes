@@ -142,7 +142,7 @@ namespace StatePipes.ServiceCreatorTool
 
         public static bool SelectFile(out string fileName, string prompt, string fileFilter = "All files (*.*)|*.*", string? initialDirectory = null)
         {
-            OpenFileDialog dialog = new(){ Title = prompt, Filter = fileFilter, Multiselect = false};
+            OpenFileDialog dialog = new() { Title = prompt, Filter = fileFilter, Multiselect = false };
             if (!string.IsNullOrEmpty(initialDirectory) && Directory.Exists(initialDirectory))
             {
                 dialog.InitialDirectory = initialDirectory;

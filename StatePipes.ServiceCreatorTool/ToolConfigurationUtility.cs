@@ -10,7 +10,7 @@ namespace StatePipes.ServiceCreatorTool
             var jsonString = System.IO.File.ReadAllText(solutionTopLevelPath + $"\\{typeof(ToolConfiguration).Name}.json");
             return JsonConvert.DeserializeObject<ToolConfiguration>(jsonString, new StringEnumConverter());
         }
-        public static void WriteConfiguration(string solutionTopLevelPath, ToolConfiguration configuration) 
+        public static void WriteConfiguration(string solutionTopLevelPath, ToolConfiguration configuration)
         {
             var jsonString = JsonConvert.SerializeObject(configuration, Formatting.Indented, new StringEnumConverter());
             System.IO.File.WriteAllText(solutionTopLevelPath + $"\\{typeof(ToolConfiguration).Name}.json", jsonString);

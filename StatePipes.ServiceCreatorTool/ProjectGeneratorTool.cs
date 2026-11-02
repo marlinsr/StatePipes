@@ -9,6 +9,7 @@
             var monikers = CreateMonikers(SolutionNameNoExtension, projectName, toolConfig?.UseRabbitMQ ?? true);
             var helper = new GeneratorHelper(new DirectoryHelper(slnDir), monikers);
             GenerateProjectFiles(helper);
+            ClaudeMdWriter.AddServiceRow(slnDir, projectName);
         }
         public static void GenerateProjectFiles(GeneratorHelper helper)
         {

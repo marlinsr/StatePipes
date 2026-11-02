@@ -4,7 +4,7 @@ using System.Xml.Linq;
 
 namespace StatePipes.ServiceCreatorTool
 {
-internal class TypeRepo
+    internal class TypeRepo
     {
         private readonly Dictionary<string, ModuleBuilder> _moduleBuilderDictionary = [];
         private readonly Dictionary<string, AssemblyBuilder> _assemblyBuilderDictionary = [];
@@ -41,8 +41,8 @@ internal class TypeRepo
             typeof(List<byte>)];
         public void AddTypeToRepo(Type t, string typeFullName)
         {
-            if(_baseTypeList.Contains(t)) return;
-            if(_supportedGenericsList.Contains(t)) return;
+            if (_baseTypeList.Contains(t)) return;
+            if (_supportedGenericsList.Contains(t)) return;
             lock (_typeRepo)
             {
                 if (_typeRepo.ContainsKey(typeFullName))

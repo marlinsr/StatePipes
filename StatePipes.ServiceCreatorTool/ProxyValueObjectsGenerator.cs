@@ -139,9 +139,9 @@
                 return proxyGeneratorCommon.GetTypeName(propertyFullName);
             }
             if (typeDescription.IsArray()) return GetPropertyTypeForArray(typeDescription.ArrayFullName, typeDescription.ArrayRank);
-            if (typeDescription.IsGeneric()) 
+            if (typeDescription.IsGeneric())
                 return GetPropertyTypeForGeneric(typeDescription.GenericNames!.FullName, typeDescription.GenericArgumentsNames);
-            if (typeDescription.Namespace.StartsWith("StatePipes.Common") || typeDescription.Namespace.StartsWith("System.")) 
+            if (typeDescription.Namespace.StartsWith("StatePipes.Common") || typeDescription.Namespace.StartsWith("System."))
                 return proxyGeneratorCommon.GetTypeName(propertyFullName);
             _valueObjectsCreationTracker.RegisterNeedsCreating(propertyFullName);
             return proxyGeneratorCommon.GetTypeName(propertyFullName);

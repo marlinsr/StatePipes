@@ -98,9 +98,10 @@ Creates: <Prefix>.Test/TestCategories.cs
 
 ## CLAUDE.md
 
-Add a row for the service to the Services table in `<SolutionDir>/CLAUDE.md`, above the
-`<!-- One row per service ... -->` line: `| <Component> | <Prefix> | <Prefix>/StatePipesModel.md |`. If the solution has
-no `CLAUDE.md` (for example it was created before this rule), write it first, as `new-solution` describes.
+The Services table in `<SolutionDir>/CLAUDE.md` needs a row for the service, above the `<!-- One row per service ... -->`
+line: `| <Component> | <Prefix> | <Prefix>/StatePipesModel.md |`. The tool adds it when `CLAUDE.md` has that line
+(versions newer than 6.0.6), so check that it's there and add it if it's missing. If the solution has no `CLAUDE.md`
+(for example it was created before this rule), write it first, as `new-solution` describes.
 
 ## After
 

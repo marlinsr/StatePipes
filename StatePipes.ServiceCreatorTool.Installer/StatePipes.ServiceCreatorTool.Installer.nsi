@@ -147,6 +147,15 @@ Section "MainSection" SEC01
   File "..\StatePipes.Diagrammer\bin\Release\net10.0-windows\runtimes\win\lib\net6.0\System.Diagnostics.EventLog.Messages.dll"
   SetOutPath "$INSTDIR\Diagrammer\runtimes\win\lib\net10.0"
   File "..\StatePipes.Diagrammer\bin\Release\net10.0-windows\runtimes\win\lib\net10.0\System.Management.dll"
+  ; Claude Code plugin, as a local marketplace; cleared first so files a newer plugin dropped don't stay
+  RMDir /r "$INSTDIR\ClaudePlugin"
+  SetOutPath "$INSTDIR\ClaudePlugin\.claude-plugin"
+  File "ClaudePlugin\.claude-plugin\marketplace.json"
+  SetOutPath "$INSTDIR\ClaudePlugin\statepipes\.claude-plugin"
+  File "..\StatePipes.ClaudePlugin\.claude-plugin\plugin.json"
+  SetOutPath "$INSTDIR\ClaudePlugin\statepipes"
+  File "..\StatePipes.ClaudePlugin\README.md"
+  File /r "..\StatePipes.ClaudePlugin\skills"
   SetOutPath "$INSTDIR\ServiceCreatorToolSetup"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\envdte.dll"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\Microsoft.VisualStudio.Imaging.Interop.14.0.DesignTime.dll"
@@ -157,7 +166,9 @@ Section "MainSection" SEC01
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.exe"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.pdb"
   File "..\StatePipes.ServiceCreatorToolSetup\bin\Release\net10.0\StatePipes.ServiceCreatorToolSetup.runtimeconfig.json"
-  ExecWait '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe"'
+  ; ExecToLog waits, hides the console, and shows the Setup messages (such as the manual plugin commands) in the details
+  nsExec::ExecToLog '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe"'
+  Pop $0
 SectionEnd
 
 Section -Post
@@ -183,6 +194,8 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
+  nsExec::ExecToLog '"$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.exe" --remove-plugin'
+  Pop $0
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.runtimeconfig.json"
   Delete "$INSTDIR\ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.pdb"
@@ -303,6 +316,8 @@ Section Uninstall
   RMDIR "$INSTDIR\Diagrammer"
 
   RMDir "$INSTDIR\ServiceCreatorToolSetup"
+
+  RMDir /r "$INSTDIR\ClaudePlugin"
 
   RMDir "$INSTDIR\ServiceCreatorTool\runtimes\win\lib\net10.0"
   RMDir "$INSTDIR\ServiceCreatorTool\runtimes\win\lib"

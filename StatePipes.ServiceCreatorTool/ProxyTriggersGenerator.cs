@@ -20,7 +20,7 @@
             foreach (TypeSerialization typeSerialization in proxyGeneratorCommon.TypeSerializations.TypeSerializations)
             {
                 var typeDescription = typeSerialization.GetTopLevelTypeDescription();
-                if (typeDescription.IsEvent && (!typeDescription.FullName.StartsWith("StatePipes.Messages") 
+                if (typeDescription.IsEvent && (!typeDescription.FullName.StartsWith("StatePipes.Messages")
                     || typeDescription.FullName.StartsWith("StatePipes.Messages.AllStateStatusEvent")
                     || typeDescription.FullName.StartsWith("StatePipes.Messages.StateStatusEvent")))
                 {

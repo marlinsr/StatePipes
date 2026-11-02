@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 namespace StatePipes.Diagrammer
 {
-    internal class GraphGenerator(string graphDirectory)
+    internal class GraphGenerator(string graphDirectory, bool openPdfs)
     {
         private void Create(string pdfFileName, string dotFileName)
         {
@@ -19,10 +19,11 @@ namespace StatePipes.Diagrammer
             p.Start();
             p.WaitForExit();
             if (p.ExitCode != 0) throw new Exception("dot.exe exited with code " + p.ExitCode);
-            Display(pdfFileName);
+            if (openPdfs) Display(pdfFileName);
         }
         private void Display(string pdfFilename)
         {
+            Console.WriteLine($"Opening {pdfFilename}");
             var p = new Process
             {
                 StartInfo =

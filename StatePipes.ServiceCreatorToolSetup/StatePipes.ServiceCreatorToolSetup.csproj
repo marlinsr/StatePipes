@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="StatePipes.Test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Resources\StatePipesExternalToolsSettings.vssettings" />
   </ItemGroup>
 

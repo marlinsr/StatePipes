@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "statepipes",
+  "description": "Claude Code plugins for building StatePipes services",
+  "owner": {
+    "name": "marlinsr"
+  },
+  "plugins": [
+    {
+      "name": "statepipes",
+      "description": "Guides Claude Code to design, scaffold, extend and verify StatePipes services that use the state-scoped command handler pattern.",
+      "source": "./statepipes",
+      "category": "development"
+    }
+  ]
+}
