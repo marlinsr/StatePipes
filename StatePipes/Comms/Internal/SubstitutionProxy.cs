@@ -20,7 +20,7 @@ namespace StatePipes.Comms.Internal
         public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class =>
             _innerProxy.Subscribe(receivedEventTypeFullName, handler);
         public void SubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _innerProxy.SubscribeConnectedToService(onConnected, onDisconnected);
-        public void UnSubscribe<TEvent>(Action<TEvent, BusConfig,bool> handler) where TEvent : class, IEvent => _innerProxy.UnSubscribe(handler);
+        public void UnSubscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => _innerProxy.UnSubscribe(handler);
         public void UnSubscribeConnectedToService(EventHandler onConnected, EventHandler onDisconnected) => _innerProxy.UnSubscribeConnectedToService(onConnected, onDisconnected);
     }
 }

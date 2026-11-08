@@ -8,8 +8,10 @@ using System.Reflection;
 
 namespace StatePipes.StateMachine.Test.Internal
 {
-    internal class TestStatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService
+    internal class TestStatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, ICommandRequeuer
     {
+        public void Requeue(object command, BusConfig replyTo, int retryCount, bool isTimerDelivery) =>
+            Queue(new ReceivedCommandMessage(command, replyTo, retryCount, isTimerDelivery));
         private IContainer? _container = null;
         private readonly Lock _cmdLock = new();
         private readonly List<ICommand> _cmdInvocations = [];
@@ -123,7 +125,7 @@ namespace StatePipes.StateMachine.Test.Internal
                     PerformCancellation();
                     if (cmd != null)
                     {
-                        Execute(cmd);
+                        CommandDispatchContext.Run(cmd, () => Execute(cmd));
                         _processing = !_cmdBlockingFilterList.Trigger((ICommand)cmd.Command);
                     }
                 }

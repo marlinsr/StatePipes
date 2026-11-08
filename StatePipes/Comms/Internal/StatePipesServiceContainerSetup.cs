@@ -26,7 +26,7 @@ namespace StatePipes.Comms.Internal
             _serviceContainerSetup = (dynamic)Activator.CreateInstance(containerSetupType)!;
             _stateMachineContainerSetup = new(_assembly, true);
             _statePipesAssebly = typeof(StatePipesService).Assembly;
-            _selfDescriptionContainerSetup = new(_assembly,_statePipesAssebly);
+            _selfDescriptionContainerSetup = new(_assembly, _statePipesAssebly);
         }
         public void Build(IContainer container)
         {

@@ -18,9 +18,9 @@ namespace StatePipes.Comms.Internal
                 if (onConnected != null)
                 {
                     Connected += onConnected;
-                    if(IsConnectedToService) onConnected.Invoke(null,EventArgs.Empty);
+                    if (IsConnectedToService) onConnected.Invoke(null, EventArgs.Empty);
                 }
-                if (onDisconnected != null) 
+                if (onDisconnected != null)
                 {
                     Disconnected += onDisconnected;
                     if (!IsConnectedToService) onDisconnected.Invoke(null, EventArgs.Empty);

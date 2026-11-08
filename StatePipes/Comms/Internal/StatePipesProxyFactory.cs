@@ -19,7 +19,7 @@ namespace StatePipes.Comms.Internal
             //Do LocalServices and LocalServiceWithRemoteAccesses without Substitutions
             foreach (var proxyConfiguration in serviceConfiguration.ProxyConfigurations)
             {
-                if (!_proxyDictionary.ContainsKey(proxyConfiguration.Name) && proxyConfiguration.ServiceConfiguration.ProxySubstitutions.Count <= 0) 
+                if (!_proxyDictionary.ContainsKey(proxyConfiguration.Name) && proxyConfiguration.ServiceConfiguration.ProxySubstitutions.Count <= 0)
                     AddService(proxyConfiguration, null);
             }
             //Do LocalServices and LocalServiceWithRemoteAccesses with Substitutions

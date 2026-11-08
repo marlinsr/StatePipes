@@ -8,7 +8,7 @@ namespace StatePipes.Comms.Internal
         public void Subscribe<TEvent>(Action<TEvent, BusConfig, bool> handler) where TEvent : class, IEvent => Subscribe(typeof(TEvent).FullName, handler);
         public void Subscribe<TEvent>(string? receivedEventTypeFullName, Action<TEvent, BusConfig, bool> handler) where TEvent : class
         {
-            if(string.IsNullOrEmpty(receivedEventTypeFullName)) return;
+            if (string.IsNullOrEmpty(receivedEventTypeFullName)) return;
             Log?.LogVerbose($"Subscribing to Event {receivedEventTypeFullName}");
             lock (_subscriptions)
             {
@@ -41,7 +41,7 @@ namespace StatePipes.Comms.Internal
         }
         public List<string> GetAllSubscriptionTypeFullNames()
         {
-            lock( _subscriptions)
+            lock (_subscriptions)
             {
                 return [.. _subscriptions.Keys];
             }

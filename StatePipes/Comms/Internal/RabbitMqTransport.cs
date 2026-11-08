@@ -122,7 +122,7 @@ namespace StatePipes.Comms.Internal
         public void Send<T>(T message, BusConfig busConfigFrom, string exchangeName) where T : IMessage => Send<T>(message.GetType().FullName, message, busConfigFrom, exchangeName);
         public void Send<T>(string? sendCommandTypeFullName, T message, BusConfig busConfigFrom, string exchangeName)
         {
-            if(message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
+            if (message == null || string.IsNullOrEmpty(sendCommandTypeFullName)) return;
             MessageHelper.Serialize(message, busConfigFrom, out byte[] body, out IDictionary<string, object?> headers);
             var properties = new BasicProperties
             {
@@ -160,10 +160,12 @@ namespace StatePipes.Comms.Internal
         {
             _timer?.Dispose();
             _timer = null;
-            if (_channel != null) try { _channel.ChannelShutdownAsync -= ChannelShutdown; } catch { };
+            if (_channel != null) try { _channel.ChannelShutdownAsync -= ChannelShutdown; } catch { }
+            ;
             _channel?.Dispose();
             _channel = null;
-            if (_connection != null) try { _connection.ConnectionShutdownAsync -= ConnectionShutdown; } catch { };
+            if (_connection != null) try { _connection.ConnectionShutdownAsync -= ConnectionShutdown; } catch { }
+            ;
             _connection?.Dispose();
             _connection = null;
         }

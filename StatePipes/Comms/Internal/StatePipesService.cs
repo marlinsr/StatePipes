@@ -6,8 +6,12 @@ using StatePipes.Messages;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Comms.Internal
 {
-    internal class StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true) : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, IDisposable
+    internal class StatePipesService(string name, ServiceConfiguration serviceConfiguration, IStatePipesProxyFactory? parentProxyFactory = null, bool remoteAccess = true) : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, IStatePipesProxyInternal, ICommandRequeuer, IDisposable
     {
+        public void Requeue(object command, BusConfig replyTo, int retryCount, bool isTimerDelivery)
+        {
+            if (_container != null) Queue(new ReceivedCommandMessage(command, replyTo, retryCount, isTimerDelivery));
+        }
         private readonly LocalProxyMessageTypeTransformer _localProxyMessageTypeTransformer = new();
         private readonly TypeDictionary _externalMessageTypeDictionary = new();
         private readonly Guid _id = Guid.NewGuid();
@@ -172,7 +176,7 @@ namespace StatePipes.Comms.Internal
                 {
                     var cmd = WaitGetNext(TransportConstants.HeartbeatIntervalMilliseconds);
                     PerformCancellation();
-                    if (cmd != null) ExecuteMessageHelper.ExecuteMessage(cmd.Command, cmd.ReplyTo, false, _container);
+                    if (cmd != null) CommandDispatchContext.Run(cmd, () => ExecuteMessageHelper.ExecuteMessage(cmd.Command, cmd.ReplyTo, false, _container));
                 }
                 else Thread.Sleep(TransportConstants.HeartbeatIntervalMilliseconds);
             }
