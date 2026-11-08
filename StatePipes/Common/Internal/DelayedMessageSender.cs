@@ -1,65 +1,17 @@
-﻿using StatePipes.Interfaces;
+﻿using Newtonsoft.Json;
+using StatePipes.Interfaces;
 
 namespace StatePipes.Common.Internal
 {
-    internal class DelayedMessageSender<TMessage>(IMessageSender bus) : IDelayedMessageSender<TMessage> where TMessage : class, IMessage
+    /// <summary>A named handle onto a timer owned by an <see cref="ITimerService"/>; it holds no timer of its own.</summary>
+    internal class DelayedMessageSender<TMessage>(ITimerService timers, Guid timerId) : IDelayedMessageSender<TMessage>, IDisposable where TMessage : class, IMessage
     {
-        private readonly Lock _lock = new();
-        private Timer? _timer;
-        private bool _disposed;
-        private bool _isPeriodic;
-        public bool Enabled
-        {
-            get;
-            private set;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-        public void StartOneShot(TimeSpan dueTime, TMessage message)
-        {
-            Stop();
-            lock (_lock)
-            {
-                _timer = new Timer(SendMessage, message, dueTime, TimeSpan.FromMilliseconds(Timeout.Infinite));
-                Enabled = true;
-            }
-        }
-        public void StartPeriodic(TimeSpan period, TMessage message)
-        {
-            Stop();
-            lock (_lock)
-            {
-                Enabled = true;
-                _isPeriodic = true;
-                _timer = new Timer(SendMessage, message, period, period);
-            }
-        }
-        public void Stop()
-        {
-            lock (_lock)
-            {
-                _timer?.Dispose();
-                _timer = null;
-                Enabled = false;
-                _isPeriodic = false;
-            }
-        }
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed) return;
-            if (disposing) Stop();
-            _disposed = true;
-        }
-        private void SendMessage(object? state)
-        {
-            lock (_lock)
-            {
-                if (state is TMessage message) bus.SendMessage(message);
-                if (!_isPeriodic) Enabled = false;
-            }
-        }
+        public Guid TimerId { get; } = timerId;
+        [JsonIgnore]
+        public bool Enabled => timers.IsEnabled(TimerId);
+        public void StartOneShot(TimeSpan dueTime, TMessage message) => timers.StartOneShot(TimerId, dueTime, message);
+        public void StartPeriodic(TimeSpan period, TMessage message) => timers.StartPeriodic(TimerId, period, message);
+        public void Stop() => timers.Stop(TimerId);
+        public void Dispose() => Stop();
     }
 }

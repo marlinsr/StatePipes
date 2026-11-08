@@ -13,8 +13,10 @@ namespace StatePipes.StateMachine.Test
         private TestStatePipesService? _testBus = new();
         private readonly TestDependencyRegistration _testDependencyRegistration = new();
         private BaseStateMachine? _stateMachine;
+        /// <summary>When set before ConfigureStateMachine, timers run on this clock (e.g. a FakeTimeProvider).</summary>
+        public TimeProvider? TimeProvider { get; set; }
         public void ConfigureStateMachine<StateMachineType, NextStateAfterInitType>(IDummyDependencyRegistration dummyRegisterator, bool disableAutomaticMoveToState = true) where StateMachineType : IStateMachine where NextStateAfterInitType : IStateMachineState
-        {            
+        {
             var stateMachineType = typeof(StateMachineType);
             Builder = new ContainerBuilder();
             _testDependencyRegistration.DummyDependencyRegistration = dummyRegisterator;
@@ -23,7 +25,8 @@ namespace StatePipes.StateMachine.Test
             _testDependencyRegistration.Register(Builder);
             dummyContainerSetup.Register(Builder);
             reflectedStateMachineContainerSetup.Register(Builder);
-            if(_testBus != null) Builder.RegisterInstance(_testBus).As<IStatePipesService>().SingleInstance();
+            if (_testBus != null) Builder.RegisterInstance(_testBus).As<IStatePipesService>().SingleInstance();
+            if (TimeProvider != null) Builder.RegisterInstance(TimeProvider).As<TimeProvider>();
             Container = Builder.Build();
             _testBus?.SetContainer(Container);
             dummyContainerSetup.Build(Container);
@@ -41,6 +44,7 @@ namespace StatePipes.StateMachine.Test
             dummyContainerSetup.Register(Builder);
             reflectedStateMachineContainerSetup.Register(Builder);
             if (_testBus != null) Builder.RegisterInstance(_testBus).As<IStatePipesService>().SingleInstance();
+            if (TimeProvider != null) Builder.RegisterInstance(TimeProvider).As<TimeProvider>();
             Container = Builder.Build();
             _testBus?.SetContainer(Container);
             dummyContainerSetup.Build(Container);
@@ -54,7 +58,7 @@ namespace StatePipes.StateMachine.Test
         }
         public void SendCommand<TCommand>(TCommand trigger) where TCommand : class, ICommand => _stateMachine?.SendCommand(trigger);
         public void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent => _stateMachine?.PublishEvent(ev);
-        public void FilterCommand<T>(int skip = 0, int block = int.MaxValue) where T : class, ICommand => _testBus?.FilterCommand<T>(skip, block);  
+        public void FilterCommand<T>(int skip = 0, int block = int.MaxValue) where T : class, ICommand => _testBus?.FilterCommand<T>(skip, block);
         public bool RemoveCommandFilter<T>() where T : class, ICommand
         {
             if (_testBus == null) return false;
@@ -93,7 +97,7 @@ namespace StatePipes.StateMachine.Test
         public void FireMoveToStateTrigger() => _stateMachine?.Fire(new MoveToState());
         public bool IsCurrentState<T>() where T : IStateMachineState
         {
-            if(_stateMachine == null) return false;
+            if (_stateMachine == null) return false;
             return typeof(T).Name == _stateMachine.CurrentState;
         }
         public string CurrentState => _stateMachine?.CurrentState ?? string.Empty;

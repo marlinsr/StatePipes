@@ -13,6 +13,7 @@ namespace StatePipes.Comms.Internal
         private readonly Guid _id = Guid.NewGuid();
         private readonly EventSubscriptionManager _eventSubscriptionManager = new();
         private DelayedMessageSender<HeartbeatCommand>? _heartbeatSender;
+        private InMemoryTimerService? _heartbeatTimers;
         private IContainer? _container;
         private ITransport? _transport;
         private List<string> PublicCommandsFullName = ITransport.DefaultRoutingKeys;
@@ -63,7 +64,7 @@ namespace StatePipes.Comms.Internal
                 Log?.LogError($"Can't send response {replyMessage.GetType().FullName} because it is on broker {busConfig.BrokerUri}");
                 return;
             }
-            if(busConfig.ClientCertPath != _busConfig.ClientCertPath)
+            if (busConfig.ClientCertPath != _busConfig.ClientCertPath)
             {
                 Log?.LogError($"Can't send response {replyMessage.GetType().FullName} because it uses a {busConfig.ClientCertPath} certificate for authentication");
                 return;
@@ -93,7 +94,8 @@ namespace StatePipes.Comms.Internal
             statePipesServiceContainerSetup.Build(container);
             PublicCommandsFullName = statePipesServiceContainerSetup.PublicCommandsFullName;
             StartLongRunningAndWait();
-            _heartbeatSender = new DelayedMessageSender<HeartbeatCommand>(this);
+            _heartbeatTimers = new InMemoryTimerService(this, TimeProvider.System);
+            _heartbeatSender = new DelayedMessageSender<HeartbeatCommand>(_heartbeatTimers, Guid.NewGuid());
             _heartbeatSender.StartPeriodic(TimeSpan.FromMilliseconds(TransportConstants.HeartbeatIntervalMilliseconds), new HeartbeatCommand());
             SendCommand(new GetCurrentStatusCommand());
         }
@@ -103,14 +105,16 @@ namespace StatePipes.Comms.Internal
             {
                 _heartbeatSender?.Stop();
                 _heartbeatSender = null;
+                _heartbeatTimers?.Dispose();
+                _heartbeatTimers = null;
                 Cancel();
                 _transport?.Dispose();
                 _transport = null;
                 _container?.Dispose();
                 _container = null;
             }
-            catch (Exception ex) 
-            { 
+            catch (Exception ex)
+            {
                 Log?.LogException(ex);
             }
         }
@@ -162,7 +166,8 @@ namespace StatePipes.Comms.Internal
             while (true)
             {
                 PerformCancellation();
-                if(_transport == null && remoteAccess) try { _transport = TransportFactory.Create(_busConfig, null, ConfigureBuses); } catch { };
+                if (_transport == null && remoteAccess) try { _transport = TransportFactory.Create(_busConfig, null, ConfigureBuses); } catch { }
+                ;
                 if (_container != null)
                 {
                     var cmd = WaitGetNext(TransportConstants.HeartbeatIntervalMilliseconds);
