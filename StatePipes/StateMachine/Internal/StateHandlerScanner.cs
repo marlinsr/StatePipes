@@ -116,7 +116,7 @@ namespace StatePipes.StateMachine.Internal
         public static IEnumerable<Type> GetCommandTypes(Type stateType, Type stateBaseOpenGeneric) =>
             GetEventTypes(stateType, "SendCommand").Where(t => IsCommandForAnotherStateMachine(t, stateType, stateBaseOpenGeneric));
 
-        private static readonly Type[] _triggerOpenGenerics = [typeof(BaseTriggerCommand<>)];
+        private static readonly Type[] _triggerOpenGenerics = [typeof(BaseTriggerCommand<>), typeof(BaseWorkflowTriggerCommand<>)];
 
         private static bool IsCommandForAnotherStateMachine(Type commandType, Type stateType, Type stateBaseOpenGeneric)
         {

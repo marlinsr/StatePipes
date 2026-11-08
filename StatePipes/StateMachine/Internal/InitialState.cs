@@ -1,7 +1,7 @@
 ﻿using StatePipes.Interfaces;
 
 namespace StatePipes.StateMachine.Internal
-{ 
+{
     internal class InitialState : IStateMachineState
     {
         public void Configure(StateConfigurationWrapper config) { }

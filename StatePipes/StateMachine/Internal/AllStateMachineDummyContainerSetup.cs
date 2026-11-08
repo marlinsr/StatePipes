@@ -11,8 +11,7 @@ namespace StatePipes.StateMachine.Internal
         public AllStateMachineDummyContainerSetup(Assembly assembly, IDummyDependencyRegistration dummyRegisterator)
         {
             _stateMachineDummyBinding = [];
-            var baseStateMachineType = typeof(IStateMachine);
-            assembly.GetLoadableTypes().Where(t => baseStateMachineType.IsAssignableFrom(t) && !t.Equals(baseStateMachineType)).ToList()
+            AllStateMachineContainerSetup.GetSingletonStateMachineTypes(assembly).ToList()
                 .ForEach(smt => _stateMachineDummyBinding.Add(new BaseDummyContainerSetup(smt, dummyRegisterator)));
         }
         public void Build(IContainer container)

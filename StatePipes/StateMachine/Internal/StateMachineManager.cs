@@ -18,7 +18,7 @@ namespace StatePipes.StateMachine.Internal
             if (t == null) return null;
             return GetStateMachineForType(t);
         }
-        public List<BaseStateMachine> GetAllStateMachines() => [.. _stateMachineDictionary.Values]; 
+        public List<BaseStateMachine> GetAllStateMachines() => [.. _stateMachineDictionary.Values];
         public List<string> SaveAllStateMachineDotGraphToPath(string path)
         {
             List<string> ret = [];
