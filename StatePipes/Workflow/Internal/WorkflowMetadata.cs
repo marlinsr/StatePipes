@@ -76,7 +76,26 @@ namespace StatePipes.Workflow.Internal
 
             var triggerBase = typeof(BaseWorkflowTriggerCommand<>).MakeGenericType(workflowType);
             var triggers = types.Where(t => !t.IsGenericTypeDefinition && triggerBase.IsAssignableFrom(t)).ToList();
+            var settings = WorkflowJson.CreateSettings(workflowType.Assembly);
+            foreach (var trigger in triggers) EnsureRoundTrips(trigger, settings);
             return new WorkflowMetadata(workflowType, states, firsts[0], triggers);
+        }
+
+        /// <summary>Workflow triggers are persisted as timer messages, so each must survive a JSON round trip.</summary>
+        private static void EnsureRoundTrips(Type trigger, Newtonsoft.Json.JsonSerializerSettings settings)
+        {
+            try
+            {
+                object instance;
+                try { instance = Activator.CreateInstance(trigger, nonPublic: true)!; }
+                catch (MissingMethodException) { instance = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(trigger); }
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(instance, trigger, settings);
+                Newtonsoft.Json.JsonConvert.DeserializeObject(json, trigger, settings);
+            }
+            catch (Exception ex)
+            {
+                throw new WorkflowValidationException($"Workflow trigger {trigger.FullName} does not survive JSON serialization: {ex.Message}");
+            }
         }
 
         private static bool IsFrameworkBase(Type t) =>

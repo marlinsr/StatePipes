@@ -30,7 +30,7 @@ namespace StatePipes.Test.Workflow
         [TestMethod] public void DuplicateStateNames_Fails() => AssertInvalid(typeof(DuplicateWorkflow), "DupState");
 
         [TestMethod]
-        [Ignore("enabled in Task 6")]
+
         public void TriggerNotRoundTrippable_Fails() => AssertInvalid(typeof(BadTriggerWorkflow), "UnserializableTrigger");
 
         [TestMethod]
