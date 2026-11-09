@@ -25,6 +25,11 @@ namespace StatePipes.Common.Internal
         private readonly Thread _thread;
         private ITimer? _wakeTimer;
         private volatile bool _disposed;
+        private bool _firing;
+        /// <summary>Earliest due time of any pending timer (test harness stepping).</summary>
+        internal DateTimeOffset? NextDue { get { lock (_lock) return _entries.Count == 0 ? null : _entries.Values.Min(e => e.Due); } }
+        /// <summary>True while a due timer has not yet been delivered (test harness idle detection).</summary>
+        internal bool HasDueWork { get { lock (_lock) { var now = _time.GetUtcNow(); return _firing || _entries.Values.Any(e => e.Due <= now); } } }
 
         public InMemoryTimerService(IMessageSender sender, TimeProvider timeProvider)
         {
@@ -77,6 +82,7 @@ namespace StatePipes.Common.Internal
                     }
                     else _entries.Remove(item.Id);
                 }
+                _firing = due.Count > 0;
                 _wakeTimer?.Dispose();
                 _wakeTimer = next is DateTimeOffset n ? _time.CreateTimer(_ => _signal.Set(), null, n - now, Timeout.InfiniteTimeSpan) : null;
                 // The clock may have moved while the wake timer was armed relative to the stale 'now'; re-check after arming.
@@ -97,6 +103,7 @@ namespace StatePipes.Common.Internal
                     }
                     catch (Exception ex) { Log?.LogException(ex); }
                 }
+                lock (_lock) _firing = false;
                 _signal.WaitOne();
             }
         }

@@ -13,6 +13,14 @@ namespace StatePipes.Workflow.Internal
         public IReadOnlyCollection<WorkflowRecord> Instances { get { lock (_lock) return [.. _instances.Values]; } }
         public IReadOnlyCollection<TimerRecord> Timers { get { lock (_lock) return [.. _timers.Values.Select(t => t.Record)]; } }
         public DateTimeOffset? ExpirationOf(Guid timerId) { lock (_lock) return _timers.TryGetValue(timerId, out var t) ? t.Expiration : null; }
+        public DateTimeOffset? NextExpiration(IReadOnlyCollection<string> workflowTypes)
+        {
+            lock (_lock)
+            {
+                var pending = _timers.Values.Where(t => workflowTypes.Contains(t.Record.WorkflowType)).ToList();
+                return pending.Count == 0 ? null : pending.Min(t => t.Expiration);
+            }
+        }
         public void SimulateLock(string workflowType, string correlationId) { lock (_lock) _simulated.Add((workflowType, correlationId)); }
         public void ReleaseSimulatedLock(string workflowType, string correlationId) { lock (_lock) _simulated.Remove((workflowType, correlationId)); }
         /// <summary>Seeds a committed instance row directly (tests of corrupt or legacy data).</summary>

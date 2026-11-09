@@ -56,7 +56,7 @@ namespace StatePipes.Workflow.Internal
             WorkflowContext.Current = ctxTemplate with { Machine = machine };
             var states = md.StateTypes.ToDictionary(t => t.Name, t => Activator.CreateInstance(t, nonPublic: true)!);
             foreach (var state in states.Values) new StateWorker(machine, (IStateMachineState)state, false).Configure();
-            machine.ConfigureInitialState(md.FirstStateType, null);
+            machine.ConfigureInitialState(md.FirstStateType, null!);
             machine.FinalStates = md.FinalStateNames;
             return new WorkflowMachine(machine, states);
         }
