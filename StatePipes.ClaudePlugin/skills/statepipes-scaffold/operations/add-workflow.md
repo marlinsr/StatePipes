@@ -1,6 +1,6 @@
 # add-workflow
 
-ServiceCreatorTool operation **Add Workflow** (`-w`, headless; no Visual Studio External Tool). Generator:
+External Tool: **Add Workflow** (`-w`). Generator:
 `WorkflowGeneratorTool.GenerateWorkflow`.
 
 A workflow is a state machine with many persisted instances, one per CorrelationId (for example one per shopping

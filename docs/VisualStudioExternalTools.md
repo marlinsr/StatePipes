@@ -40,6 +40,7 @@ The argument strings use standard Visual Studio External Tools macros:
 | Create StatePipes Proxy From Service | 312 | ServiceCreatorTool | No |
 | Update StatePipes Proxy From Service | 313 | ServiceCreatorTool | Yes — `*Proxy.cs` file |
 | Add Event | 314 | ServiceCreatorTool | No |
+| Add Workflow | 315 | ServiceCreatorTool | No |
 
 ---
 
@@ -392,6 +393,26 @@ Add the event's payload as immutable properties (events are broadcast to every s
 
 ---
 
+### Add Workflow
+
+**Menu title:** Add Workflow
+**Executable:** `%ProgramFiles(x86)%\StatePipes\ServiceCreatorTool\StatePipes.ServiceCreatorTool.exe`
+**Arguments:** `-r $(SolutionDir) -s $(SolutionFileName) -p $(ProjectFileName) -b $(TargetDir) -w`
+**When to use:** Adding a workflow, a state machine with many persisted instances (one per CorrelationId) stored in PostgreSQL. Run with a **service class library project** active.
+
+#### What happens
+
+1. Builds the solution.
+2. Checks that the active project is a service class library (not a `.Service` project).
+3. Opens an **input dialog**: enter the workflow name (e.g., `ShoppingCart`).
+4. Creates `<ClassLibrary>\StateMachines\<Name>\<Name>.cs` (the workflow marker), `States\TopLevelState.cs` (the first state every instance starts in) and `States\FinishedState.cs` (an `IFinalWorkflowState`: entering it deletes the instance).
+5. For the service's first workflow only: adds the `WorkflowStoreConfig` to `Builders\DefaultServiceConfiguration.cs` and the PostgreSQL client-certificate copy to the `.Service` project's post-build step.
+6. Opens `TopLevelState.cs` in the editor.
+
+Add further workflow states with **Add State**: it detects that the selected machine is a workflow, generates `BaseWorkflowState` / `ParentedBaseWorkflowState` states, and asks whether the new state is final.
+
+---
+
 ## Typical Workflow
 
 ```
@@ -404,6 +425,7 @@ New StatePipes Sln          ← once per repository
        │    ├─ Add PermitReentryIf ├─ per guard in a state file
        │    ├─ Add IgnoreIf        ┘
        │    └─ Add Periodic        ← per timed behaviour in a state
+       ├─ Add Workflow      ← per persisted multi-instance lifecycle (then Add State / Add Trigger as above)
        ├─ Add Event               ← for each event the service publishes
        ├─ New StatePipes Proxy    ← for each remote service dependency (from its DLL)
        │    or Create StatePipes Proxy From Service ← (from the running service)

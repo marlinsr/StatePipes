@@ -22,7 +22,7 @@ Read `statepipes-conventions` before writing code inside the generated files.
 | `new-solution` | New StatePipes Sln | `operations/new-solution.md` |
 | `new-service` | New StatePipes Service | `operations/new-service.md` |
 | `add-state-machine` | Add StateMachine | `operations/add-state-machine.md` |
-| `add-workflow` | (headless `-w` only) | `operations/add-workflow.md` |
+| `add-workflow` | Add Workflow | `operations/add-workflow.md` |
 | `add-state` | Add State | `operations/add-state.md` |
 | `add-trigger` | Add Trigger | `operations/add-trigger.md` |
 | `add-permit-if` | Add PermitIf | `operations/add-permit-if.md` |
