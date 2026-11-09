@@ -8,6 +8,7 @@
             var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
             monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
             monikers.AddMoniker("@#$TriggerName@#$", triggerName);
+            AddWorkflowMonikers(monikers, StateMachineTypesHelper.IsWorkflow(projectDir, stateMachineName));
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             return GenerateTriggerFile(isInternal, helper);
         }

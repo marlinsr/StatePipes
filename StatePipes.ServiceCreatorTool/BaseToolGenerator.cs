@@ -46,6 +46,18 @@ namespace StatePipes.ServiceCreatorTool
             solutionName.StartsWith(packagePrefix, StringComparison.InvariantCultureIgnoreCase) ? solutionName[(solutionName.IndexOf(packagePrefix, StringComparison.InvariantCultureIgnoreCase) + packagePrefix.Length)..] : solutionName;
         protected static string GetComponentName(string classLibraryName) => classLibraryName.Contains('.') ? classLibraryName[(classLibraryName.LastIndexOf('.') + 1)..] : classLibraryName;
         protected static string GetDefaultStateMachineName(string classLibraryName) => $"{GetComponentName(classLibraryName)}StateMachine";
+        /// <summary>
+        /// Turns the singleton state and trigger templates into their workflow form. Added after the @#$ monikers, so it runs
+        /// on already-substituted text; "BaseStateMachineState&lt;" also rewrites "ParentedBaseStateMachineState&lt;".
+        /// Timer messages of a workflow carry the instance's CorrelationId (the framework never stamps it).
+        /// </summary>
+        protected static void AddWorkflowMonikers(MonikerSubstitution monikers, bool isWorkflow)
+        {
+            monikers.AddMoniker("@#$TriggerInit@#$", isWorkflow ? " { CorrelationId = CorrelationId }" : string.Empty);
+            if (!isWorkflow) return;
+            monikers.AddMoniker("BaseStateMachineState<", "BaseWorkflowState<");
+            monikers.AddMoniker("BaseTriggerCommand<", "BaseWorkflowTriggerCommand<");
+        }
         protected static MonikerSubstitution CreateMonikers(string solutionName, string projectName, bool usingRabbit = true)
         {
             //Define Monikers

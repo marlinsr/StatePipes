@@ -3,15 +3,37 @@
     internal class StateGeneratorTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
     {
         public string GenerateState(string projectDir, string projectName, string targetDirectory, string stateMachineName,
-            string stateName, string? parentStateName, bool isFirstChild)
+            string stateName, string? parentStateName, bool isFirstChild, bool isFinal = false)
         {
             _pathProvider.AddPaths(projectDir, projectName, targetDirectory);
             var monikers = CreateMonikers(SolutionNameNoExtension, projectName);
             monikers.AddMoniker("@#$StateMachineName@#$", stateMachineName);
             monikers.AddMoniker("@#$StateName@#$", stateName);
             if (parentStateName != null) monikers.AddMoniker("@#$ParentStateName@#$", parentStateName);
+            AddWorkflowMonikers(monikers, StateMachineTypesHelper.IsWorkflow(projectDir, stateMachineName));
             var helper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
-            return GenerateStateFile(parentStateName, isFirstChild, helper);
+            var stateFile = GenerateStateFile(parentStateName, isFirstChild, helper);
+            if (isFinal) MarkFinal(stateFile);
+            return stateFile;
+        }
+        /// <summary>Appends IFinalWorkflowState to the generated class declaration.</summary>
+        private static void MarkFinal(string stateFile)
+        {
+            var contents = File.ReadAllText(stateFile);
+            var match = System.Text.RegularExpressions.Regex.Match(contents, @"internal class \w+ : [^\r\n]+");
+            File.WriteAllText(stateFile, contents.Insert(match.Index + match.Length, ", IFinalWorkflowState"));
+        }
+        /// <summary>Workflow states may be final (--final true|false, or a prompt); singleton states never are.</summary>
+        private static bool? IsFinal(string projDir, string stateMachine, IToolInput input)
+        {
+            if (!StateMachineTypesHelper.IsWorkflow(projDir, stateMachine))
+            {
+                if (!input.Supplied("--final")) return false;
+                Console.WriteLine("--final applies only to workflow states.");
+                return null;
+            }
+            if (input.Headless && !input.Supplied("--final")) return false;
+            return input.Confirm("--final", "true", "false", "Is this a final state (entering it deletes the workflow instance)?");
         }
         public static string GenerateStateFile(string? parentStateName, bool isFirstChild, GeneratorHelper helper)
         {
@@ -29,7 +51,9 @@
         {
             var stateName = input.Name("--state", $"Enter the name for the new state on {selectedStateMachine}");
             if (stateName == null || AlreadyExists(solutionDir, Path.Combine(projDir, "StateMachines", selectedStateMachine, "States", $"{stateName}.cs"))) return ToolResult.Failed;
-            return ToolResult.Ok((new StateGeneratorTool(solutionDir, solutionFileName)).GenerateState(projDir, projectName, targetDirectory, selectedStateMachine, stateName, parentStateName: parentedStateName, isFirstChild: isFirstChild));
+            var isFinal = IsFinal(projDir, selectedStateMachine, input);
+            if (isFinal == null) return ToolResult.Failed;
+            return ToolResult.Ok((new StateGeneratorTool(solutionDir, solutionFileName)).GenerateState(projDir, projectName, targetDirectory, selectedStateMachine, stateName, parentStateName: parentedStateName, isFirstChild: isFirstChild, isFinal: isFinal.Value));
         }
         private static ToolResult CreateParentedState(string solutionDir, string solutionFileName, string projDir, string projectName,
             string targetDirectory, string selectedStateMachine, StateMachineTypesHelper stateMachineTypesHelper, IToolInput input)

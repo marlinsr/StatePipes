@@ -14,6 +14,7 @@ namespace StatePipes.ServiceCreatorTool
             monikers.AddMoniker("@#$TimerName@#$", timerName);
             monikers.AddMoniker("@#$TimerPeriod@#$", timerPeriod);
             monikers.AddMoniker("@#$PeriodicGuard@#$", periodicGuard);
+            AddWorkflowMonikers(monikers, StateMachineTypesHelper.IsWorkflow(projectDir, stateMachineName));
             var triggerHelper = new GeneratorHelper(new DirectoryHelper(_pathProvider.GetPath(PathName.Solution)), monikers);
             // The same timer in another state of the machine reuses its trigger rather than overwriting it
             var triggerFile = Path.Combine(projectDir, "StateMachines", stateMachineName, "Triggers", "Internal", $"{triggerName}.cs");

@@ -1,1 +1,1 @@
-            @#$TimerName@#$?.StartPeriodic(TimeSpan.FromMilliseconds(@#$TimerPeriod@#$), new @#$TriggerName@#$());
+            @#$TimerName@#$?.StartPeriodic(TimeSpan.FromMilliseconds(@#$TimerPeriod@#$), new @#$TriggerName@#$()@#$TriggerInit@#$);

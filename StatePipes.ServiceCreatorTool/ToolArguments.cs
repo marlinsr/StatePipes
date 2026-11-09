@@ -7,7 +7,7 @@ namespace StatePipes.ServiceCreatorTool
         {
             "--repo", "--transport", "--solution-name", "--prefix", "--statemachine-name", "--statemachine", "--state",
             "--parent-state", "--trigger-name", "--trigger-scope", "--event", "--trigger", "--transition-to", "--timer-name",
-            "--timer-period", "--moniker", "--dll", "--broker", "--exchange", "--cert", "--certpw", "--timeout", "--workflow-name",
+            "--timer-period", "--moniker", "--dll", "--broker", "--exchange", "--cert", "--certpw", "--timeout", "--workflow-name", "--final",
         };
         public static Dictionary<string, string>? Parse(string[] args)
         {
