@@ -116,5 +116,30 @@ namespace StatePipes.Test.Common
             time.Advance(TimeSpan.FromSeconds(1)); WaitFor(() => sender.Sent.Count == 1);
             Assert.AreEqual(new Ping(2), sender.Sent.Single());
         }
+
+        /// <summary>Advances the clock at the moment the first wake timer is created, as a concurrent Advance would.</summary>
+        private sealed class RacingTimeProvider(FakeTimeProvider inner, TimeSpan advanceBy) : TimeProvider
+        {
+            private bool _raced;
+            public override DateTimeOffset GetUtcNow() => inner.GetUtcNow();
+            public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+            {
+                if (!_raced) { _raced = true; inner.Advance(advanceBy); }
+                return inner.CreateTimer(callback, state, dueTime, period);
+            }
+        }
+
+        [TestMethod]
+        public void ClockAdvancedWhileArmingWakeTimer_StillFires()
+        {
+            var fake = NewTime();
+            var time = new RacingTimeProvider(fake, TimeSpan.FromMilliseconds(50));
+            using var timers = new InMemoryTimerService(new RecordingSender(), time);
+            Settle(); // timer thread idle, so the schedule signal is consumed before the wake timer is armed
+            int calls = 0;
+            timers.ScheduleCallback(TimeSpan.FromMilliseconds(50), () => Interlocked.Increment(ref calls));
+            WaitFor(() => calls == 1);
+            Assert.AreEqual(1, calls);
+        }
     }
 }

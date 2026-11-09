@@ -43,9 +43,9 @@ namespace StatePipes.Workflow.Internal
         /// Fires a trigger and then completes any pending MoveToState. Stateless does not run a parent's entry action when a
         /// substate re-enters its parent (the LCA is the parent), so the automatic MoveToState may not fire on its own.
         /// </summary>
-        public static void Fire(WorkflowMachine wm, ITrigger trigger)
+        public static void Fire(WorkflowMachine wm, ITrigger trigger, StatePipes.Comms.BusConfig? responseInfo = null)
         {
-            wm.Machine.Fire(trigger);
+            wm.Machine.Fire(trigger, responseInfo);
             while (wm.Machine.CurrentStateHasMoveToState()) wm.Machine.Fire(new MoveToState());
         }
 

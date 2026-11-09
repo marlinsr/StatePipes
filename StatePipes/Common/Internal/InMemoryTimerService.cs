@@ -79,6 +79,8 @@ namespace StatePipes.Common.Internal
                 }
                 _wakeTimer?.Dispose();
                 _wakeTimer = next is DateTimeOffset n ? _time.CreateTimer(_ => _signal.Set(), null, n - now, Timeout.InfiniteTimeSpan) : null;
+                // The clock may have moved while the wake timer was armed relative to the stale 'now'; re-check after arming.
+                if (next is DateTimeOffset nextDue && _time.GetUtcNow() >= nextDue) _signal.Set();
             }
             return due;
         }
