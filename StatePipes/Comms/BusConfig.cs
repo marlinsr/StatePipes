@@ -29,7 +29,7 @@ namespace StatePipes.Comms
         [JsonIgnore]
         public TransportKind TransportKind => BrokerUri.StartsWith(TransportConstants.KafkaBrokerUriPrefix, StringComparison.OrdinalIgnoreCase) ? TransportKind.Kafka : TransportKind.RabbitMq;
 
-        public BusConfig(BusConfig config, BusConfig previousHop) : this(config.BrokerUri, config.ExchangeNamePrefix, config.ClientCertPath, config.ClientCertPasswordPath, config.ResponseExchangeGuid, config.ExchangeNamePostfix, previousHop){}
+        public BusConfig(BusConfig config, BusConfig previousHop) : this(config.BrokerUri, config.ExchangeNamePrefix, config.ClientCertPath, config.ClientCertPasswordPath, config.ResponseExchangeGuid, config.ExchangeNamePostfix, previousHop) { }
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath, string exchangeNamePostfix) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, exchangeNamePostfix, null) { }
         public BusConfig(string brokerUri, string exchangeNamePrefix, string clientCertPath, string clientCertPasswordPath) : this(brokerUri, exchangeNamePrefix, clientCertPath, clientCertPasswordPath, string.Empty, string.Empty, null) { }
 

@@ -6,8 +6,8 @@ namespace StatePipes.Comms
     {
         private bool _disposedValue;
         private readonly StatePipesProxyInternal _proxy = new(name, busConfig, hashedPassword);
-        public BusConfig BusConfig {  get => _proxy.BusConfig; }
-        public string Name { get => _proxy.Name;}
+        public BusConfig BusConfig { get => _proxy.BusConfig; }
+        public string Name { get => _proxy.Name; }
         public bool IsConnectedToBroker => _proxy.IsConnectedToBroker;
         public bool IsConnectedToService => _proxy.IsConnectedToService;
 
