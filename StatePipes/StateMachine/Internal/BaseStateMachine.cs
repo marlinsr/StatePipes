@@ -22,24 +22,32 @@ namespace StatePipes.StateMachine.Internal
         public readonly CommandRegistrationManager CommandRegistrationManager = new();
         public string StateMachineName { get; private set; } = "UNKNOWN";
         public string AssemblyQualifiedStateMachineName { get; private set; } = "UNKNOWN";
-        public BaseStateMachine(IStatePipesService bus, InMemoryTimerService timers)
+        /// <summary>Workflow terminal states; drawn with a double border in diagrams.</summary>
+        internal IReadOnlySet<string> FinalStates { get; set; } = new HashSet<string>();
+        public BaseStateMachine(IStatePipesService bus, InMemoryTimerService timers) : this(bus, timers, typeof(InitialState).Name, true) { }
+        /// <summary>Workflow machines start in their persisted state and never broadcast StateStatusEvent.</summary>
+        internal BaseStateMachine(IStatePipesService bus, InMemoryTimerService timers, string initialStateName, bool publishStatus)
         {
             _bus = bus;
             _timers = timers;
-            _currentState = typeof(InitialState).Name;
-            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Queued);
+            _currentState = initialStateName;
+            _stateMachine = new StateMachine<string, string>(initialStateName, FiringMode.Queued);
             _stateMachine.OnUnhandledTrigger(OnUnhandledTrigger);
             _stateMachine.OnTransitioned(t =>
             {
                 Log?.LogVerbose($"[State Changing] {t.Trigger}: {t.Source} --> {t.Destination}");
                 _currentState = t.Destination;
-                SendCurrentStatus();
+                if (publishStatus) SendCurrentStatus();
             });
         }
         public void OnUnhandledTrigger(string state, string trigger) => Log?.LogVerbose($"Trigger not set: [{trigger}] on state [{state}] on state machine [{StateMachineName}]");
         internal void SetStateMachineManagerAndType(StateMachineManager stateMachineManager, Type stateMachineType)
         {
             _stateMachineManager = stateMachineManager;
+            SetStateMachineType(stateMachineType);
+        }
+        internal void SetStateMachineType(Type stateMachineType)
+        {
             StateMachineName = stateMachineType.FullName ?? "UNKNOWN";
             AssemblyQualifiedStateMachineName = stateMachineType.AssemblyQualifiedName ?? "UNKNOWN";
         }
