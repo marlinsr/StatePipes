@@ -157,10 +157,12 @@ namespace StatePipes.Test.ClaudePlugin
         public void PluginVersion_MatchesTheSolutionVersion()
         {
             var solutionInfo = File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "SolutionInfo.proj"));
-            var versionPrefix = Regex.Match(solutionInfo, "<VersionPrefix>([^<]+)</VersionPrefix>").Groups[1].Value;
+            var versionPrefix = Regex.Match(solutionInfo, "<VersionPrefix>([^<]+)</VersionPrefix>").Groups[1].Value.Trim();
+            var versionSuffix = Regex.Match(solutionInfo, "<VersionSuffix>([^<]*)</VersionSuffix>").Groups[1].Value.Trim();
+            var expected = versionSuffix.Length == 0 ? versionPrefix : $"{versionPrefix}-{versionSuffix}";
             using var plugin = JsonDocument.Parse(File.ReadAllText(Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ClaudePlugin", ".claude-plugin", "plugin.json")));
 
-            Assert.AreEqual(versionPrefix, plugin.RootElement.GetProperty("version").GetString(), "The release workflow keeps plugin.json at the SolutionInfo.proj version.");
+            Assert.AreEqual(expected, plugin.RootElement.GetProperty("version").GetString(), "The installer build (SyncClaudePluginVersion) and the release workflow keep plugin.json at the SolutionInfo.proj version.");
         }
 
         [TestMethod]
