@@ -54,6 +54,38 @@ foreach ($match in ($stateMachineFiles | Select-String -Pattern '\.Result\b|\.Wa
     $failures.Add("FAIL no-blocking-calls: ${relative}:$($match.LineNumber): $($match.Line.Trim())")
 }
 
+# Rules for workflows (StateMachines/<Name>/<Name>.cs declares ": IWorkflow"); see statepipes-conventions -> Workflows.
+$testFiles = Get-ChildItem -LiteralPath $SolutionDir -Recurse -File -Filter *.cs |
+    Where-Object { $_.FullName -match '\.Test[\\/]' -and $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }
+$machineDirs = Get-ChildItem -LiteralPath $SolutionDir -Recurse -Directory |
+    Where-Object { $_.Parent.Name -eq 'StateMachines' -and $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }
+foreach ($dir in $machineDirs) {
+    $marker = Join-Path $dir.FullName "$($dir.Name).cs"
+    if (-not (Test-Path -LiteralPath $marker) -or -not ((Get-Content -LiteralPath $marker -Raw) -match ':\s*IWorkflow\b')) { continue }
+    $workflow = $dir.Name
+    $states = Get-ChildItem -LiteralPath $dir.FullName -Recurse -File -Filter *.cs |
+        Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match ':\s*(Parented)?BaseWorkflowState<' }
+    $finalFound = $false
+    foreach ($state in $states) {
+        $text = Get-Content -LiteralPath $state.FullName -Raw
+        $relative = [System.IO.Path]::GetRelativePath($SolutionDir, $state.FullName)
+        if ($text -match 'IFinalWorkflowState') { $finalFound = $true }
+        $className = [regex]::Match($text, 'class\s+(\w+)\s*:').Groups[1].Value
+        if ($className -and $text -match "\b$className\s*\(\s*[^)\s]") {
+            $failures.Add("FAIL workflow-ctor: ${relative}: workflow state $className must have only a parameterless constructor")
+        }
+        if ($text -match '\bFireExternal\b') {
+            $failures.Add("FAIL workflow-fireexternal: ${relative}: workflow states reach singletons only by SendCommand")
+        }
+    }
+    if (-not $finalFound) {
+        $failures.Add("FAIL workflow-final: workflow $workflow has no state implementing IFinalWorkflowState")
+    }
+    if (-not ($testFiles | Select-String -SimpleMatch "WorkflowForTest<$workflow>" -List)) {
+        $failures.Add("FAIL workflow-test: workflow $workflow has no WorkflowForTest<$workflow> test")
+    }
+}
+
 if (-not $SkipFormat) {
     & dotnet format $solution.FullName --verify-no-changes 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
