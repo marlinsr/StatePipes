@@ -15,6 +15,8 @@ namespace StatePipes.Workflow.Internal
         public static JsonSerializerSettings CreateSettings(Assembly serviceAssembly) => new()
         {
             TypeNameHandling = TypeNameHandling.Auto,
+            // PostgreSQL jsonb does not keep key order ($type may follow shorter keys); read ahead for metadata.
+            MetadataPropertyHandling = MetadataPropertyHandling.ReadAhead,
             SerializationBinder = new AllowListBinder(serviceAssembly),
             Converters = { new DelayedMessageSenderConverter() },
         };

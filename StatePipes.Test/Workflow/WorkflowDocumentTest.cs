@@ -91,5 +91,15 @@ namespace StatePipes.Test.Workflow
             var ex = Assert.ThrowsExactly<WorkflowSerializationException>(() => WorkflowDocument.Populate(_md, NewStates(), json, _settings));
             StringAssert.Contains(ex.Message, "DocFirstState._payload");
         }
+
+        [TestMethod]
+        public void PolymorphicField_TypeAfterOtherKeys_AsJsonbStoresIt()
+        {
+            // PostgreSQL jsonb orders keys shortest first, so "A" comes back before "$type".
+            var json = "{\"states\":{\"DocFirstState\":{\"_payload\":{\"A\":\"x\",\"$type\":\"" + typeof(DocPayload).FullName + ", " + typeof(DocPayload).Assembly.GetName().Name + "\"}}}}";
+            var target = NewStates();
+            WorkflowDocument.Populate(_md, target, json, _settings);
+            Assert.AreEqual(new DocPayload("x"), First(target).Payload);
+        }
     }
 }

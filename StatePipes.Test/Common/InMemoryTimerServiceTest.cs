@@ -122,6 +122,8 @@ namespace StatePipes.Test.Common
         {
             private bool _raced;
             public override DateTimeOffset GetUtcNow() => inner.GetUtcNow();
+            public override long GetTimestamp() => inner.GetTimestamp();
+            public override long TimestampFrequency => inner.TimestampFrequency;
             public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
             {
                 if (!_raced) { _raced = true; inner.Advance(advanceBy); }
@@ -155,6 +157,53 @@ namespace StatePipes.Test.Common
             fake.Advance(TimeSpan.FromMilliseconds(20)); // now exactly due
             WaitFor(() => calls == 1);
             Assert.AreEqual(1, calls);
+        }
+
+        [TestMethod]
+        public void Periodic_AfterLongPause_FiresOnceNotOncePerMissedPeriod()
+        {
+            var time = NewTime(); var sender = new RecordingSender();
+            using var timers = new InMemoryTimerService(sender, time);
+            timers.StartPeriodic(Guid.NewGuid(), TimeSpan.FromSeconds(1), new Ping());
+            time.Advance(TimeSpan.FromSeconds(10));
+            WaitFor(() => sender.Sent.Count >= 1); Settle();
+            Assert.AreEqual(1, sender.Sent.Count);
+            time.Advance(TimeSpan.FromSeconds(1));
+            WaitFor(() => sender.Sent.Count == 2);
+            Assert.AreEqual(2, sender.Sent.Count);
+        }
+
+        /// <summary>Wall clock that can be stepped (NTP, VM resume) while elapsed time keeps running on the fake clock.</summary>
+        private sealed class SteppingWallClock(FakeTimeProvider inner) : TimeProvider
+        {
+            public TimeSpan Step;
+            public override DateTimeOffset GetUtcNow() => inner.GetUtcNow() + Step;
+            public override long GetTimestamp() => inner.GetTimestamp();
+            public override long TimestampFrequency => inner.TimestampFrequency;
+            public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+                inner.CreateTimer(callback, state, dueTime, period);
+        }
+
+        [TestMethod]
+        public void WallClockSteppingBack_DoesNotDelayTimers()
+        {
+            var fake = NewTime(); var sender = new RecordingSender();
+            var time = new SteppingWallClock(fake);
+            using var timers = new InMemoryTimerService(sender, time);
+            timers.StartOneShot(Guid.NewGuid(), TimeSpan.FromSeconds(5), new Ping());
+            Settle();
+            time.Step = TimeSpan.FromHours(-1);
+            fake.Advance(TimeSpan.FromSeconds(5));
+            WaitFor(() => sender.Sent.Count == 1);
+            Assert.AreEqual(1, sender.Sent.Count);
+        }
+
+        [TestMethod]
+        public void StartPeriodic_NonPositivePeriod_Throws()
+        {
+            using var timers = new InMemoryTimerService(new RecordingSender(), NewTime());
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => timers.StartPeriodic(Guid.NewGuid(), TimeSpan.Zero, new Ping()));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => timers.StartPeriodic(Guid.NewGuid(), TimeSpan.FromSeconds(-1), new Ping()));
         }
     }
 }

@@ -39,6 +39,14 @@ namespace StatePipes.Test.Workflow
             Assert.AreEqual(("Wf", "c1"), (row.WorkflowType, row.CorrelationId));
             Assert.AreEqual("c1", JsonConvert.DeserializeObject<CartAbandoned>(row.MessageJson, settings)!.CorrelationId);
         }
+
+        [TestMethod]
+        public void StartPeriodic_NonPositivePeriod_Throws()
+        {
+            var store = new InMemoryWorkflowStore(new FakeTimeProvider());
+            var timers = new WorkflowTimerService(store.Begin(), "Wf", "c1", WorkflowJson.CreateSettings(typeof(CartWorkflow).Assembly));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => timers.StartPeriodic(Guid.NewGuid(), TimeSpan.Zero, new CartAbandoned()));
+        }
     }
 
     [TestClass]

@@ -71,11 +71,11 @@ namespace StatePipes.StateMachine.Test
             for (int guard = 0; guard < 1_000_000; guard++)
             {
                 var now = _time.GetUtcNow();
-                var next = Earliest(_timers.NextDue, _store.NextExpiration([_workflowType]));
+                var next = Earliest(InMemoryNextDue(), _store.NextExpiration([_workflowType]));
                 if (next is not DateTimeOffset due || due > target) break;
                 _time.SetUtcNow(due);
                 Drain();
-                var after = Earliest(_timers.NextDue, _store.NextExpiration([_workflowType]));
+                var after = Earliest(InMemoryNextDue(), _store.NextExpiration([_workflowType]));
                 if (due <= now && after == next) break; // a due timer that cannot be delivered; stop rather than spin
             }
             _time.SetUtcNow(target);
@@ -92,6 +92,8 @@ namespace StatePipes.StateMachine.Test
 
         private WorkflowRecord? Find(string correlationId) =>
             _store.Instances.FirstOrDefault(i => i.WorkflowType == _workflowType && i.CorrelationId == correlationId);
+
+        private DateTimeOffset? InMemoryNextDue() => _timers.TimeUntilNextDue is TimeSpan remaining ? _time.GetUtcNow() + remaining : null;
 
         private static DateTimeOffset? Earliest(DateTimeOffset? a, DateTimeOffset? b) =>
             a is null ? b : b is null ? a : (a < b ? a : b);

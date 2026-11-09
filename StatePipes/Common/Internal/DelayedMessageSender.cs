@@ -10,7 +10,13 @@ namespace StatePipes.Common.Internal
         [JsonIgnore]
         public bool Enabled => timers.IsEnabled(TimerId);
         public void StartOneShot(TimeSpan dueTime, TMessage message) => timers.StartOneShot(TimerId, dueTime, message);
-        public void StartPeriodic(TimeSpan period, TMessage message) => timers.StartPeriodic(TimerId, period, message);
+        /// <summary>Like System.Threading.Timer: a zero period fires once (immediately); a negative period is rejected.</summary>
+        public void StartPeriodic(TimeSpan period, TMessage message)
+        {
+            if (period < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(period), period, "The period cannot be negative.");
+            if (period == TimeSpan.Zero) timers.StartOneShot(TimerId, TimeSpan.Zero, message);
+            else timers.StartPeriodic(TimerId, period, message);
+        }
         public void Stop() => timers.Stop(TimerId);
         public void Dispose() => Stop();
     }

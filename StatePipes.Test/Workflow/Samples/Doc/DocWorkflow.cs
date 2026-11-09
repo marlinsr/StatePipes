@@ -22,4 +22,6 @@ namespace StatePipes.Test.Workflow.Samples.Doc
     }
 
     internal class DocDoneState : BaseWorkflowState<DocWorkflow>, IFinalWorkflowState { }
+
+    public record DocPayload(string A);
 }

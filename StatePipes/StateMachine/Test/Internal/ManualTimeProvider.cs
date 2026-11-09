@@ -8,6 +8,8 @@ namespace StatePipes.StateMachine.Test.Internal
         private DateTimeOffset _now = start;
 
         public override DateTimeOffset GetUtcNow() { lock (_lock) return _now; }
+        public override long GetTimestamp() { lock (_lock) return _now.UtcTicks; }
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
         public void SetUtcNow(DateTimeOffset value)
         {

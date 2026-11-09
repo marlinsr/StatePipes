@@ -8,7 +8,11 @@ namespace StatePipes.Workflow.Internal
     internal sealed class WorkflowTimerService(IWorkflowUnitOfWork unitOfWork, string workflowType, string correlationId, JsonSerializerSettings settings) : ITimerService
     {
         public void StartOneShot(Guid timerId, TimeSpan dueTime, IMessage message) => Start(timerId, dueTime, null, message);
-        public void StartPeriodic(Guid timerId, TimeSpan period, IMessage message) => Start(timerId, period, period, message);
+        public void StartPeriodic(Guid timerId, TimeSpan period, IMessage message)
+        {
+            if (period <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(period), period, "A periodic timer needs a positive period.");
+            Start(timerId, period, period, message);
+        }
         public void Stop(Guid timerId) => unitOfWork.DeleteTimer(timerId);
         public bool IsEnabled(Guid timerId) => unitOfWork.TimerExists(timerId);
         private void Start(Guid timerId, TimeSpan dueTime, TimeSpan? period, IMessage message)
