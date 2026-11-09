@@ -430,9 +430,10 @@ $PostgresCertsDirectory = $PostgresProgramDataPrefix + "certs"
 $PostgresInitDirectory = $PostgresProgramDataPrefix + "initdb"
 New-Item -ItemType Directory -Path $PostgresCertsDirectory -Force | Out-Null
 New-Item -ItemType Directory -Path $PostgresInitDirectory -Force | Out-Null
-foreach ($file in @("postgres-db.server.crt", "postgres-db.server.key")) {
-    Copy-Item -Path ($SmallstepProgramDataPrefix + $file) -Destination $PostgresCertsDirectory -Force
-}
+Copy-Item -Path ($SmallstepProgramDataPrefix + "postgres-db.server.key") -Destination $PostgresCertsDirectory -Force
+# Server certificate file = leaf + intermediate, so VerifyFull clients that trust only the root can build the chain.
+Get-Content ($SmallstepProgramDataPrefix + "postgres-db.server.crt"), ($SmallstepProgramDataPrefix + "intermediate_ca.crt") |
+    Set-Content ($PostgresCertsDirectory + "\postgres-db.server.crt") -Encoding ascii
 # CA bundle (root + intermediate) that client certificates are verified against.
 Get-Content ($SmallstepProgramDataPrefix + "root_ca.crt"), ($SmallstepProgramDataPrefix + "intermediate_ca.crt") |
     Set-Content ($PostgresCertsDirectory + "\ca.pem") -Encoding ascii
