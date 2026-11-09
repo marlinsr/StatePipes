@@ -30,12 +30,12 @@ namespace StatePipes.Workflow.Internal
         public void EnsureSchema() { }
         public IWorkflowUnitOfWork Begin() => new UnitOfWork(this);
 
-        public int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send)
+        public int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send, IReadOnlyCollection<Guid>? excluded = null)
         {
             lock (_lock)
             {
                 var now = timeProvider.GetUtcNow();
-                var due = _timers.Values.Where(t => workflowTypes.Contains(t.Record.WorkflowType) && t.Expiration <= now)
+                var due = _timers.Values.Where(t => workflowTypes.Contains(t.Record.WorkflowType) && t.Expiration <= now && excluded?.Contains(t.Record.TimerId) != true)
                     .OrderBy(t => t.Expiration).Take(batchSize).ToList();
                 int fired = 0;
                 foreach (var entry in due)

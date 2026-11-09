@@ -22,7 +22,7 @@ namespace StatePipes.Workflow.Internal.Postgres
             catch { connection.Dispose(); throw; }
         }
 
-        public int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send)
+        public int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send, IReadOnlyCollection<Guid>? excluded = null)
         {
             using var connection = _dataSource.OpenConnection();
             using var transaction = connection.BeginTransaction();
@@ -30,7 +30,7 @@ namespace StatePipes.Workflow.Internal.Postgres
             using (var select = Command(connection, transaction, """
                 SELECT timer_id, workflow_type, correlation_id, period, message_type_full_name, message_json::text
                 FROM statepipes.workflow_timer
-                WHERE workflow_type = ANY(@types) AND expiration_time <= now()
+                WHERE workflow_type = ANY(@types) AND expiration_time <= now() AND NOT (timer_id = ANY(@excluded))
                 ORDER BY expiration_time
                 LIMIT @batch
                 FOR UPDATE SKIP LOCKED
@@ -38,6 +38,7 @@ namespace StatePipes.Workflow.Internal.Postgres
             {
                 select.Parameters.AddWithValue("types", workflowTypes.ToArray());
                 select.Parameters.AddWithValue("batch", batchSize);
+                select.Parameters.AddWithValue("excluded", (excluded ?? []).ToArray());
                 using var reader = select.ExecuteReader();
                 while (reader.Read())
                     due.Add(new TimerRecord(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),

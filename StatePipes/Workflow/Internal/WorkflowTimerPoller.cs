@@ -18,7 +18,12 @@ namespace StatePipes.Workflow.Internal
         private readonly ManualResetEventSlim _stop = new(false);
         private Thread? _thread;
 
-        public int PollOnce() => store.FireDueTimers(workflowTypes, BatchSize, Send);
+        public int PollOnce()
+        {
+            Guid[] excluded;
+            lock (_reported) excluded = [.. _reported];
+            return store.FireDueTimers(workflowTypes, BatchSize, Send, excluded);
+        }
 
         public void Start()
         {

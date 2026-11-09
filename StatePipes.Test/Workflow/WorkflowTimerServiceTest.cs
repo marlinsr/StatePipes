@@ -95,12 +95,35 @@ namespace StatePipes.Test.Workflow
         }
 
         [TestMethod]
+        public void UnresolvableRows_ExcludedFromLaterClaims_SoValidTimersStillFire()
+        {
+            var time = new FakeTimeProvider();
+            var store = new InMemoryWorkflowStore(time);
+            using (var uow = store.Begin())
+            {
+                for (int i = 0; i < WorkflowTimerPoller.BatchSize; i++)
+                    uow.UpsertTimer(new TimerRecord(Guid.NewGuid(), "Wf", $"bad-{i}", null, "No.Such.Message", "{}"), TimeSpan.Zero);
+                uow.Commit();
+            }
+            time.Advance(TimeSpan.FromSeconds(1));
+            var good = JsonConvert.SerializeObject(new CartAbandoned { CorrelationId = "cart-9" }, _settings);
+            using (var uow = store.Begin())
+            {
+                uow.UpsertTimer(new TimerRecord(Guid.NewGuid(), "Wf", "cart-9", null, typeof(CartAbandoned).FullName!, good), TimeSpan.Zero);
+                uow.Commit();
+            }
+            using var poller = NewPoller(store, Mock.Of<ICommandRequeuer>());
+            Assert.AreEqual(0, poller.PollOnce()); // the batch is all unresolvable rows
+            Assert.AreEqual(1, poller.PollOnce()); // they are skipped now, so the valid timer fires
+        }
+
+        [TestMethod]
         public void StoreThrows_LoopLogsAndKeepsPolling()
         {
             using var log = new RecordingLogger();
             int calls = 0;
             var store = new Mock<IWorkflowStore>();
-            store.Setup(s => s.FireDueTimers(It.IsAny<IReadOnlyCollection<string>>(), 100, It.IsAny<Func<TimerRecord, bool>>()))
+            store.Setup(s => s.FireDueTimers(It.IsAny<IReadOnlyCollection<string>>(), 100, It.IsAny<Func<TimerRecord, bool>>(), It.IsAny<IReadOnlyCollection<Guid>?>()))
                 .Returns(() => Interlocked.Increment(ref calls) == 1 ? throw new InvalidOperationException("db down") : 0);
             using var poller = NewPoller(store.Object, Mock.Of<ICommandRequeuer>(), TimeSpan.FromMilliseconds(20));
             poller.Start();

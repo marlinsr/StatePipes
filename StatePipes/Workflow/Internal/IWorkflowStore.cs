@@ -22,7 +22,8 @@ namespace StatePipes.Workflow.Internal
         void EnsureSchema();
         IWorkflowUnitOfWork Begin();
         /// <summary>Claims due timers of the given workflow types and hands each to <paramref name="send"/>.
-        /// A one-shot is then deleted, a periodic rescheduled (skip-missed); <c>send</c> returning false leaves the row as is.</summary>
-        int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send);
+        /// A one-shot is then deleted, a periodic rescheduled (skip-missed); <c>send</c> returning false leaves the row as is.
+        /// Timers in <paramref name="excluded"/> (rows this process cannot deliver) are not claimed at all.</summary>
+        int FireDueTimers(IReadOnlyCollection<string> workflowTypes, int batchSize, Func<TimerRecord, bool> send, IReadOnlyCollection<Guid>? excluded = null);
     }
 }
