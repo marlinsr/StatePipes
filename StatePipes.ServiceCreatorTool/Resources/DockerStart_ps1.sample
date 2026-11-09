@@ -8,6 +8,9 @@ $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\@#$CertFileName@#$ -De
 Invoke-Expression $cp
 $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\CommonPassword.txt -Destination "+$destDir
 Invoke-Expression $cp
+# PostgreSQL client certificate for the workflow store (only present once the infrastructure includes PostgreSQL).
+$postgresClientCert = $programData+"\SmallStep\step-ca\statepipes.postgres-db.client.p12"
+if (Test-Path $postgresClientCert) { Copy-Item -Path $postgresClientCert -Destination $destDir }
 
 $dockerRun = "docker run -dit --name @#$ClassLibraryName@#$.Service --hostname @#$ClassLibraryName@#$.Service -v "+$programData+"\@#$CompanyName@#$:/usr/share/@#$CompanyName@#$ -v "+$StatePipesCertDir+"root_ca.pem:/etc/ssl/certs/root_ca.pem -v "+$StatePipesCertDir+"intermediate_ca.pem:/etc/ssl/certs/intermediate_ca.pem --network @#$NetworkName@#$ @#$ContainerImageName@#$:latest"
 Invoke-Expression $dockerRun
