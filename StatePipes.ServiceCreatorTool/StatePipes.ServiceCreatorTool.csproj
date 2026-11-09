@@ -34,6 +34,10 @@
     <!-- The plugin's template is the only copy; New StatePipes Sln writes it as CLAUDE.md -->
     <EmbeddedResource Include="..\StatePipes.ClaudePlugin\skills\statepipes-scaffold\templates\CLAUDE.md" LogicalName="StatePipes.ServiceCreatorTool.Resources.CLAUDE_md.sample" Link="Resources\CLAUDE_md.sample" />
     <EmbeddedResource Include="Resources\Event_cs.sample" />
+    <EmbeddedResource Include="Resources\Workflow_cs.sample" />
+    <EmbeddedResource Include="Resources\WorkflowTopLevelState_cs.sample" />
+    <EmbeddedResource Include="Resources\WorkflowFinishedState_cs.sample" />
+    <EmbeddedResource Include="Resources\DefaultServiceConfiguration_AddWorkflowStore.sample" />
     <EmbeddedResource Include="Resources\ReadMe_md.sample" />
     <EmbeddedResource Include="Resources\TopLevelState_cs.sample" />
     <EmbeddedResource Include="Resources\_dockerignore.sample" />

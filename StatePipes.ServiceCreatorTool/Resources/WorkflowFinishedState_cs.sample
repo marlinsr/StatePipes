@@ -1,0 +1,11 @@
+using StatePipes.StateMachine;
+using StatePipes.Interfaces;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$.States
+{
+    /// <summary>Entering a final state deletes the workflow instance and its timers.</summary>
+    internal class FinishedState : BaseWorkflowState<@#$StateMachineName@#$>, IFinalWorkflowState
+    {
+        public FinishedState() { }
+    }
+}

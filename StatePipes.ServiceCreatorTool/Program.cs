@@ -15,6 +15,7 @@ namespace StatePipes.ServiceCreatorTool
         static bool _addTrigger = false;
         static bool _addEvent = false;
         static bool _addState = false;
+        static bool _addWorkflow = false;
         static string _permitIfStateFilePath = string.Empty;
         static string _permitReentryIfStateFilePath = string.Empty;
         static string _ignoreIfStateFilePath = string.Empty;
@@ -30,7 +31,7 @@ namespace StatePipes.ServiceCreatorTool
         {
             _solutionDir = _solutionFileName = _projectFileName = _targetDirectory = string.Empty;
             _permitIfStateFilePath = _permitReentryIfStateFilePath = _ignoreIfStateFilePath = _periodicTriggerStateFilePath = _updateProxyFilePath = string.Empty;
-            _addStateMachine = _addTrigger = _addEvent = _addState = _liveMode = _headless = false;
+            _addStateMachine = _addTrigger = _addEvent = _addState = _addWorkflow = _liveMode = _headless = false;
             _liveTimeoutSeconds = 30;
             var values = ToolArguments.Parse(args);
             if (values == null) return false;
@@ -46,6 +47,7 @@ namespace StatePipes.ServiceCreatorTool
                 if (args[i].Equals("-t", StringComparison.CurrentCultureIgnoreCase)) _addTrigger = true;
                 if (args[i].Equals("-e", StringComparison.CurrentCultureIgnoreCase)) _addEvent = true;
                 if (args[i].Equals("-a", StringComparison.CurrentCultureIgnoreCase)) _addState = true;
+                if (args[i].Equals("-w", StringComparison.CurrentCultureIgnoreCase)) _addWorkflow = true;
                 if (args[i].Equals("-pi", StringComparison.CurrentCultureIgnoreCase)) _permitIfStateFilePath = FullPath(args[++i]);
                 if (args[i].Equals("-pri", StringComparison.CurrentCultureIgnoreCase)) _permitReentryIfStateFilePath = FullPath(args[++i]);
                 if (args[i].Equals("-ii", StringComparison.CurrentCultureIgnoreCase)) _ignoreIfStateFilePath = FullPath(args[++i]);
@@ -192,6 +194,7 @@ namespace StatePipes.ServiceCreatorTool
             if (_addTrigger) return Opened(dte, TriggerGeneratorTool.CreateNewTrigger(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_addEvent) return Opened(dte, EventGeneratorTool.CreateNewEvent(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_addStateMachine) return Opened(dte, StateMachineGeneratorTool.CreateNewStateMachine(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
+            if (_addWorkflow) return Opened(dte, WorkflowGeneratorTool.CreateNewWorkflow(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, input));
             if (_liveMode) return Opened(dte, LiveProxyGeneratorTool.CreateNewLiveProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _liveTimeoutSeconds, _updateProxyFilePath, input));
             return Opened(dte, ProxyGeneratorTool.CreateNewProxy(_solutionDir, _solutionFileName, _projectFileName, _targetDirectory, _updateProxyFilePath, input));
         }

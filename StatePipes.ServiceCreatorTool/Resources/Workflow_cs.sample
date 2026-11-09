@@ -1,0 +1,9 @@
+using StatePipes.Interfaces;
+
+namespace @#$ClassLibraryName@#$.StateMachines.@#$StateMachineName@#$
+{
+    /// <summary>A workflow: many persisted instances, each selected by the CorrelationId on its triggers.</summary>
+    public interface @#$StateMachineName@#$ : IWorkflow
+    {
+    }
+}
