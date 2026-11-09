@@ -42,6 +42,13 @@ Phase: happy path | phase 2: <name> | ...
 ## Machines
 - <Machine>StateMachine — <what it controls>. (One machine per independently-changing lifecycle; most services need one.)
 
+## Workflows (state machines with many persisted instances; omit if none)
+| Workflow | CorrelationId (what one instance is) | Final states | Persisted fields (per state) | Singleton request → reply commands |
+|---|---|---|---|---|
+| CartWorkflow | CartId: one shopping cart | CheckedOut, Abandoned | Open: lines, abandon timer | QuotePrice → PriceQuoted |
+(Choose a workflow when many independent items share one lifecycle and must survive restarts; a singleton machine
+otherwise. Every workflow needs at least one final state.)
+
 ## States (per machine)
 | State | Parent | First? | Meaning | OnEntry / OnExit work |
 |---|---|---|---|---|
@@ -99,6 +106,7 @@ Once the model is approved, apply `statepipes-scaffold` operations in this order
 |---|---|
 | New service | `new-service` (or `new-solution` for a new repository) |
 | Each additional machine | `add-state-machine` |
+| Each workflow | `add-workflow` (then `add-state --final true` for each further final state) |
 | Each state | `add-state` (parents before their children) |
 | Each trigger | `add-trigger` (timer triggers come from `add-periodic` instead) |
 | Each `PermitIf` / `PermitReentryIf` / `IgnoreIf` row | `add-permit-if` / `add-permit-reentry-if` / `add-ignore-if` on the row's state |

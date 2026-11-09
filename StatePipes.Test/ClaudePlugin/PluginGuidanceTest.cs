@@ -16,6 +16,37 @@ namespace StatePipes.Test.ClaudePlugin
         private static string Operation(string name) => File.ReadAllText(Path.Combine(PluginPaths.Operations, $"{name}.md"));
 
         [TestMethod]
+        public void Conventions_CoverWorkflowRules()
+        {
+            var conventions = Skill("statepipes-conventions");
+            foreach (var expected in new[] { "## Workflows", "parameterless constructor", "IFinalWorkflowState", "CorrelationId", "[IgnoreIf]", "FireExternal", "BaseWorkflowTriggerCommand" })
+                StringAssert.Contains(conventions, expected);
+        }
+
+        [TestMethod]
+        public void DomainSkills_RecognizeWorkflows()
+        {
+            StringAssert.Contains(Skill("statepipes-domain-fit"), "workflow");
+            var modeling = Skill("statepipes-domain-modeling");
+            foreach (var expected in new[] { "Workflow", "CorrelationId", "final state" })
+                StringAssert.Contains(modeling, expected);
+        }
+
+        [TestMethod]
+        public void Scaffold_AddWorkflowDocumentsBothInsertions()
+        {
+            StringAssert.Contains(Skill("statepipes-scaffold"), "add-workflow");
+            var recipe = Operation("add-workflow");
+            StringAssert.Contains(recipe, "-w --workflow-name");
+            StringAssert.Contains(recipe, "Type setup = typeof(DefaultSetup)!;");
+            StringAssert.Contains(recipe, "new ServiceArgs(null), workflowStore)");
+            StringAssert.Contains(recipe, StatePipes.ServiceCreatorTool.WorkflowGeneratorTool.PostgresCertCopy);
+            StringAssert.Contains(Operation("add-state"), "--final");
+            StringAssert.Contains(Operation("add-periodic"), "CorrelationId = CorrelationId");
+            StringAssert.Contains(Operation("new-service"), "WorkflowStore");
+        }
+
+        [TestMethod]
         public void Conventions_PutEntitiesAndValueObjectsInTheirFolders()
         {
             var conventions = Skill("statepipes-conventions");
@@ -78,7 +109,7 @@ namespace StatePipes.Test.ClaudePlugin
             var used = CommandArguments(guidance);
             string[] required = ["--moniker", "--dll", "--broker", "--statemachine", "--statemachine-name", "--state", "--parent-state", "--trigger-name",
                 "--trigger-scope", "--event", "--trigger", "--transition-to", "--timer-name", "--timer-period", "--prefix", "--solution-name", "--repo",
-                "--transport", "--out"];
+                "--transport", "--out", "--workflow-name", "--final"];
             var missing = required.Where(a => !used.Contains(a)).ToList();
             Assert.IsEmpty(missing, $"Arguments no recipe uses: {string.Join(", ", missing)}");
             var unknown = used.Where(a => !parsed.Contains(a)).ToList();

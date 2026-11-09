@@ -1,12 +1,12 @@
 ﻿---
 name: statepipes-scaffold
-description: Use when creating or extending a StatePipes service - solution, service, state machine, state, trigger, guard (PermitIf, PermitReentryIf, IgnoreIf), periodic timer, proxy, or diagram. Gives the exact files, templates and injection points the StatePipes Visual Studio External Tools would produce.
+description: Use when creating or extending a StatePipes service - solution, service, state machine, workflow, state, trigger, guard (PermitIf, PermitReentryIf, IgnoreIf), periodic timer, proxy, or diagram. Gives the exact files, templates and injection points the StatePipes Visual Studio External Tools would produce.
 ---
 
 # StatePipes scaffold operations
 
-Every structural change to a StatePipes service is one of twelve operations. Each mirrors a Visual Studio External
-Tool from `StatePipes.ServiceCreatorTool` and has a recipe in `operations/`. **Run the installed tool headless**, as
+Every structural change to a StatePipes service is one of thirteen operations. Twelve mirror a Visual Studio External
+Tool from `StatePipes.ServiceCreatorTool` (`add-workflow` is headless only), and each has a recipe in `operations/`. **Run the installed tool headless**, as
 each recipe's "Run the tool" section shows (see "Running the tool headless" below). The real generators then write
 exactly what a developer gets in Visual Studio. Each recipe's Fallback section builds the same files by hand from the
 templates; use it only when the installed tool is older than headless support for that operation. Never hand-write
@@ -22,6 +22,7 @@ Read `statepipes-conventions` before writing code inside the generated files.
 | `new-solution` | New StatePipes Sln | `operations/new-solution.md` |
 | `new-service` | New StatePipes Service | `operations/new-service.md` |
 | `add-state-machine` | Add StateMachine | `operations/add-state-machine.md` |
+| `add-workflow` | (headless `-w` only) | `operations/add-workflow.md` |
 | `add-state` | Add State | `operations/add-state.md` |
 | `add-trigger` | Add Trigger | `operations/add-trigger.md` |
 | `add-permit-if` | Add PermitIf | `operations/add-permit-if.md` |
@@ -33,7 +34,8 @@ Read `statepipes-conventions` before writing code inside the generated files.
 | `diagram` | StateMachine Diagrammer | `operations/diagram.md` |
 
 Usual order (the External Tools' typical workflow): `new-solution` once per repository → `new-service` once per
-microservice → per machine `add-state-machine`, then `add-state` / `add-trigger` / guards / `add-periodic` →
+microservice → per machine `add-state-machine` (or per persisted multi-instance lifecycle `add-workflow`), then
+`add-state` / `add-trigger` / guards / `add-periodic` →
 `new-proxy` per remote dependency → `diagram` any time.
 
 The installer registers three more External Tools, which are folded into the operations above:

@@ -32,7 +32,10 @@ The tool creates the trigger, makes every insertion and enables the using line. 
 
 2. Insert each snippet immediately **above** its marker in the state file, keeping each marker. Substitute
    `@#$TimerName@#$` = `<Timer>` (as typed), `@#$TriggerName@#$` = `<Name>Trigger`, `@#$TimerPeriod@#$` = `<Ms>`,
-   `@#$PeriodicGuard@#$` = `<Name>PeriodicWorker`.
+   `@#$PeriodicGuard@#$` = `<Name>PeriodicWorker`, and `@#$TriggerInit@#$` = nothing for a state machine or
+   ` { CorrelationId = CorrelationId }` for a workflow (timer messages must carry the instance's CorrelationId; the
+   framework never stamps it). For a workflow the trigger also derives from `BaseWorkflowTriggerCommand<` (see
+   `add-trigger`).
 
    | Snippet | Marker |
    |---|---|

@@ -12,7 +12,7 @@ namespace StatePipes.Test.ClaudePlugin
         private static readonly string[] Operations =
         [
             "new-solution", "new-service", "new-proxy", "update-proxy", "add-state-machine", "add-trigger",
-            "add-state", "add-permit-if", "add-permit-reentry-if", "add-ignore-if", "add-periodic", "diagram",
+            "add-state", "add-permit-if", "add-permit-reentry-if", "add-ignore-if", "add-periodic", "diagram", "add-workflow",
         ];
 
         private static IReadOnlyList<Recipe> Recipes() => RecipeParser.ParseDirectory(PluginPaths.Operations);
