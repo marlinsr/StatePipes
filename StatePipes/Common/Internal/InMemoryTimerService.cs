@@ -26,6 +26,9 @@ namespace StatePipes.Common.Internal
         private ITimer? _wakeTimer;
         private volatile bool _disposed;
         private bool _firing;
+        /// <summary>The thread re-checks due times at least this often, so a wake timer armed against a clock that moved
+        /// during arming (relative due time computed from a stale now) can never delay a timer for long.</summary>
+        private static readonly TimeSpan RecheckInterval = TimeSpan.FromMilliseconds(100);
         /// <summary>Earliest due time of any pending timer (test harness stepping).</summary>
         internal DateTimeOffset? NextDue { get { lock (_lock) return _entries.Count == 0 ? null : _entries.Values.Min(e => e.Due); } }
         /// <summary>True while a due timer has not yet been delivered (test harness idle detection).</summary>
@@ -104,7 +107,7 @@ namespace StatePipes.Common.Internal
                     catch (Exception ex) { Log?.LogException(ex); }
                 }
                 lock (_lock) _firing = false;
-                _signal.WaitOne();
+                _signal.WaitOne(RecheckInterval);
             }
         }
         public void Dispose()

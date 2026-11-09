@@ -141,5 +141,20 @@ namespace StatePipes.Test.Common
             WaitFor(() => calls == 1);
             Assert.AreEqual(1, calls);
         }
+
+        [TestMethod]
+        public void ClockPartlyAdvancedWhileArmingWakeTimer_StillFiresWhenDue()
+        {
+            var fake = NewTime();
+            var time = new RacingTimeProvider(fake, TimeSpan.FromMilliseconds(30));
+            using var timers = new InMemoryTimerService(new RecordingSender(), time);
+            Settle();
+            int calls = 0;
+            timers.ScheduleCallback(TimeSpan.FromMilliseconds(50), () => Interlocked.Increment(ref calls));
+            Settle();
+            fake.Advance(TimeSpan.FromMilliseconds(20)); // now exactly due
+            WaitFor(() => calls == 1);
+            Assert.AreEqual(1, calls);
+        }
     }
 }
