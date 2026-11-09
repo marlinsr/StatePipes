@@ -32,7 +32,7 @@ namespace StatePipes.Comms.Internal
             _selfDescriptionContainerSetup = new(_assembly, _statePipesAssebly);
         }
         private static IWorkflowStore CreateWorkflowStore(WorkflowStoreConfig? config) =>
-            throw new NotImplementedException("The PostgreSQL workflow store is not available yet.");
+            new StatePipes.Workflow.Internal.Postgres.PostgresWorkflowStore(config!);
         public void Build(IContainer container)
         {
             _stateMachineContainerSetup.Build(container);

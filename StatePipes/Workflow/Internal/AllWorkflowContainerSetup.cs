@@ -39,6 +39,7 @@ namespace StatePipes.Workflow.Internal
             if (_workflows.Count == 0) return;
             var store = storeFactory(config);
             Store = store;
+            _registry.OwnedStore = store as IDisposable;
             store.EnsureSchema();
             var bus = container.Resolve<IStatePipesService>();
             var requeuer = bus as ICommandRequeuer ?? throw new InvalidOperationException("The service bus cannot requeue commands.");

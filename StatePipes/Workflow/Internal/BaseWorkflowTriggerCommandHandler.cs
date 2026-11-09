@@ -19,8 +19,13 @@ namespace StatePipes.Workflow.Internal
     {
         private readonly Dictionary<Type, WorkflowEngine> _engines = [];
         public WorkflowTimerPoller? Poller { get; set; }
+        public IDisposable? OwnedStore { get; set; }
         public void Add(Type workflowType, WorkflowEngine engine) => _engines.Add(workflowType, engine);
         public WorkflowEngine Get(Type workflowType) => _engines[workflowType];
-        public void Dispose() => Poller?.Dispose();
+        public void Dispose()
+        {
+            Poller?.Dispose();
+            OwnedStore?.Dispose();
+        }
     }
 }
