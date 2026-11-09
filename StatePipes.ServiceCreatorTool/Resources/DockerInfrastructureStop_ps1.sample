@@ -4,7 +4,6 @@ $Net = "@#$NetworkName@#$"
 $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
 $KafkaContainerName = "kafka-broker"
-$KeycloakContainerName = "keycloak"
 $StatePipesContainerName = "statepipes.explorer"
 $PostgresContainerName = "postgres-db"
 docker stop $StatePipesContainerName
@@ -12,8 +11,6 @@ docker container rm $StatePipesContainerName
 # The postgres-db-data volume is kept so workflow instances and timers survive a restart.
 docker stop $PostgresContainerName
 docker container rm $PostgresContainerName
-docker stop $KeycloakContainerName
-docker container rm $KeycloakContainerName
 docker stop $KafkaContainerName
 docker container rm $KafkaContainerName
 docker stop $RabbitContainerName
