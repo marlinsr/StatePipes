@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
+using StatePipes.Interfaces;
 using System.Reflection;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
@@ -11,7 +12,7 @@ namespace StatePipes.Workflow.Internal
     /// deliveries. One per replica; SKIP LOCKED in the store keeps replicas from firing the same timer.
     /// </summary>
     internal sealed class WorkflowTimerPoller(IWorkflowStore store, IReadOnlyCollection<string> workflowTypes, ICommandRequeuer requeuer,
-        BusConfig replyTo, JsonSerializerSettings settings, TimeSpan pollInterval, Assembly serviceAssembly) : IDisposable
+        BusConfig replyTo, JsonSerializerSettings settings, TimeSpan pollInterval, Assembly serviceAssembly, IMessageSender? eventSender = null) : IDisposable
     {
         public const int BatchSize = 100;
         private readonly HashSet<Guid> _reported = [];
@@ -52,6 +53,13 @@ namespace StatePipes.Workflow.Internal
             }
             catch (Exception ex) { Report(timer, ex.Message); return false; }
             if (message == null) { Report(timer, "message type could not be resolved"); return false; }
+            if (message is IEvent)
+            {
+                // Timed events are published, as singleton timers do; only commands go through the workflow engine.
+                if (eventSender == null) { Report(timer, "no event publisher for an event timer message"); return false; }
+                eventSender.SendMessage((IMessage)message);
+                return true;
+            }
             requeuer.Requeue(message, replyTo, 0, isTimerDelivery: true);
             return true;
         }

@@ -48,7 +48,7 @@ namespace StatePipes.Workflow.Internal
             var options = new WorkflowEngineOptions { LockedMaxRetries = config!.LockedMaxRetries, LockedRetryDelay = config.LockedRetryDelay };
             foreach (var md in _workflows) _registry.Add(md.WorkflowType, new WorkflowEngine(md, store, bus, requeuer, timers, settings, options));
             _registry.Poller = new WorkflowTimerPoller(store, [.. _workflows.Select(w => w.WorkflowTypeName)], requeuer,
-                ownBusConfig ?? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty), settings, config.TimerPollInterval, assembly);
+                ownBusConfig ?? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty), settings, config.TimerPollInterval, assembly, bus);
             if (startPoller) _registry.Poller.Start();
         }
     }

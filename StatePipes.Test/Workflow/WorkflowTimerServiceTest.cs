@@ -118,6 +118,21 @@ namespace StatePipes.Test.Workflow
         }
 
         [TestMethod]
+        public void EventTimerMessage_IsPublishedNotQueuedAsCommand()
+        {
+            var json = JsonConvert.SerializeObject(new CartCheckedOut { CorrelationId = "cart-9" }, _settings);
+            var store = StoreWithDueTimer(typeof(CartCheckedOut).FullName!, json, out _);
+            var requeuer = new Mock<ICommandRequeuer>();
+            var sender = new Mock<IMessageSender>();
+            using var poller = new WorkflowTimerPoller(store, ["Wf"], requeuer.Object, ReplyTo, _settings, TimeSpan.FromSeconds(1),
+                typeof(CartWorkflow).Assembly, sender.Object);
+
+            Assert.AreEqual(1, poller.PollOnce());
+            sender.Verify(s => s.SendMessage(It.Is<IMessage>(m => m is CartCheckedOut && ((CartCheckedOut)m).CorrelationId == "cart-9")), Times.Once);
+            requeuer.VerifyNoOtherCalls();
+        }
+
+        [TestMethod]
         public void StoreThrows_LoopLogsAndKeepsPolling()
         {
             using var log = new RecordingLogger();
