@@ -112,7 +112,7 @@ namespace StatePipes.StateMachine.Internal
         public string GetDotGraph()
         {
             var info = _stateMachine.GetInfo();
-            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager);
+            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager, FinalStates);
             return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), CurrentState);
         }
         private string SaveDotGraph(string dotFilename)
