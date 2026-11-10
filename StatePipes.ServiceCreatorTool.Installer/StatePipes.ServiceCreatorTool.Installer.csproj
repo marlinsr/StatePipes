@@ -20,6 +20,24 @@
     <ProjectReference Include="..\StatePipes.ServiceCreatorToolSetup\StatePipes.ServiceCreatorToolSetup.csproj" />
     <ProjectReference Include="..\StatePipes.ServiceCreatorTool\StatePipes.ServiceCreatorTool.csproj" />
   </ItemGroup>
+  <!-- Keep the Claude Code plugin's version equal to SolutionInfo.proj (VersionPrefix[-VersionSuffix]).
+       The installer ships plugin.json, so it is synced before every build; the file is only rewritten when it changes. -->
+  <PropertyGroup>
+    <ClaudePluginJson>$(MSBuildThisFileDirectory)..\StatePipes.ClaudePlugin\.claude-plugin\plugin.json</ClaudePluginJson>
+  </PropertyGroup>
+  <Target Name="SyncClaudePluginVersion" BeforeTargets="BeforeBuild" Condition="Exists('$(ClaudePluginJson)')">
+    <PropertyGroup>
+      <_PluginJsonOld>$([System.IO.File]::ReadAllText('$(ClaudePluginJson)'))</_PluginJsonOld>
+      <_PluginJsonNew>$([System.Text.RegularExpressions.Regex]::Replace('$(_PluginJsonOld)', '("version"\s*:\s*")[^"]*(")', '${1}$(PackageVersion)${2}'))</_PluginJsonNew>
+    </PropertyGroup>
+    <WriteLinesToFile Condition="'$(_PluginJsonNew)' != '$(_PluginJsonOld)'"
+                      File="$(ClaudePluginJson)"
+                      Lines="$([MSBuild]::Escape($(_PluginJsonNew.TrimEnd())))"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <Message Condition="'$(_PluginJsonNew)' != '$(_PluginJsonOld)'" Importance="high" Text="Claude plugin version set to $(PackageVersion)" />
+  </Target>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
     <!-- Probe PATH first; fall back to the Chocolatey install location on GitHub runners -->
     <Exec Command="where makensis.exe"

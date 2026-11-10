@@ -92,6 +92,15 @@ namespace StatePipes.Test.ClaudePlugin
             AssertSameFiles("add-state-machine", Expand(RecipeNamed("add-state-machine"), ("<Prefix>", Prefix), ("<Machine>", "Valve")), created);
         }
 
+        [TestMethod]
+        public void AddWorkflow_CreatesTheRecipeFiles()
+        {
+            var created = CreatedBy(() => new WorkflowGeneratorTool(_solutionDir, SolutionName)
+                .GenerateWorkflow(_projectDir, Prefix, _targetDir, "Cart"));
+
+            AssertSameFiles("add-workflow", Expand(RecipeNamed("add-workflow"), ("<Prefix>", Prefix), ("<Workflow>", "Cart")), created);
+        }
+
         /// <summary>Exposes the proxy tools' connection-status step, which otherwise needs a built service DLL.</summary>
         private sealed class ConnectionStatusTool(string solutionDir, string solutionFileName) : BaseToolGenerator(solutionDir, solutionFileName)
         {

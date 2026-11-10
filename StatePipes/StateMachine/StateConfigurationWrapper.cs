@@ -27,7 +27,7 @@ namespace StatePipes.StateMachine
         public StateConfigurationWrapper Permit(Type TriggerType, Type DestinationStateType)
         {
             var result = _stateConfiguration.Permit(TriggerType.Name, DestinationStateType.Name);
-            return new StateConfigurationWrapper(this,result);
+            return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper PermitReentry<Trigger>() where Trigger : ITrigger => PermitReentry(typeof(Trigger));
         public StateConfigurationWrapper PermitReentry(Type TriggerType)
@@ -48,7 +48,7 @@ namespace StatePipes.StateMachine
         }
         public StateConfigurationWrapper PermitIf<Trigger, DestinationState>(Func<bool> guard, string? guardDescription = null) where Trigger : ITrigger where DestinationState : IStateMachineState
         => PermitIf(typeof(Trigger), typeof(DestinationState), guard, guardDescription);
-        internal StateConfigurationWrapper PermitIf(Type triggerType, Type destinationState, Func<bool> guard, string? guardDescription = null) 
+        internal StateConfigurationWrapper PermitIf(Type triggerType, Type destinationState, Func<bool> guard, string? guardDescription = null)
         {
             var result = _stateConfiguration.PermitIf(triggerType.Name, destinationState.Name, guard, guardDescription);
             return new StateConfigurationWrapper(this, result);
@@ -105,7 +105,7 @@ namespace StatePipes.StateMachine
             return new StateConfigurationWrapper(this, result);
         }
         public StateConfigurationWrapper MoveToState<DestinationState>() where DestinationState : IStateMachineState => MoveToState(typeof(DestinationState));
-        internal StateConfigurationWrapper MoveToState(Type? destinationState) 
+        internal StateConfigurationWrapper MoveToState(Type? destinationState)
         {
             if (destinationState == null) return this;
             var moveToState = new MoveToStateWorker(_state, _stateMachine, destinationState);

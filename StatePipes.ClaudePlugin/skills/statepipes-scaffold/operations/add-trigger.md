@@ -33,7 +33,8 @@ Then add any payload as step 3 describes.
    Creates: <Prefix>/StateMachines/<Machine>/Triggers/Internal/<Trigger>.cs
 
 2. Substitute `@#$ClassLibraryName@#$` = `<Prefix>`, `@#$StateMachineName@#$` = `<Machine>`, `@#$TriggerName@#$` =
-   `<Trigger>`.
+   `<Trigger>`. For a workflow (`<Machine>.cs` declares `: IWorkflow`), also replace `BaseTriggerCommand<` with
+   `BaseWorkflowTriggerCommand<`; the tool does this itself. Workflow triggers carry the instance's `CorrelationId`.
 3. Add any payload as get-only properties set by a constructor, matching the style of the service's existing
    triggers.
 

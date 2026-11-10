@@ -2,7 +2,7 @@
 
 namespace StatePipes.StateMachine.Internal
 {
-    internal class DotGraphEnhancer(EventRegistrationManager eventRegistrationManager, CommandRegistrationManager commandRegistrationManager)
+    internal class DotGraphEnhancer(EventRegistrationManager eventRegistrationManager, CommandRegistrationManager commandRegistrationManager, IReadOnlySet<string>? finalStates = null)
     {
         private const string LabelValue = "label";
         private readonly List<string> _stateLabels = [];
@@ -45,6 +45,14 @@ namespace StatePipes.StateMachine.Internal
             }
             return new AttributeListSyntax(newAttributes);
         }
+        /// <summary>Workflow final states get a double border.</summary>
+        private AttributeListSyntax? MarkFinal(string stateName, AttributeListSyntax? attributes)
+        {
+            if (finalStates is null || !finalStates.Contains(stateName)) return attributes;
+            List<AttributeSyntax> newAttributes = attributes is null ? [] : [.. attributes.Attributes];
+            newAttributes.Add(new AttributeSyntax("peripheries", "2"));
+            return new AttributeListSyntax(newAttributes);
+        }
         private AttributeListSyntax? AddCurrentState(AttributeListSyntax? attributes, string currentState)
         {
             List<AttributeSyntax> newAttributes = [];
@@ -62,15 +70,15 @@ namespace StatePipes.StateMachine.Internal
                 if (nodeStatement.Identifier.IdentifierToken.StringValue == "init" || nodeStatement.Identifier.IdentifierToken.StringValue == "InitialState") return node;
                 if (_stateLabels.Contains(nodeStatement.Identifier.IdentifierToken.StringValue)) return node;
                 _stateLabels.Add(nodeStatement.Identifier.IdentifierToken.StringValue);
-                return new NodeStatementSyntax(nodeStatement.Identifier, currentState == nodeStatement.Identifier.IdentifierToken.StringValue ? 
-                    AddCurrentState(nodeStatement.Attributes, currentState) : 
-                    AddPublishedEventsAndExternalCommands(nodeStatement.Attributes, nodeStatement.Identifier.IdentifierToken.StringValue));
+                return new NodeStatementSyntax(nodeStatement.Identifier, MarkFinal(nodeStatement.Identifier.IdentifierToken.StringValue, currentState == nodeStatement.Identifier.IdentifierToken.StringValue ?
+                    AddCurrentState(nodeStatement.Attributes, currentState) :
+                    AddPublishedEventsAndExternalCommands(nodeStatement.Attributes, nodeStatement.Identifier.IdentifierToken.StringValue)));
             }
             else if (node is SubgraphStatementSyntax subgraphStatement)
                 return HandleSubgraph(subgraphStatement, currentState);
             else if (node is NameValueStatementSyntax nameValueStatement && nameValueStatement.NameToken.StringValue == LabelValue)
-                return new NameValueStatementSyntax(nameValueStatement.NameToken.StringValue, 
-                    AppendPublishedEventsAndExternalCommands(nameValueStatement.NameToken.StringValue, 
+                return new NameValueStatementSyntax(nameValueStatement.NameToken.StringValue,
+                    AppendPublishedEventsAndExternalCommands(nameValueStatement.NameToken.StringValue,
                     nameValueStatement.ValueToken.StringValue ?? string.Empty, nameValueStatement.ValueToken.StringValue?.Split(@"\n")[0] ?? string.Empty));
             return node;
         }

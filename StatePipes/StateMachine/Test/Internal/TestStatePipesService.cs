@@ -8,8 +8,18 @@ using System.Reflection;
 
 namespace StatePipes.StateMachine.Test.Internal
 {
-    internal class TestStatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService
+    internal class TestStatePipesService : TaskWrapper<ReceivedCommandMessage>, IStatePipesService, ICommandRequeuer
     {
+        private int _pending;
+        /// <summary>True when every command queued so far has finished executing.</summary>
+        internal bool IsIdle => Volatile.Read(ref _pending) == 0;
+        private void Enqueue(ReceivedCommandMessage message)
+        {
+            Interlocked.Increment(ref _pending);
+            Queue(message);
+        }
+        public void Requeue(object command, BusConfig replyTo, int retryCount, bool isTimerDelivery) =>
+            Enqueue(new ReceivedCommandMessage(command, replyTo, retryCount, isTimerDelivery));
         private IContainer? _container = null;
         private readonly Lock _cmdLock = new();
         private readonly List<ICommand> _cmdInvocations = [];
@@ -123,7 +133,8 @@ namespace StatePipes.StateMachine.Test.Internal
                     PerformCancellation();
                     if (cmd != null)
                     {
-                        Execute(cmd);
+                        try { CommandDispatchContext.Run(cmd, () => Execute(cmd)); }
+                        finally { Interlocked.Decrement(ref _pending); }
                         _processing = !_cmdBlockingFilterList.Trigger((ICommand)cmd.Command);
                     }
                 }
@@ -149,7 +160,7 @@ namespace StatePipes.StateMachine.Test.Internal
         public void SendCommand<TCommand>(TCommand command, BusConfig? busConfig) where TCommand : class, ICommand
         {
             if (_cmdFilterList.IsFiltered(command.GetType())) return;
-            Queue(new ReceivedCommandMessage(command, busConfig ?? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty)));
+            Enqueue(new ReceivedCommandMessage(command, busConfig ?? new BusConfig(string.Empty, string.Empty, string.Empty, string.Empty)));
         }
         public void SendMessage<TMessage>(TMessage message) where TMessage : class, IMessage
         {

@@ -125,6 +125,30 @@ trigger in the parent.
 - Proxy topology is configured in `DefaultServiceConfiguration` (`ProxyConfigurations`), never by hand elsewhere.
 - Reference: `docs/StateMachineComposition.md` sections 10 and 11.
 
+## Workflows
+
+A workflow (`public interface <Workflow> : IWorkflow`) is a state machine with many persisted instances, one per
+CorrelationId, stored in PostgreSQL. Everything above applies, plus:
+
+1. States derive from `BaseWorkflowState<<Workflow>>` or `ParentedBaseWorkflowState<<Workflow>, <Parent>>`.
+2. A workflow state has a parameterless constructor only: no dependency injection. Startup fails otherwise.
+3. Every instance field of every workflow state is persisted with the instance (including private and readonly
+   fields and auto-property backing fields), so keep fields JSON-serializable: values, records, lists, dictionaries,
+   and `IDelayedMessageSender<T>` (stored as its timer id). Fields keep their values when the instance leaves and
+   re-enters a state.
+4. Triggers derive from `BaseWorkflowTriggerCommand<<Workflow>>`; `CorrelationId` picks the instance. The first
+   command for an unknown CorrelationId creates the instance, if its first state handles that command.
+5. Reach a singleton service only by `SendCommand` to a singleton state machine, passing the CorrelationId in the
+   command; the singleton replies with a `BaseWorkflowTriggerCommand<<Workflow>>` carrying that CorrelationId. Never
+   `FireExternal`, which workflow states do not have.
+6. Set `CorrelationId = CorrelationId` on every message a workflow state sends to itself, timer messages included;
+   the framework never stamps it.
+7. Every workflow has at least one state implementing `IFinalWorkflowState`; entering one deletes the instance and
+   its timers. Several are allowed.
+8. Use `[IgnoreIf]` for timer messages that can arrive after the state that started the timer has been left.
+9. Test transitions with `WorkflowForTest<<Workflow>>` (in-memory store and clock: `SendCommand`, `CurrentState`,
+   `GetField`, `AdvanceTime`, `SimulateLocked`).
+
 ## Framework rules
 
 1. Never block on async work: no `.Result` and no `.Wait()` in state machine code or async loops.

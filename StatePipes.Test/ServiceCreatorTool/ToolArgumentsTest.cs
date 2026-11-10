@@ -45,7 +45,7 @@ namespace StatePipes.Test.ServiceCreatorTool
         {
             string[] expected = ["--repo", "--transport", "--solution-name", "--prefix", "--statemachine-name", "--statemachine", "--state",
                 "--parent-state", "--trigger-name", "--trigger-scope", "--event", "--trigger", "--transition-to", "--timer-name",
-                "--timer-period", "--moniker", "--dll", "--broker", "--exchange", "--cert", "--certpw", "--timeout"];
+                "--timer-period", "--moniker", "--dll", "--broker", "--exchange", "--cert", "--certpw", "--timeout", "--workflow-name", "--final"];
 
             CollectionAssert.AreEquivalent(expected, ToolArguments.Known.ToArray());
         }

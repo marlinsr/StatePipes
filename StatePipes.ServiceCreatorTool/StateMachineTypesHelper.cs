@@ -78,13 +78,14 @@ namespace StatePipes.ServiceCreatorTool
             List<Type> triggerTypes = [];
             try
             {
-                var baseTriggerCommandType = _commonTypes.FirstOrDefault(t => t.FullName == "StatePipes.StateMachine.BaseTriggerCommand`1");
+                // Workflow triggers derive from BaseWorkflowTriggerCommand`1, absent from StatePipes packages that predate workflows.
+                var triggerBaseTypes = _commonTypes.Where(t => t.FullName is "StatePipes.StateMachine.BaseTriggerCommand`1" or "StatePipes.StateMachine.BaseWorkflowTriggerCommand`1").ToHashSet();
                 triggerTypes = [.. _types.Where(t =>
                 {
                     if (t.IsAbstract || t.IsInterface) return false;
                     var baseType = t.BaseType;
                     if (baseType == null || !baseType.IsGenericType) return false;
-                    if (baseType.GetGenericTypeDefinition() != baseTriggerCommandType) return false;
+                    if (!triggerBaseTypes.Contains(baseType.GetGenericTypeDefinition())) return false;
                     var genArgs = baseType.GetGenericArguments();
                     return genArgs.Length > 0 && genArgs[0].Name == stateMachineName;
                 })];
@@ -99,6 +100,13 @@ namespace StatePipes.ServiceCreatorTool
             return triggerType != null && triggerType.IsNotPublic;
         }
 
+        /// <summary>True when the machine's marker file declares a workflow (read from source, so no build is needed).</summary>
+        public static bool IsWorkflow(string projectDir, string stateMachineName)
+        {
+            var marker = Path.Combine(projectDir, "StateMachines", stateMachineName, $"{stateMachineName}.cs");
+            return File.Exists(marker) && File.ReadAllText(marker).Contains(": IWorkflow");
+        }
+
         public static string? GetStateMachineNameFromSourceFile(string stateFilePath)
         {
             if (!File.Exists(stateFilePath))
@@ -108,7 +116,7 @@ namespace StatePipes.ServiceCreatorTool
             }
             string fileContents = File.ReadAllText(stateFilePath);
 #pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
-            var match = Regex.Match(fileContents, @": (?:Parented)?BaseStateMachineState<(\w+)");
+            var match = Regex.Match(fileContents, @": (?:Parented)?Base(?:StateMachine|Workflow)State<(\w+)");
 #pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
             if (!match.Success)
             {

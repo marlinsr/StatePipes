@@ -12,10 +12,10 @@
             _state.SetMoveToStateHelper(this);
             _destinationState = destinationState;
         }
-        public StateConfigurationWrapper Configure(StateConfigurationWrapper stateConfig) => stateConfig.Permit( typeof(MoveToState), _destinationState);
+        public StateConfigurationWrapper Configure(StateConfigurationWrapper stateConfig) => stateConfig.Permit(typeof(MoveToState), _destinationState);
         public void OnEntry()
         {
-            if(!_state.DisableAutomaticMoveToState) _stateMachine.Fire(new MoveToState());
+            if (!_state.DisableAutomaticMoveToState) _stateMachine.Fire(new MoveToState());
         }
     }
 }

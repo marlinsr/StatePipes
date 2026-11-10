@@ -26,6 +26,11 @@ Answer each question from the user's description. Quote the words that support e
 5. **Growth by new states.** Are fault handling, recovery or new modes expected to be added later?
    (`docs/Paper.md` section 4: adding states is additive.)
 
+6. **Many durable instances of one lifecycle.** Does the service track many independent things that each move
+   through the same states over minutes to days, keyed by an id (a cart, an order, a ticket), and must survive
+   restarts? That is a StatePipes **workflow** (`IWorkflow`), one persisted instance per id, and counts as yes for
+   question 1 or 2 when the per-item behavior depends on the item's state.
+
 ## Verdict
 
 - **Go:** question 1 is yes, or question 2 is yes and at least one of questions 3 to 5 is yes. Name the candidate
@@ -53,6 +58,9 @@ State-dependent commands: <command → behavior per state, or none>
   stopped"). Go. States: Idle, Running, Faulted. `Start` moves Idle to Running and is ignored while Running. `Reset`
   is valid only in Faulted. An over-pressure reading moves Running to Faulted. Status polling happens only while
   Running. See also `docs/Paper.md` 4.5.
+- **Shopping cart** ("a cart takes items until checkout; checkout asks pricing for a total; abandoned carts expire
+  after 7 days"). Go, as a workflow: one persisted instance per CartId. States: Open, Pricing, CheckedOut and
+  Abandoned (final states). `AddItem` is handled only while Open.
 - **Inventory API** ("create, read, update and delete items; list by category"). No-go. Every request is handled
   the same way regardless of any condition, so this is CRUD.
 

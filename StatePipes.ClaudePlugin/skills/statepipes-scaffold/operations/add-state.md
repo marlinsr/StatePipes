@@ -28,16 +28,22 @@ Creates: <Prefix>/StateMachines/<Machine>/States/<State>.cs
 Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
 
 ```
-& "<Tool>" -headless <common arguments> -a --statemachine <Machine> --state <State> [--parent-state <Parent>]
+& "<Tool>" -headless <common arguments> -a --statemachine <Machine> --state <State> [--parent-state <Parent>] [--final true]
 ```
 
 Leave out `--parent-state` for an un-parented state. The tool picks the template and detects a first child itself.
+
+On a workflow (`<Machine>.cs` declares `: IWorkflow`) the tool writes `BaseWorkflowState` / `ParentedBaseWorkflowState`
+instead, and `--final true` adds `IFinalWorkflowState` (entering the state deletes the instance). `--final` is
+rejected on a singleton state machine.
 
 ## Fallback (tool without headless support)
 
 1. Create the file from the chosen template.
 2. Substitute `@#$ClassLibraryName@#$`, `@#$StateMachineName@#$`, `@#$StateName@#$`, and for parented states
-   `@#$ParentStateName@#$`.
+   `@#$ParentStateName@#$`. For a workflow, also replace `BaseStateMachineState<` with `BaseWorkflowState<` (this turns
+   `ParentedBaseStateMachineState<` into `ParentedBaseWorkflowState<`), and for a final state append
+   `, IFinalWorkflowState` to the class declaration.
 3. Leave these lines exactly as the template has them; later operations edit them:
    - `//@#$PublicTriggers@#$using ...Triggers;` and `//@#$InternalTriggers@#$using ...Triggers.Internal;`
      (a guard operation removes the `//@#$...@#$` prefix to enable the using).

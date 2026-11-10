@@ -4,7 +4,7 @@ using StatePipes.ProcessLevelServices;
 namespace StatePipes.Comms
 {
     [method: JsonConstructor]
-    public class ServiceConfiguration(BusConfig busConfig, string assemblyName, string containerSetupClassLibraryTypeFullName, IReadOnlyList<ProxyConfiguration> proxyConfigurations, IReadOnlyList<ProxySubstitution> proxySubstitutions, ServiceArgs args)
+    public class ServiceConfiguration(BusConfig busConfig, string assemblyName, string containerSetupClassLibraryTypeFullName, IReadOnlyList<ProxyConfiguration> proxyConfigurations, IReadOnlyList<ProxySubstitution> proxySubstitutions, ServiceArgs args, WorkflowStoreConfig? workflowStore = null)
     {
         internal void MergeCommandLineArgs(ServiceArgs args)
         {
@@ -36,5 +36,7 @@ namespace StatePipes.Comms
         public IReadOnlyList<ProxyConfiguration> ProxyConfigurations { get; } = proxyConfigurations;
         public IReadOnlyList<ProxySubstitution> ProxySubstitutions { get; } = proxySubstitutions;
         public ServiceArgs Args { get; private set; } = args;
+        /// <summary>Required when the service declares workflows; otherwise null.</summary>
+        public WorkflowStoreConfig? WorkflowStore { get; } = workflowStore;
     }
 }

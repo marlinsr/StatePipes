@@ -77,7 +77,7 @@ namespace StatePipes.ServiceCreatorTool
             var stepCaHostName = "step-ca";
             var brokerHostName = "amqp09-broker";
             var kafkaHostName = "kafka-broker";
-            var keycloakHostName = "keycloak";
+            var postgresHostName = "postgres-db";
             bool showReminder = false;
             try
             {
@@ -85,7 +85,7 @@ namespace StatePipes.ServiceCreatorTool
                 Dns.GetHostAddresses(stepCaHostName);
                 Dns.GetHostAddresses(brokerHostName);
                 Dns.GetHostAddresses(kafkaHostName);
-                Dns.GetHostAddresses(keycloakHostName);
+                Dns.GetHostAddresses(postgresHostName);
             }
             catch { showReminder = true; }
             var hostsText = "Please add to your etc\\hosts file the following entires before proceeding:\n" +
@@ -93,7 +93,7 @@ namespace StatePipes.ServiceCreatorTool
                 $"\t127.0.0.1 {stepCaHostName}\n" +
                 $"\t127.0.0.1 {brokerHostName}\n" +
                 $"\t127.0.0.1 {kafkaHostName}\n" +
-                $"\t127.0.0.1 {keycloakHostName}\n";
+                $"\t127.0.0.1 {postgresHostName}\n";
             return showReminder ? hostsText : null;
         }
     }

@@ -36,7 +36,7 @@ namespace StatePipes.StateMachine.Test
         public bool Trigger(A obj)
         {
             if (_disposed) return false;
-            if (obj  == null) return false;
+            if (obj == null) return false;
             lock (_lock)
             {
                 if (_filter.IsFiltered(obj.GetType()))

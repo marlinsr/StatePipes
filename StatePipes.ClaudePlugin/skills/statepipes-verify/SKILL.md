@@ -21,6 +21,10 @@ pattern in the generated `StateMachineDummyTests.cs` (template `StateMachineDumm
 - Categorise tests the way the generated `TestCategories` does. Tests that rely on the background command bus are
   `TimingCritical`.
 
+For a workflow, test with `WorkflowForTest<<Workflow>>` instead (no PostgreSQL needed): `SendCommand` triggers with
+a `CorrelationId`, then assert `CurrentState(id)`, `Exists(id)` (false after a final state), persisted fields with
+`GetField<TState, TField>(id, "_field")`, timers with `AdvanceTime(...)`, and lock contention with `SimulateLocked(id)`.
+
 ## 2. Format, then run the checks
 
 ```powershell
@@ -33,6 +37,13 @@ whether the plugin was loaded with `--plugin-dir` or installed from the marketpl
 so always format first. The script builds, runs the tests with `Tests.runsettings`, rejects `.Result` and
 `.Wait()` under `StateMachines/`, and checks formatting. It prints `PASS`, or one `FAIL <check>: <detail>` line
 per problem. Fix every `FAIL` and run it again.
+
+For every workflow (`StateMachines/<Workflow>/<Workflow>.cs` declares `: IWorkflow`) it also reports:
+
+- `workflow-ctor`: a workflow state has a constructor with parameters (workflow states cannot use DI).
+- `workflow-final`: the workflow has no state implementing `IFinalWorkflowState`.
+- `workflow-fireexternal`: a workflow state calls `FireExternal` (use `SendCommand` to a singleton machine).
+- `workflow-test`: no test in a `*.Test` project uses `WorkflowForTest<<Workflow>>`.
 
 ## 3. Check against the model and the pattern
 

@@ -2,6 +2,10 @@
 #Make sure you run this script as Administrator
 #Make sure you have openssl installed, if not open a command prompt as Administrator and execute the command 'winget install openssl'
 #Then put 'C:\Program Files\OpenSSL-Win64\bin' in your path
+#
+#Hosts file: services are reached from this machine by their container names, and TLS hostname verification
+#(including PostgreSQL VerifyFull) depends on it. Add this line to C:\Windows\System32\drivers\etc\hosts:
+#   127.0.0.1 amqp09-broker kafka-broker postgres-db statepipes.explorer
 
 
 $CommonPassword = "StatePipes123$"
@@ -11,7 +15,12 @@ $SmallstepContainerName = "step-ca"
 $RabbitContainerName = "amqp09-broker"
 $KafkaContainerName = "kafka-broker"
 $StatePipesContainerName = "statepipes.explorer"
+$PostgresContainerName = "postgres-db"
+$PostgresDatabase = "statepipes"
+$PostgresRole = "statepipes"
 
+# Pinned to a major version: a PostgreSQL data directory cannot move across majors without pg_upgrade.
+$PostgresImage = "postgres:17"
 $KafkaImage = "apache/kafka:latest"
 $StepImage = "smallstep/step-ca:latest"
 $RabbitImage = "rabbitmq:4-management"
@@ -22,6 +31,7 @@ $RabbitProgramDataPrefix = $programData + "\RabbitMQ\" + $RabbitContainerName + 
 $KafkaProgramDataPrefix = $programData + "\Kafka\" + $KafkaContainerName + "\"
 $KafkaCertsDirectory = $KafkaProgramDataPrefix + "Certs"
 $StatePipesCertDir = $programData + "\StatePipes\StatePipes.Explorer\Certs\"
+$PostgresProgramDataPrefix = $programData + "\PostgreSQL\" + $PostgresContainerName + "\"
 
 #======================================================================================================================
 # 0. Refuse to run unelevated.
@@ -40,7 +50,7 @@ if (-not $isAdmin) {
 #======================================================================================================================
 # 1. Tear everything down
 #======================================================================================================================
-foreach ($container in @($StatePipesContainerName, $KeycloakContainerName, $KafkaContainerName, $RabbitContainerName, $SmallstepContainerName)) {
+foreach ($container in @($StatePipesContainerName, $PostgresContainerName, $KafkaContainerName, $RabbitContainerName, $SmallstepContainerName)) {
     docker stop $container 2>$null
     docker container rm $container 2>$null
 }
@@ -49,15 +59,18 @@ try {
     Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=amqp09-broker' } | Remove-Item -ErrorAction Stop
     Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=statepipes.explorer' } | Remove-Item -ErrorAction Stop
     Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=kafka-broker' } | Remove-Item -ErrorAction Stop
+    Get-ChildItem -Path Cert:\LocalMachine\TrustedPublisher | Where-Object { $_.Subject -eq 'CN=postgres-db' } | Remove-Item -ErrorAction Stop
     Get-ChildItem -Path Cert:\LocalMachine\CA | Where-Object { $_.Subject -eq 'CN=step-ca Intermediate CA, O=step-ca' } | Remove-Item -ErrorAction Stop
     Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object { $_.Subject -eq 'CN=step-ca Root CA, O=step-ca' } | Remove-Item -ErrorAction Stop
 } catch {
     Write-Host "Could not remove the previous certificates (run as Administrator to clean them up)." -ForegroundColor Yellow
 }
 
-foreach ($dir in @($SmallstepProgramDataPrefix, $RabbitProgramDataPrefix, $KafkaProgramDataPrefix, $StatePipesCertDir)) {
+foreach ($dir in @($SmallstepProgramDataPrefix, $RabbitProgramDataPrefix, $KafkaProgramDataPrefix, $StatePipesCertDir, $PostgresProgramDataPrefix)) {
     Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
 }
+# The postgres-db-data volume is deliberately kept: workflow instances and timers survive an infrastructure restart.
+# PostgreSQL authenticates the client by CA chain + CN, so a regenerated CA does not lock out the existing data.
 New-Item -ItemType Directory -Path $SmallstepProgramDataPrefix -Force | Out-Null
 New-Item -ItemType Directory -Path $KafkaCertsDirectory -Force | Out-Null
 New-Item -ItemType Directory -Path $StatePipesCertDir -Force | Out-Null
@@ -147,12 +160,22 @@ $signWithIntermediate = @(
     kafkauser /home/step/kafkauser.kafka-broker.client.crt /home/step/kafkauser.kafka-broker.client.key `
     --san kafkauser @signWithIntermediate
 
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    $PostgresContainerName /home/step/postgres-db.server.crt /home/step/postgres-db.server.key `
+    --san $PostgresContainerName --san localhost --san 127.0.0.1 @signWithIntermediate
+
+# CN=statepipes matters: pg_hba.conf uses "cert" authentication, which logs the client in as the role named by the CN.
+& docker exec $SmallstepContainerName step certificate create --profile leaf `
+    $PostgresRole /home/step/statepipes.postgres-db.client.crt /home/step/statepipes.postgres-db.client.key `
+    --san $PostgresRole @signWithIntermediate
+
 # .p12 bundles: private key + leaf + full CA chain, encrypted with $CommonPassword.
 $p12Bundles = @(
     @("statepipes.explorer.server", "statepipes.explorer.server"),
     @("amqpuser.amqp09-broker.client", "amqpuser.amqp09-broker.client"),
     @("kafka-broker.keystore", "kafka-broker.server"),
-    @("kafkauser.kafka-broker.client", "kafkauser.kafka-broker.client")
+    @("kafkauser.kafka-broker.client", "kafkauser.kafka-broker.client"),
+    @("statepipes.postgres-db.client", "statepipes.postgres-db.client")
 )
 foreach ($bundle in $p12Bundles) {
     & docker exec $SmallstepContainerName step certificate p12 `
@@ -179,7 +202,12 @@ $toCopy = @(
     "/home/step/kafka-broker.server.crt",
     "/home/step/kafka-broker.keystore.p12",
     "/home/step/kafkauser.kafka-broker.client.crt",
-    "/home/step/kafkauser.kafka-broker.client.p12"
+    "/home/step/kafkauser.kafka-broker.client.p12",
+    "/home/step/postgres-db.server.crt",
+    # PostgreSQL, like RabbitMQ, reads a bare private key off disk (ssl_key_file).
+    "/home/step/postgres-db.server.key",
+    "/home/step/statepipes.postgres-db.client.crt",
+    "/home/step/statepipes.postgres-db.client.p12"
 )
 foreach ($file in $toCopy) {
     docker cp ($SmallstepContainerName + ":" + $file) $SmallstepProgramDataPrefix
@@ -385,6 +413,87 @@ if (-not $ready) {
 Start-Sleep -Seconds 30 #Time for rabbit and kafka container to initialize before using
 
 #======================================================================================================================
+# 7b. PostgreSQL (workflow store; client-certificate authentication only)
+#
+# pg_hba.conf has no "host" lines, so plain TCP and password logins over the network are refused; the only network
+# login is TLS with a client certificate whose CN names the role. "local ... peer" is for docker exec -u postgres.
+#
+# PostgreSQL refuses to start when its server key is readable by group/other, and every file bind-mounted from
+# Windows is. So the certificates are mounted read-only at /certs-src and a wrapper copies them inside the container,
+# chowns them to postgres and chmods the key 600 before handing over to the image's own entrypoint.
+#
+# Data lives in the named volume postgres-db-data (a Windows bind mount for PGDATA hits the same permission problem).
+#======================================================================================================================
+docker pull $PostgresImage
+
+$PostgresCertsDirectory = $PostgresProgramDataPrefix + "certs"
+$PostgresInitDirectory = $PostgresProgramDataPrefix + "initdb"
+New-Item -ItemType Directory -Path $PostgresCertsDirectory -Force | Out-Null
+New-Item -ItemType Directory -Path $PostgresInitDirectory -Force | Out-Null
+Copy-Item -Path ($SmallstepProgramDataPrefix + "postgres-db.server.key") -Destination $PostgresCertsDirectory -Force
+# Server certificate file = leaf + intermediate, so VerifyFull clients that trust only the root can build the chain.
+Get-Content ($SmallstepProgramDataPrefix + "postgres-db.server.crt"), ($SmallstepProgramDataPrefix + "intermediate_ca.crt") |
+    Set-Content ($PostgresCertsDirectory + "\postgres-db.server.crt") -Encoding ascii
+# CA bundle (root + intermediate) that client certificates are verified against.
+Get-Content ($SmallstepProgramDataPrefix + "root_ca.crt"), ($SmallstepProgramDataPrefix + "intermediate_ca.crt") |
+    Set-Content ($PostgresCertsDirectory + "\ca.pem") -Encoding ascii
+
+# LF line endings: PostgreSQL would read a trailing \r as part of the auth method / SQL.
+Set-Content -Path ($PostgresProgramDataPrefix + "pg_hba.conf") -NoNewline -Encoding ascii -Value (@(
+    "local    all  postgres            peer",
+    "hostssl  all  all       0.0.0.0/0 cert",
+    "hostssl  all  all       ::/0      cert",
+    ""
+) -join "`n")
+Set-Content -Path ($PostgresInitDirectory + "\10-statepipes.sql") -NoNewline -Encoding ascii -Value (@(
+    "CREATE ROLE statepipes LOGIN;",
+    "ALTER DATABASE statepipes OWNER TO statepipes;",
+    ""
+) -join "`n")
+
+$PostgresCerts = "/etc/postgresql-certs"
+$PostgresStart = @(
+    "mkdir -p $PostgresCerts",
+    "cp /certs-src/* $PostgresCerts/",
+    "cp /hba-src/pg_hba.conf $PostgresCerts/pg_hba.conf",
+    "chown -R postgres:postgres $PostgresCerts",
+    "chmod 600 $PostgresCerts/postgres-db.server.key",
+    ("exec docker-entrypoint.sh postgres -c ssl=on -c ssl_min_protocol_version=TLSv1.3" +
+        " -c ssl_cert_file=$PostgresCerts/postgres-db.server.crt -c ssl_key_file=$PostgresCerts/postgres-db.server.key" +
+        " -c ssl_ca_file=$PostgresCerts/ca.pem -c hba_file=$PostgresCerts/pg_hba.conf")
+) -join " && "
+
+$postgresArgs = @(
+    "run", "-d", "--restart", "always",
+    "--name", $PostgresContainerName,
+    "--hostname", $PostgresContainerName,
+    "--network", $Net,
+    "-p", "5432:5432",
+    "-v", "postgres-db-data:/var/lib/postgresql/data",
+    "-v", "$($PostgresCertsDirectory):/certs-src:ro",
+    "-v", "$($PostgresProgramDataPrefix)pg_hba.conf:/hba-src/pg_hba.conf:ro",
+    "-v", "$($PostgresInitDirectory):/docker-entrypoint-initdb.d:ro",
+    "-e", "POSTGRES_PASSWORD=$CommonPassword",
+    "-e", "POSTGRES_DB=$PostgresDatabase",
+    "--entrypoint", "bash",
+    $PostgresImage,
+    "-c", $PostgresStart
+)
+& docker @postgresArgs
+
+Write-Host "Waiting for $PostgresContainerName to become ready..."
+$ready = $false
+foreach ($attempt in 1..45) {
+    docker exec $PostgresContainerName pg_isready *> $null
+    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 2
+}
+if (-not $ready) {
+    Write-Host "PostgreSQL did not become ready. Inspect the logs with: docker logs $PostgresContainerName" -ForegroundColor Red
+}
+Write-Host "PostgreSQL data is kept in the docker volume postgres-db-data. To start from an empty database run: docker volume rm postgres-db-data"
+
+#======================================================================================================================
 # 8. statepipes.explorer
 #======================================================================================================================
 docker pull $ExplorerImage
@@ -404,6 +513,7 @@ try {
     Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "amqp09-broker.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
     Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "statepipes.explorer.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
     Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "kafka-broker.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
+    Import-Certificate -FilePath ($SmallstepProgramDataPrefix + "postgres-db.server.crt") -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -ErrorAction Stop | Out-Null
     Write-Host "Imported the step-ca certificates into the machine certificate store."
 } catch {
     Write-Host "Skipped the machine certificate store import (run as Administrator to enable it)." -ForegroundColor Yellow
@@ -413,6 +523,7 @@ Write-Host ""
 Write-Host "Infrastructure is up, all issued by the single $SmallstepContainerName instance:" -ForegroundColor Green
 Write-Host "  RabbitMQ  amqps://amqp09-broker:5671   (management https://amqp09-broker:15671)"
 Write-Host "  Kafka     ssl://kafka-broker:9093      (mutual TLS)"
+Write-Host "  PostgreSQL postgres-db:5432 (client-cert auth, role statepipes)"
 Write-Host "  Explorer  https://statepipes.explorer:7219"
 Write-Host "  Certs     $SmallstepProgramDataPrefix"
 

@@ -3,6 +3,7 @@ using Autofac.Util;
 using StatePipes.Interfaces;
 using StatePipes.SelfDescription;
 using StatePipes.StateMachine.Internal;
+using StatePipes.Workflow.Internal;
 using System.Reflection;
 namespace StatePipes.Comms.Internal
 {
@@ -12,6 +13,7 @@ namespace StatePipes.Comms.Internal
         private readonly Assembly _statePipesAssebly;
         private readonly IContainerSetup _serviceContainerSetup;
         private readonly AllStateMachineContainerSetup _stateMachineContainerSetup;
+        private readonly AllWorkflowContainerSetup _workflowContainerSetup;
         private readonly ServiceConfiguration _serviceConfiguration;
         private readonly IStatePipesProxyFactory? _parentProxyFactory;
         private readonly SelfDescriptionContainerSetup _selfDescriptionContainerSetup;
@@ -25,12 +27,16 @@ namespace StatePipes.Comms.Internal
             var containerSetupType = _assembly.GetLoadableTypes().Single(t => t.FullName == _serviceConfiguration.ContainerSetupClassLibraryTypeFullName);
             _serviceContainerSetup = (dynamic)Activator.CreateInstance(containerSetupType)!;
             _stateMachineContainerSetup = new(_assembly, true);
+            _workflowContainerSetup = new(_assembly, CreateWorkflowStore, _serviceConfiguration.WorkflowStore, _serviceConfiguration.BusConfig);
             _statePipesAssebly = typeof(StatePipesService).Assembly;
-            _selfDescriptionContainerSetup = new(_assembly,_statePipesAssebly);
+            _selfDescriptionContainerSetup = new(_assembly, _statePipesAssebly);
         }
+        private static IWorkflowStore CreateWorkflowStore(WorkflowStoreConfig? config) =>
+            new StatePipes.Workflow.Internal.Postgres.PostgresWorkflowStore(config!);
         public void Build(IContainer container)
         {
             _stateMachineContainerSetup.Build(container);
+            _workflowContainerSetup.Build(container);
             _selfDescriptionContainerSetup.Build(container);
             _serviceContainerSetup.Build(container);
         }
@@ -51,6 +57,7 @@ namespace StatePipes.Comms.Internal
             handlerList?.ToList().ForEach(handler => containerBuilder.RegisterType(handler).AsImplementedInterfaces().SingleInstance());
             _serviceContainerSetup.Register(containerBuilder);
             _stateMachineContainerSetup.Register(containerBuilder);
+            _workflowContainerSetup.Register(containerBuilder);
             _selfDescriptionContainerSetup.Register(containerBuilder);
             containerBuilder.RegisterInstance(new StatePipesProxyFactory(_serviceConfiguration, _parentProxyFactory)).As<IStatePipesProxyFactory>().SingleInstance();
             containerBuilder.RegisterInstance(_serviceConfiguration.Args).AsSelf().SingleInstance();

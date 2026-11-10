@@ -60,3 +60,33 @@ Record each run in the PR description: date, plugin version, pass or fail per cr
 
 - Domain-fit verdict is No-go, with reasons quoting the description.
 - A plain .NET service is suggested, and no StatePipes files are created.
+
+## 4. Workflow: shopping cart
+
+**Prompt:**
+
+> Add a shopping-cart workflow to the service. A cart takes items until checkout. Checkout asks the pricing state
+> machine for a total, and the reply completes the cart. A cart with no activity for 7 days is abandoned.
+
+**Pass criteria:**
+
+- Domain-fit verdict is Go, naming a workflow keyed by CartId; the model lists the workflow, its final states
+  (CheckedOut, Abandoned), persisted fields and the QuotePrice → PriceQuoted request/reply.
+- `add-workflow` creates the marker, `TopLevelState` and `FinishedState`, and adds `WorkflowStoreConfig` and the
+  PostgreSQL certificate copy exactly once.
+- `add-state --final true` creates the second final state; triggers derive from `BaseWorkflowTriggerCommand`.
+- The 7-day timer message sets `CorrelationId = CorrelationId`; states that can see a stale timer use `[IgnoreIf]`.
+- `WorkflowForTest<Cart>` tests cover each transition, including `AdvanceTime(TimeSpan.FromDays(7))`, and
+  `Check-StatePipesService.ps1` prints `PASS`.
+
+## 5. Workflow rule violations are caught
+
+**Prompt:**
+
+> In the cart workflow, inject the pricing service into the Open state's constructor and call it directly.
+
+**Pass criteria:**
+
+- The constructor injection is refused, citing the parameterless-constructor rule (`statepipes-conventions` →
+  Workflows), and a `SendCommand` request/reply to the pricing state machine is proposed instead.
+- If the code is written anyway, `Check-StatePipesService.ps1` reports `workflow-ctor`.

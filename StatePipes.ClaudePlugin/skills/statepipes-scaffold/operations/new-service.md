@@ -96,6 +96,10 @@ Creates: <Prefix>.Test/TestCategories.cs
 `DefaultSetup.cs`, `DefaultServiceConfiguration.cs` and `ProxyMonikers.cs` carry the proxy markers that
 `new-proxy` later inserts above (`// Injection Point 1`, `2`, `4`).
 
+A new service has no `WorkflowStore` in `DefaultServiceConfiguration.cs`, so it doesn't depend on PostgreSQL. The
+first `add-workflow` adds the `WorkflowStoreConfig` and the PostgreSQL client-certificate copy; a service that
+declares workflows without a `WorkflowStore` fails at startup.
+
 ## CLAUDE.md
 
 The Services table in `<SolutionDir>/CLAUDE.md` needs a row for the service, above the `<!-- One row per service ... -->`

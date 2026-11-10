@@ -35,6 +35,22 @@ class library, as listed in the Services table.
 - Trigger and event payloads carry value objects or plain values, never entities.
 - No domain types in `StateMachines/`, `Builders/`, `Events/`, or invented folders such as `Models/`.
 
+## Workflows
+
+A workflow (`: IWorkflow`) is a state machine with many persisted instances, one per CorrelationId (e.g. a cart),
+stored in PostgreSQL (`WorkflowStore` in `Builders/DefaultServiceConfiguration.cs`).
+
+- Workflow states derive from `BaseWorkflowState<T>` / `ParentedBaseWorkflowState<T, TParent>`.
+- Workflow states have a parameterless constructor only: no dependency injection.
+- Every field of every workflow state is persisted with the instance, so fields must be JSON-serializable.
+- Reach singleton services only by `SendCommand` to a singleton state machine, passing the CorrelationId; the singleton
+  replies with a `BaseWorkflowTriggerCommand<T>` carrying that CorrelationId. Never `FireExternal`.
+- Every workflow has at least one state implementing `IFinalWorkflowState`; entering it deletes the instance and its timers.
+- Every workflow trigger derives from `BaseWorkflowTriggerCommand<T>` and carries the instance's `CorrelationId`.
+- Set `CorrelationId = CorrelationId` on every message a workflow state sends to itself, timer messages included; the
+  framework never stamps it.
+- Use `[IgnoreIf]` for timer messages that can arrive after the state that started the timer has been left.
+
 ## Behavioral Rules
 
 - Never block on async work: no `.Result` or `.Wait()` in state machine code or async loops. Use `async`/`await`

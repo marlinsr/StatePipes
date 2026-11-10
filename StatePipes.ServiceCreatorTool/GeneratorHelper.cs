@@ -5,6 +5,7 @@ namespace StatePipes.ServiceCreatorTool
     internal class GeneratorHelper(DirectoryHelper dm, MonikerSubstitution monikers)
     {
         private static string FullEmbeddedResourceName(string resourceName) => $"{typeof(GeneratorHelper).Namespace}.Resources.{resourceName}";
+        public static string ReadSample(string resourceName) => ReadEmbeddedTextFile(resourceName);
         private static string ReadEmbeddedTextFile(string resourceName)
         {
             resourceName = FullEmbeddedResourceName(resourceName);

@@ -11,6 +11,7 @@ namespace StatePipes.StateMachine.Internal
     {
         private readonly StateMachine<string, string> _stateMachine;
         private readonly IStatePipesService _bus;
+        private readonly InMemoryTimerService _timers;
         private StateMachineManager? _stateMachineManager;
         private readonly InitialState _initialState = new();
         private dynamic? _initTriggerCommand;
@@ -21,23 +22,32 @@ namespace StatePipes.StateMachine.Internal
         public readonly CommandRegistrationManager CommandRegistrationManager = new();
         public string StateMachineName { get; private set; } = "UNKNOWN";
         public string AssemblyQualifiedStateMachineName { get; private set; } = "UNKNOWN";
-        public BaseStateMachine(IStatePipesService bus)
+        /// <summary>Workflow terminal states; drawn with a double border in diagrams.</summary>
+        internal IReadOnlySet<string> FinalStates { get; set; } = new HashSet<string>();
+        public BaseStateMachine(IStatePipesService bus, InMemoryTimerService timers) : this(bus, timers, typeof(InitialState).Name, true) { }
+        /// <summary>Workflow machines start in their persisted state and never broadcast StateStatusEvent.</summary>
+        internal BaseStateMachine(IStatePipesService bus, InMemoryTimerService timers, string initialStateName, bool publishStatus)
         {
             _bus = bus;
-            _currentState = typeof(InitialState).Name;
-            _stateMachine = new StateMachine<string, string>(typeof(InitialState).Name, FiringMode.Queued);
+            _timers = timers;
+            _currentState = initialStateName;
+            _stateMachine = new StateMachine<string, string>(initialStateName, FiringMode.Queued);
             _stateMachine.OnUnhandledTrigger(OnUnhandledTrigger);
             _stateMachine.OnTransitioned(t =>
             {
                 Log?.LogVerbose($"[State Changing] {t.Trigger}: {t.Source} --> {t.Destination}");
                 _currentState = t.Destination;
-                SendCurrentStatus();
+                if (publishStatus) SendCurrentStatus();
             });
         }
         public void OnUnhandledTrigger(string state, string trigger) => Log?.LogVerbose($"Trigger not set: [{trigger}] on state [{state}] on state machine [{StateMachineName}]");
         internal void SetStateMachineManagerAndType(StateMachineManager stateMachineManager, Type stateMachineType)
         {
             _stateMachineManager = stateMachineManager;
+            SetStateMachineType(stateMachineType);
+        }
+        internal void SetStateMachineType(Type stateMachineType)
+        {
             StateMachineName = stateMachineType.FullName ?? "UNKNOWN";
             AssemblyQualifiedStateMachineName = stateMachineType.AssemblyQualifiedName ?? "UNKNOWN";
         }
@@ -60,24 +70,24 @@ namespace StatePipes.StateMachine.Internal
         }
         public BusConfig? GetCurrentResponseInfo()
         {
-            if(_currentTrigger is null) return null;
+            if (_currentTrigger is null) return null;
             return _currentTrigger.ResponseInfo;
         }
-        public string CurrentState =>_currentState; 
+        public string CurrentState => _currentState;
         public StateMachine<string, string>.StateConfiguration Configure(string stateName) => _stateMachine.Configure(stateName);
         public bool Fire<TTrigger>(TTrigger trigger, BusConfig? responseInfo = null) where TTrigger : ITrigger
         {
             var triggerTypeName = trigger.GetType().Name;
-            if(triggerTypeName != _moveToStateName) _currentTrigger = new CurrentTrigger(trigger, responseInfo);
+            if (triggerTypeName != _moveToStateName) _currentTrigger = new CurrentTrigger(trigger, responseInfo);
             _stateMachine.Fire(triggerTypeName);
             return true;
         }
-        public bool FireExternal<TStateMachine, BaseTriggerCommandType>(BaseTriggerCommandType trigger, BusConfig? responseInfo = null) 
+        public bool FireExternal<TStateMachine, BaseTriggerCommandType>(BaseTriggerCommandType trigger, BusConfig? responseInfo = null)
             where TStateMachine : IStateMachine where BaseTriggerCommandType : BaseTriggerCommand<TStateMachine>
         {
             return _stateMachineManager?.GetStateMachine<TStateMachine>()?.Fire(trigger, responseInfo) ?? false;
         }
-        public void SendCommand<TCommand>(TCommand trigger, BusConfig? responseInfo = null) where TCommand : class, ICommand => 
+        public void SendCommand<TCommand>(TCommand trigger, BusConfig? responseInfo = null) where TCommand : class, ICommand =>
             _bus.SendCommand(trigger, responseInfo);
         public void PublishEvent<TEvent>(TEvent ev) where TEvent : class, IEvent
         {
@@ -89,7 +99,7 @@ namespace StatePipes.StateMachine.Internal
         }
         public IDelayedMessageSender<TMessage> CreateDelayedMessageSender<TMessage>() where TMessage : class, IMessage
         {
-            return new DelayedMessageSender<TMessage>(_bus);
+            return new DelayedMessageSender<TMessage>(_timers, Guid.NewGuid());
         }
         public void SendCurrentStatus(BusConfig? responseInfo = null)
         {
@@ -102,7 +112,7 @@ namespace StatePipes.StateMachine.Internal
         public string GetDotGraph()
         {
             var info = _stateMachine.GetInfo();
-            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager);
+            var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager, FinalStates);
             return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), CurrentState);
         }
         private string SaveDotGraph(string dotFilename)
@@ -111,7 +121,7 @@ namespace StatePipes.StateMachine.Internal
             File.WriteAllText(dotFilename, graph);
             return dotFilename;
         }
-        public virtual string SaveDotGraphToPath(string path)=> SaveDotGraph($@"{path}\{StateMachineName}.dot");
+        public virtual string SaveDotGraphToPath(string path) => SaveDotGraph($@"{path}\{StateMachineName}.dot");
         public bool CurrentStateHasMoveToState()
         {
             var info = _stateMachine.GetInfo();

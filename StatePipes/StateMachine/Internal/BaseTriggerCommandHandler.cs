@@ -3,8 +3,8 @@ using StatePipes.Interfaces;
 
 namespace StatePipes.StateMachine.Internal
 {
-    internal class BaseTriggerCommandHandler<T,S>(StateMachineManager stateMachineManager) 
-        : IMessageHandler<T> where S : IStateMachine where T : BaseTriggerCommand<S> 
+    internal class BaseTriggerCommandHandler<T, S>(StateMachineManager stateMachineManager)
+        : IMessageHandler<T> where S : IStateMachine where T : BaseTriggerCommand<S>
     {
         private readonly BaseStateMachine _stateMachine = stateMachineManager.GetStateMachine<S>();
         public void HandleMessage(T command, BusConfig? responseInfo, bool isResponse)

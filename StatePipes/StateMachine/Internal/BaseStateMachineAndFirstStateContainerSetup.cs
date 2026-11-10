@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using Autofac.Util;
+using StatePipes.Common.Internal;
 using StatePipes.Interfaces;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -44,6 +45,8 @@ namespace StatePipes.StateMachine.Internal
         {
             _ = containerBuilder.RegisterType<StateMachineManager>().AsSelf().SingleInstance();
             _ = containerBuilder.RegisterType<BaseStateMachine>().AsSelf();
+            _ = containerBuilder.RegisterInstance(TimeProvider.System).As<TimeProvider>();
+            _ = containerBuilder.Register(c => new InMemoryTimerService(c.Resolve<IStatePipesService>(), c.Resolve<TimeProvider>())).AsSelf().SingleInstance();
             _ = containerBuilder.RegisterType<GetAllStateMachineStatusCommandHandler>().AsSelf().AsImplementedInterfaces();
             _ = containerBuilder.RegisterType<GetAllStateMachineDiagramsCommandHandler>().AsSelf().AsImplementedInterfaces();
         }

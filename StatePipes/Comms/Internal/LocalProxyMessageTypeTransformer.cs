@@ -14,7 +14,7 @@ namespace StatePipes.Comms.Internal
         private static bool IsConcrete(Type type) => !type.IsAbstract && !type.IsInterface && !type.IsGenericTypeDefinition && !type.IsGenericType;
         public void PopulatePublicCommandTypeDictionary(Assembly _assembly)
         {
-            var types = _assembly.GetLoadableTypes().Where(t => (t.IsPublic && IsConcrete(t) && 
+            var types = _assembly.GetLoadableTypes().Where(t => (t.IsPublic && IsConcrete(t) &&
                 typeof(ICommand).IsAssignableFrom(t) && !string.IsNullOrEmpty(t.FullName)));
             if (types == null) return;
             types.ToList().ForEach(t => _publicCommandTypeDictionary.Add(t.FullName!, t));

@@ -22,7 +22,7 @@ namespace StatePipes.Comms
         protected abstract void SendConnectionStatusTrigger(string proxyName, bool isConnected);
         public BaseGeneratedProxy(IStatePipesProxyFactory proxyFactory, IStatePipesService bus)
         {
-            _bus =bus;
+            _bus = bus;
             var proxyList = proxyFactory.GetAllClientProxies().Where(p => p.Name.StartsWith(ProxyPrefix, StringComparison.OrdinalIgnoreCase)).ToList();
             proxyList.ForEach(proxy =>
             {
