@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v7.0.1 (2026-11-10)
+Merged PR: #103 Persisted workflows
+
+Referenced issues:
+- #102 Implement Workflows
+
+
 ### v6.0.8 (2026-11-02)
 Merged PR: #101 Publish to nuget.org with Trusted Publishing
 
