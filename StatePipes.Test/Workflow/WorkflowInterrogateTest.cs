@@ -116,5 +116,36 @@ namespace StatePipes.Test.Workflow
             var d = Engine(typeof(CartWorkflow), bad.Object).Interrogate("c1")!;
             Assert.AreEqual((Cart, "", 0L, "", "db down"), (d.WorkflowType, d.CurrentState, d.Version, d.DotGraph, d.Error));
         }
+
+        [TestMethod]
+        public void Registry_TwoTypesSameId_ReturnsBothOrderedByType()
+        {
+            var reg = new WorkflowEngineRegistry();
+            var cart = Engine(typeof(CartWorkflow));
+            var count = Engine(typeof(CountingWorkflow));
+            reg.Add(typeof(CountingWorkflow), count);
+            reg.Add(typeof(CartWorkflow), cart);
+            Send(cart, new AddItem { Sku = "a" }, "x");
+            Send(count, new CountGo(), "x");
+            var list = reg.Interrogate("x");
+            CollectionAssert.AreEqual(new[] { Cart, typeof(CountingWorkflow).FullName }, list.Select(d => d.WorkflowType).ToArray());
+            Assert.AreEqual(0, reg.Interrogate("other").Count);
+        }
+
+        [TestMethod]
+        public void Registry_OneEngineThrows_OtherStillReturned()
+        {
+            var bad = new Mock<IWorkflowStore>();
+            bad.Setup(s => s.Begin()).Throws(new InvalidOperationException("db down"));
+            var reg = new WorkflowEngineRegistry();
+            var cart = Engine(typeof(CartWorkflow));
+            reg.Add(typeof(CartWorkflow), cart);
+            reg.Add(typeof(CountingWorkflow), Engine(typeof(CountingWorkflow), bad.Object));
+            Send(cart, new AddItem { Sku = "a" }, "x");
+            var list = reg.Interrogate("x");
+            Assert.AreEqual(2, list.Count);
+            Assert.IsNull(list.Single(d => d.WorkflowType == Cart).Error);
+            Assert.AreEqual("db down", list.Single(d => d.WorkflowType != Cart).Error);
+        }
     }
 }
