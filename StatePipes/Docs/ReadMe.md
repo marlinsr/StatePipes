@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v7.0.2 (2026-11-12)
+Merged PR: #105 Verify for Google Search
+
+Referenced issues:
+- #104 Verify Google Searches for StatePipes
+
+
 ### v7.0.1 (2026-11-10)
 Merged PR: #103 Persisted workflows
 
