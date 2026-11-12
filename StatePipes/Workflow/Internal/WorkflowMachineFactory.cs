@@ -33,9 +33,13 @@ namespace StatePipes.Workflow.Internal
             return wm;
         }
 
-        public static WorkflowMachine CreateForDiagram(WorkflowMetadata md, IStatePipesService bus, InMemoryTimerService timers)
+        public static WorkflowMachine CreateForDiagram(WorkflowMetadata md, IStatePipesService bus, InMemoryTimerService timers) =>
+            CreateForDiagram(md, bus, timers, typeof(InitialState).Name);
+
+        /// <summary>Configures a machine sitting in <paramref name="currentState"/> for diagramming only: no trigger fires and no OnEntry runs.</summary>
+        public static WorkflowMachine CreateForDiagram(WorkflowMetadata md, IStatePipesService bus, InMemoryTimerService timers, string currentState)
         {
-            try { return Build(md, new WorkflowContext(null!, string.Empty, timers), bus, timers, typeof(InitialState).Name); }
+            try { return Build(md, new WorkflowContext(null!, string.Empty, timers), bus, timers, currentState); }
             finally { WorkflowContext.Current = null; }
         }
 
