@@ -3,6 +3,7 @@ using StatePipes.Common.Internal;
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
+using StatePipes.Messages;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
 namespace StatePipes.Workflow.Internal
@@ -21,6 +22,31 @@ namespace StatePipes.Workflow.Internal
         InMemoryTimerService timers, JsonSerializerSettings settings, WorkflowEngineOptions options)
     {
         private readonly string _type = md.WorkflowTypeName;
+
+        /// <summary>
+        /// Read-only view of one instance for diagnostics: loads the row without locking or committing and diagrams it at its
+        /// persisted state. Returns null when no running instance has this correlationId; failures come back as an entry with Error.
+        /// </summary>
+        public WorkflowInstanceDiagram? Interrogate(string correlationId)
+        {
+            try
+            {
+                WorkflowRecord? record;
+                using (var uow = store.Begin()) record = uow.Load(_type, correlationId);
+                if (record == null) return null;
+                // Built at InitialState so the start marker stays true to the type; the persisted state is only highlighted.
+                var machine = WorkflowMachineFactory.CreateForDiagram(md, bus, timers).Machine;
+                var known = md.StateTypes.Any(t => t.Name == record.CurrentState);
+                return new WorkflowInstanceDiagram(_type, record.CurrentState, record.Version,
+                    known ? machine.GetDotGraph(record.CurrentState) : machine.GetDotGraph(), record.DocumentJson,
+                    known ? null : $"Unknown state {record.CurrentState}");
+            }
+            catch (Exception ex)
+            {
+                Log?.LogException(ex);
+                return new WorkflowInstanceDiagram(_type, string.Empty, 0, string.Empty, string.Empty, ex.Message);
+            }
+        }
 
         public void Handle(ITrigger command, string correlationId, BusConfig? replyTo, int retryCount, bool isTimerDelivery)
         {

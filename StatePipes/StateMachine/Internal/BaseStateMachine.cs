@@ -109,11 +109,13 @@ namespace StatePipes.StateMachine.Internal
                 _bus.SendResponse(new StateStatusEvent(CurrentState, StateMachineName), responseInfo);
         }
         public void SendCurrentStatusAllStateMachines() => _stateMachineManager?.GetAllStateMachines().ForEach(stateMachine => stateMachine.SendCurrentStatus());
-        public string GetDotGraph()
+        public string GetDotGraph() => GetDotGraph(CurrentState);
+        /// <summary>The machine's diagram with <paramref name="highlightState"/> filled instead of the current state.</summary>
+        public string GetDotGraph(string highlightState)
         {
             var info = _stateMachine.GetInfo();
             var dotGraphEnhancer = new DotGraphEnhancer(EventRegistrationManager, CommandRegistrationManager, FinalStates);
-            return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), CurrentState);
+            return dotGraphEnhancer.EnhanceDotGraph(UmlDotGraph.Format(info), highlightState);
         }
         private string SaveDotGraph(string dotFilename)
         {

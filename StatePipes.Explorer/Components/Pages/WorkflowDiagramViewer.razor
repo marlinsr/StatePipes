@@ -1,0 +1,39 @@
+@using StatePipes.Explorer.NonWebClasses
+@implements IAsyncDisposable
+@inject IStatePipesHandler _statePipesHandler
+@inject IJSRuntime JsRuntime
+
+<div class="wf-root">
+    <div class="wf-query">
+        <input class="wf-input" placeholder="correlationId" @bind="_input" @bind:event="oninput" @onkeydown="OnKeyDown" />
+        <button class="btn btn-primary" disabled="@(!CanInterrogate)" @onclick="Interrogate">INTERROGATE</button>
+    </div>
+    <div class="wf-status">@_session.Status</div>
+    @if (Result != null)
+    {
+        for (int i = 0; i < Result.Workflows.Count; i++)
+        {
+            var wf = Result.Workflows[i];
+            var divId = $"WorkflowDiagram{i}";
+            <div class="wf-instance">
+                <div class="wf-header" title="@wf.WorkflowType">
+                    @WorkflowInterrogation.ShortTypeName(wf.WorkflowType) · state @wf.CurrentState · v@(wf.Version)
+                </div>
+                @if (wf.Error != null)
+                {
+                    <div class="wf-error">@wf.Error</div>
+                }
+                @if (!string.IsNullOrEmpty(wf.DotGraph))
+                {
+                    <div id="@divId" style="border:1px solid;width:100%;height:500px"></div>
+                }
+                @if (!string.IsNullOrEmpty(wf.DocumentJson))
+                {
+                    <CollapsableDivision TitleName="Document" TitleColor="gray" IsExpandedInitialState="false">
+                        <pre class="wf-document">@WorkflowInterrogation.PrettyJson(wf.DocumentJson)</pre>
+                    </CollapsableDivision>
+                }
+            </div>
+        }
+    }
+</div>
