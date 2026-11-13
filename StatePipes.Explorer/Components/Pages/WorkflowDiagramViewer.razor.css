@@ -1,0 +1,8 @@
+.wf-root { display: flex; flex-direction: column; width: 100%; gap: 6px; }
+.wf-query { display: flex; flex-direction: row; gap: 8px; }
+.wf-input { flex: 1; min-width: 0; }
+.wf-status { color: gray; min-height: 1.5em; }
+.wf-instance { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.wf-header { font-weight: bold; border-bottom: 1px solid gray; }
+.wf-error { color: red; }
+.wf-document { white-space: pre-wrap; margin: 0; padding: 6px; }
