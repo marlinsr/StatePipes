@@ -34,12 +34,12 @@ namespace StatePipes.Workflow.Internal
                 WorkflowRecord? record;
                 using (var uow = store.Begin()) record = uow.Load(_type, correlationId);
                 if (record == null) return null;
-                if (!md.StateTypes.Any(t => t.Name == record.CurrentState))
-                    return new WorkflowInstanceDiagram(_type, record.CurrentState, record.Version,
-                        WorkflowMachineFactory.CreateForDiagram(md, bus, timers).Machine.GetDotGraph(), record.DocumentJson,
-                        $"Unknown state {record.CurrentState}");
-                var dot = WorkflowMachineFactory.CreateForDiagram(md, bus, timers, record.CurrentState).Machine.GetDotGraph();
-                return new WorkflowInstanceDiagram(_type, record.CurrentState, record.Version, dot, record.DocumentJson, null);
+                // Built at InitialState so the start marker stays true to the type; the persisted state is only highlighted.
+                var machine = WorkflowMachineFactory.CreateForDiagram(md, bus, timers).Machine;
+                var known = md.StateTypes.Any(t => t.Name == record.CurrentState);
+                return new WorkflowInstanceDiagram(_type, record.CurrentState, record.Version,
+                    known ? machine.GetDotGraph(record.CurrentState) : machine.GetDotGraph(), record.DocumentJson,
+                    known ? null : $"Unknown state {record.CurrentState}");
             }
             catch (Exception ex)
             {

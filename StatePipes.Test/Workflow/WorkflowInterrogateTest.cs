@@ -66,6 +66,17 @@ namespace StatePipes.Test.Workflow
         }
 
         [TestMethod]
+        public void Interrogate_DiagramStartMarkerStaysOnInitialState()
+        {
+            var e = Engine(typeof(CartWorkflow));
+            Send(e, new AddItem { Sku = "a" }, "c1");
+            Send(e, new Checkout(), "c1");
+            var dot = e.Interrogate("c1")!.DotGraph;
+            Assert.IsTrue(Regex.IsMatch(dot, @"init\s*->\s*""?InitialState"), dot);
+            Assert.IsFalse(Regex.IsMatch(dot, $@"init\s*->\s*""?{nameof(PricingState)}"), dot);
+        }
+
+        [TestMethod]
         public void Interrogate_DoesNotMutateAndLaterCommandsStillWork()
         {
             var e = Engine(typeof(CartWorkflow));
