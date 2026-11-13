@@ -160,11 +160,14 @@ The header shows the short type name (after the last `.`); the full name is the 
 - Button disabled when the input is blank, a request is pending, or the Explorer is not connected to the broker.
   Enter in the input triggers interrogation. Input is trimmed.
 - On press: record `_pendingCorrelationId`, the send time, and a reference to the current `WorkflowDiagramsEvent`
-  `EventEntry` (if any) from `GetEventJsons`; then
+  payload (`EventEntry.Obj`, if any) from `GetEventJsons`; then
   `_statePipesHandler.SendCommand(InstanceGuid, typeof(GetWorkflowDiagramsCommand).FullName!, json)`.
-- While pending, a 250 ms timer reads `GetEventJsons(InstanceGuid)` and accepts a `WorkflowDiagramsEvent` entry only
-  if it is a **different `EventEntry` instance** from the snapshot **and** its `CorrelationId` equals the pending
-  one. This rejects both replies to older correlationIds and the stale prior reply when re-interrogating the same id.
+- While pending, a 250 ms timer reads `GetEventJsons(InstanceGuid)` and accepts the `WorkflowDiagramsEvent` payload only
+  if it is a **different object** from the snapshot payload **and** its `CorrelationId` equals the pending one. Explorer's
+  `EventJsonRepository` keeps one `EventEntry` per type and replaces its `Obj` in place, so freshness is judged by the
+  payload object (a new deserialized instance per received event), not the entry. This rejects both replies to older
+  correlationIds and the stale prior reply when re-interrogating the same id. All session state is mutated on the Blazor
+  renderer context (the timer only marshals via `InvokeAsync`); a new request clears the previous result.
 - On match: stop the timer, store the result, `InvokeAsync(StateHasChanged)`, then `renderDot` each non-empty
   `DotGraph` into `WorkflowDiagram{i}`.
 - After 10 s without a match: status "No reply after 10 s", clear pending, re-enable the button.
@@ -176,7 +179,7 @@ The header shows the short type name (after the last `.`); the full name is the 
 
 Pure logic lives in `StatePipes.Explorer/NonWebClasses/WorkflowInterrogation.cs`:
 
-- `bool IsMatchingReply(EventEntry? candidate, EventEntry? snapshot, string pendingCorrelationId)`
+- `bool IsMatchingReply(IEvent? candidate, IEvent? snapshot, string pendingCorrelationId)` (payload objects)
 - `string PrettyJson(string json)` — `JToken.Parse(json).ToString(Formatting.Indented)`; returns the input unchanged
   if parsing fails.
 - `string ShortTypeName(string fullName)`

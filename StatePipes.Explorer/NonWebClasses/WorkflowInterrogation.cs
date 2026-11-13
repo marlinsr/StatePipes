@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using StatePipes.Common;
+using StatePipes.Interfaces;
 using StatePipes.Messages;
 
 namespace StatePipes.Explorer.NonWebClasses
@@ -10,16 +11,16 @@ namespace StatePipes.Explorer.NonWebClasses
     {
         public static string? NormalizeInput(string? raw) => string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
 
-        public static WorkflowDiagramsEvent? ToEvent(EventEntry entry) => JsonUtility.CloneToType<WorkflowDiagramsEvent>(entry.Obj);
+        public static WorkflowDiagramsEvent? ToEvent(IEvent reply) => JsonUtility.CloneToType<WorkflowDiagramsEvent>(reply);
 
         /// <summary>
-        /// True only for a reply that arrived after the request (a different entry than the one present when it was sent)
-        /// and that answers the pending correlationId.
+        /// True only for a reply payload that arrived after the request and answers the pending correlationId. Explorer keeps
+        /// one EventEntry per event type and replaces its Obj in place, so freshness is judged by the payload object, which is
+        /// a newly deserialized instance for every received event.
         /// </summary>
-        public static bool IsMatchingReply(EventEntry? candidate, EventEntry? snapshot, string pendingCorrelationId)
+        public static bool IsMatchingReply(IEvent? candidate, IEvent? snapshot, string pendingCorrelationId)
         {
             if (candidate == null || ReferenceEquals(candidate, snapshot)) return false;
-            if (candidate.FullName != typeof(WorkflowDiagramsEvent).FullName) return false;
             return string.Equals(ToEvent(candidate)?.CorrelationId, pendingCorrelationId, StringComparison.Ordinal);
         }
 

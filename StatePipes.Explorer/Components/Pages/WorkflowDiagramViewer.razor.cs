@@ -3,27 +3,25 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using StatePipes.Common;
 using StatePipes.Explorer.NonWebClasses;
+using StatePipes.Interfaces;
 using StatePipes.Messages;
 using StatePipes.ProcessLevelServices;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 
 namespace StatePipes.Explorer.Components.Pages
 {
-    /// <summary>WORKFLOW tab: asks the service for every running workflow with a correlationId and draws each one.</summary>
+    /// <summary>
+    /// WORKFLOW tab: asks the service for every running workflow with a correlationId and draws each one.
+    /// All session state is read and written on the Blazor renderer context; the poll timer only marshals onto it.
+    /// </summary>
     public partial class WorkflowDiagramViewer
     {
-        private static readonly TimeSpan ReplyTimeout = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
         private static readonly TimeSpan TabShowDelay = TimeSpan.FromMilliseconds(150);
-        private readonly Lock _pollLock = new();
+        private readonly WorkflowInterrogationSession _session = new();
         private IJSObjectReference? _diagramModule;
         private Timer? _pollTimer;
         private string? _input;
-        private string? _pendingCorrelationId;
-        private EventEntry? _snapshot;
-        private DateTime _sentAt;
-        private WorkflowDiagramsEvent? _result;
-        private string _status = string.Empty;
         private bool _needsDraw;
         private bool _delayDraw;
         private TabEnum _prevTabId;
@@ -33,12 +31,14 @@ namespace StatePipes.Explorer.Components.Pages
         [Parameter]
         public TabEnum TabId { get; set; }
 
-        private bool CanInterrogate => WorkflowInterrogation.NormalizeInput(_input) != null && _pendingCorrelationId == null
+        private WorkflowDiagramsEvent? Result => _session.Result;
+
+        private bool CanInterrogate => WorkflowInterrogation.NormalizeInput(_input) != null && !_session.IsPending
             && _statePipesHandler.GetIsConnectedToBroker(InstanceGuid);
 
         protected override void OnParametersSet()
         {
-            if (TabId == TabEnum.Workflow && _prevTabId != TabEnum.Workflow && _result != null)
+            if (TabId == TabEnum.Workflow && _prevTabId != TabEnum.Workflow && Result != null)
             {
                 _needsDraw = true;
                 _delayDraw = true;
@@ -66,59 +66,47 @@ namespace StatePipes.Explorer.Components.Pages
         {
             var id = WorkflowInterrogation.NormalizeInput(_input);
             if (id == null || !CanInterrogate) return;
+            StopTimer();
             try
             {
-                _snapshot = LatestReply();
-                _pendingCorrelationId = id;
-                _sentAt = DateTime.UtcNow;
-                _status = "Waiting for reply…";
+                _session.Start(id, LatestReply(), DateTime.UtcNow);
                 _statePipesHandler.SendCommand(InstanceGuid, typeof(GetWorkflowDiagramsCommand).FullName!,
                     JsonUtility.GetJsonStringForObject(new GetWorkflowDiagramsCommand(id)));
-                _pollTimer = new Timer(async _ => await Poll(), null, PollInterval, PollInterval);
+                _pollTimer = new Timer(OnPollTimer, null, PollInterval, PollInterval);
             }
             catch (Exception ex)
             {
                 Log?.LogException(ex);
-                _pendingCorrelationId = null;
-                _status = ex.Message;
+                _session.Fail(ex.Message);
             }
         }
 
-        private EventEntry? LatestReply() =>
-            _statePipesHandler.GetEventJsons(InstanceGuid).FirstOrDefault(e => e.FullName == typeof(WorkflowDiagramsEvent).FullName);
+        private IEvent? LatestReply() =>
+            _statePipesHandler.GetEventJsons(InstanceGuid).FirstOrDefault(e => e.FullName == typeof(WorkflowDiagramsEvent).FullName)?.Obj;
 
-        private async Task Poll()
+        private async void OnPollTimer(object? _)
         {
-            if (!_pollLock.TryEnter()) return;
-            try
-            {
-                var pending = _pendingCorrelationId;
-                if (pending == null) return;
-                var candidate = LatestReply();
-                if (WorkflowInterrogation.IsMatchingReply(candidate, _snapshot, pending))
-                {
-                    _result = WorkflowInterrogation.ToEvent(candidate!);
-                    _status = WorkflowInterrogation.StatusText(pending, _result?.Workflows.Count ?? 0);
-                    _needsDraw = true;
-                    _delayDraw = false;
-                }
-                else if (DateTime.UtcNow - _sentAt >= ReplyTimeout)
-                {
-                    _status = "No reply after 10 s";
-                }
-                else return;
-                _pendingCorrelationId = null;
-                StopTimer();
-                await InvokeAsync(StateHasChanged);
-            }
+            try { await InvokeAsync(Poll); }
             catch (Exception ex) { Log?.LogException(ex); }
-            finally { _pollLock.Exit(); }
+        }
+
+        /// <summary>Runs on the renderer context, so it is serialized with Interrogate and rendering.</summary>
+        private void Poll()
+        {
+            if (!_session.Tick(LatestReply(), DateTime.UtcNow)) return;
+            StopTimer();
+            if (_session.Result != null)
+            {
+                _needsDraw = true;
+                _delayDraw = false;
+            }
+            StateHasChanged();
         }
 
         private async Task DrawAll()
         {
             _needsDraw = false;
-            var result = _result;
+            var result = Result;
             if (_diagramModule == null || result == null) return;
             if (_delayDraw)
             {

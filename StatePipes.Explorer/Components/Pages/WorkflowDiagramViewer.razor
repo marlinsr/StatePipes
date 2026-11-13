@@ -8,12 +8,12 @@
         <input class="wf-input" placeholder="correlationId" @bind="_input" @bind:event="oninput" @onkeydown="OnKeyDown" />
         <button class="btn btn-primary" disabled="@(!CanInterrogate)" @onclick="Interrogate">INTERROGATE</button>
     </div>
-    <div class="wf-status">@_status</div>
-    @if (_result != null)
+    <div class="wf-status">@_session.Status</div>
+    @if (Result != null)
     {
-        for (int i = 0; i < _result.Workflows.Count; i++)
+        for (int i = 0; i < Result.Workflows.Count; i++)
         {
-            var wf = _result.Workflows[i];
+            var wf = Result.Workflows[i];
             var divId = $"WorkflowDiagram{i}";
             <div class="wf-instance">
                 <div class="wf-header" title="@wf.WorkflowType">
