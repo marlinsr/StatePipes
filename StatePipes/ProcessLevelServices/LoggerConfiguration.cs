@@ -14,16 +14,11 @@ namespace StatePipes.ProcessLevelServices
         {
             return new LoggerConfiguration()
             {
-                MaxUnflushedLogStatements = 1000
-                ,
-                FlushHighWaterMark = 500
-                ,
-                InitialLogLevel = ILogger.LogLevel.Info
-                ,
-                FlushTimeoutMilliseconds = 1000
-                ,
-                NumberOfLogFilesToKeep = 10
-                ,
+                MaxUnflushedLogStatements = 1000,
+                FlushHighWaterMark = 500,
+                InitialLogLevel = ILogger.LogLevel.Info,
+                FlushTimeoutMilliseconds = 1000,
+                NumberOfLogFilesToKeep = 10,
                 MaxLinesPerFile = 2000
             };
         }
