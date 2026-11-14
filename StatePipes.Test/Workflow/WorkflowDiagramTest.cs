@@ -12,7 +12,8 @@ namespace StatePipes.Test.Workflow
 {
     [TestClass]
     [TestCategory(TestCategories.Unit)]
-    public class WorkflowDiagramTest
+    [OSCondition(OperatingSystems.Windows)]
+    public partial class WorkflowDiagramTest
     {
         private static string CartGraph()
         {
@@ -26,20 +27,20 @@ namespace StatePipes.Test.Workflow
         {
             var dot = CartGraph();
             foreach (var expected in new[] { nameof(CartOpenState), nameof(PricingState), nameof(CheckedOutState), nameof(AbandonedState), nameof(Checkout), nameof(PriceQuoted) })
-                StringAssert.Contains(dot, expected);
+                Assert.Contains(expected, dot);
         }
 
         [TestMethod]
         public void CartDiagram_FinalStatesDoubleBordered()
         {
             var dot = CartGraph();
-            Assert.IsTrue(Regex.IsMatch(dot, $@"{nameof(CheckedOutState)}[^\n]*peripheries\s*=\s*""?2"), dot);
-            Assert.IsTrue(Regex.IsMatch(dot, $@"{nameof(AbandonedState)}[^\n]*peripheries\s*=\s*""?2"), dot);
-            Assert.IsFalse(Regex.IsMatch(dot, $@"""?{nameof(CartOpenState)}""?\s*\[[^\n]*peripheries"), dot);
+            Assert.IsTrue(MyRegexCheckedOutState().IsMatch(dot), dot);
+            Assert.IsTrue(MyRegexAbandonedState().IsMatch(dot), dot);
+            Assert.IsFalse(MyRegexCartOpenState().IsMatch(dot), dot);
         }
 
         [TestMethod]
-        public void CartDiagram_ListsPublishedEvents() => StringAssert.Contains(CartGraph(), nameof(CartCheckedOut));
+        public void CartDiagram_ListsPublishedEvents() => Assert.Contains(nameof(CartCheckedOut), CartGraph());
 
         [TestMethod]
         public void DummySetup_RegistersWorkflowDiagramMachines()
@@ -51,7 +52,7 @@ namespace StatePipes.Test.Workflow
             using var container = builder.Build();
             dummy.Build(container);
             var machines = container.Resolve<StateMachineManager>().GetAllStateMachines();
-            Assert.IsTrue(machines.Any(m => m.StateMachineName == typeof(CartWorkflow).FullName));
+            Assert.Contains(m => m.StateMachineName == typeof(CartWorkflow).FullName, machines);
         }
 
         [TestMethod]
@@ -64,8 +65,15 @@ namespace StatePipes.Test.Workflow
             using var container = builder.Build();
             setup.Build(container);
             var names = container.Resolve<StateMachineManager>().GetAllStateMachines().Select(m => m.StateMachineName).ToList();
-            CollectionAssert.Contains(names, typeof(PricingMachine).FullName);
-            Assert.IsFalse(names.Contains(typeof(CartWorkflow).FullName));
+            Assert.Contains(typeof(PricingMachine).FullName, names);
+            Assert.DoesNotContain(typeof(CartWorkflow).FullName, names);
         }
+
+        [GeneratedRegex(@"""?CartOpenState""?\s*\[[^\n]*peripheries")]
+        private static partial Regex MyRegexCartOpenState();
+        [GeneratedRegex(@"AbandonedState[^\n]*peripheries\s*=\s*""?2")]
+        private static partial Regex MyRegexAbandonedState();
+        [GeneratedRegex(@"CheckedOutState[^\n]*peripheries\s*=\s*""?2")]
+        private static partial Regex MyRegexCheckedOutState();
     }
 }

@@ -20,6 +20,8 @@
     <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
     <PackageReference Include="Graphviz.DotLanguage" Version="0.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.14" />
+    <!-- Pins Identity -> AspNetCore.Http's transitive WebUtilities 2.3.10 to the patched version (GHSA-6527-9fp8-r4x6) -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.3.14" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageReference Include="Mono.Cecil" Version="0.11.6" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />

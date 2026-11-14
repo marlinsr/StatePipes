@@ -13,8 +13,10 @@ public class PlcNodeManager : CustomNodeManager2
     private BaseDataVariableState<int> _noArgsCount = null!;
     private readonly Queue<DensityData> _tankHistory = new();
 
+    public const string NamespaceUri = "http://plcsimulator.org/";
+
     public PlcNodeManager(IServerInternal server, ApplicationConfiguration configuration)
-        : base(server, configuration, "http://plcsimulator.org/")
+        : base(server, configuration, NamespaceUri)
     {
         var builder = server.Factory.Builder;
         builder.AddType(DensityData.BinaryEncodingId, typeof(DensityData));
