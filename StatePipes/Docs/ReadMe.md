@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v7.0.3 (2026-11-14)
+Merged PR: #106 Explorer WORKFLOW tab: interrogate workflows by correlationId
+
+Referenced issues:
+- #107 StatePipes.Explorer Workflow Tab
+
+
 ### v7.0.2 (2026-11-12)
 Merged PR: #105 Verify for Google Search
 
