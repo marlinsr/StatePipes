@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.1 (2026-11-14)
+Merged PR: #109 Upgrade to .NET 11
+
+Referenced issues:
+- #108 Upgrade to .Net11
+
+
 ### v7.0.3 (2026-11-14)
 Merged PR: #106 Explorer WORKFLOW tab: interrogate workflows by correlationId
 
