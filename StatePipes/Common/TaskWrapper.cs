@@ -19,7 +19,7 @@ namespace StatePipes.Common
             {
                 _flushEventSlim.Wait(Timeout.Infinite);
                 _queue.Enqueue(obj);
-                if(_queue.Count >= signalHighWaterMark) _resetEventSlim.Set();
+                if (_queue.Count >= signalHighWaterMark) _resetEventSlim.Set();
             }
         }
         public void ForceSignal()
@@ -40,7 +40,7 @@ namespace StatePipes.Common
         }
         public void Flush(int timeoutMilliseconds = Timeout.Infinite)
         {
-            lock(_flushLock)
+            lock (_flushLock)
             {
                 _flushEventSlim.Reset();
                 _resetEventSlim.Set();
@@ -63,7 +63,7 @@ namespace StatePipes.Common
             PerformCancellation();
             lock (_lock)
             {
-                if(GetNumberOfItemsQueued() == 0 )
+                if (GetNumberOfItemsQueued() == 0)
                 {
                     _resetEventSlim.Reset();
                     _flushEventSlim.Set();

@@ -49,12 +49,12 @@ namespace StatePipes.ProcessLevelServices
         private static string GetProductDataDirectoryForProcess() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), GetCompanyName(), GetProcessName() + _programDirPostfix);
         private static string GetCompanyName()
         {
-            if(!string.IsNullOrEmpty(_companyNameOverride)) return _companyNameOverride;
+            if (!string.IsNullOrEmpty(_companyNameOverride)) return _companyNameOverride;
             var assembly = Assembly.GetEntryAssembly();
             var attributes = assembly?.GetCustomAttributes(typeof(AssemblyCompanyAttribute), false);
             if (attributes == null || attributes.Length == 0) return "StatePipes";
             var company = ((AssemblyCompanyAttribute)attributes[0]).Company;
-            if(company == assembly?.GetName().Name) return string.Empty;
+            if (company == assembly?.GetName().Name) return string.Empty;
             return company;
         }
     }

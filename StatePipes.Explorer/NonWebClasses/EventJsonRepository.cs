@@ -10,7 +10,7 @@ namespace StatePipes.Explorer.NonWebClasses
         public void SetJsonString(IEvent ev)
         {
             string name = ev.GetType().FullName ?? string.Empty;
-            if(string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(name)) return;
             lock (_eventJsonRepo)
             {
                 var eventEntry = _eventJsonRepo.FirstOrDefault(e => e.FullName == name);
@@ -37,7 +37,7 @@ namespace StatePipes.Explorer.NonWebClasses
                 List<EventEntry> eventListToRemove = [];
                 foreach (var eventRepoEntry in _eventJsonRepo)
                 {
-                    if (tList.FirstOrDefault(tEvent => tEvent.ThisType?.FullName == eventRepoEntry.FullName) == null) 
+                    if (tList.FirstOrDefault(tEvent => tEvent.ThisType?.FullName == eventRepoEntry.FullName) == null)
                         eventListToRemove.Add(eventRepoEntry);
                 }
                 eventListToRemove.ForEach(removeEventEntry => _eventJsonRepo.Remove(removeEventEntry));

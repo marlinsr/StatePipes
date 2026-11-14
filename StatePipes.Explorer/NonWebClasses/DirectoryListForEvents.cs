@@ -1,7 +1,7 @@
 ﻿namespace StatePipes.Explorer.NonWebClasses
 {
     public class DirectoryListForEvents
-    { 
+    {
         public string? DirectoryName { get; private set; }
         public List<DirectoryListForEvents> Subdirectories { get; } = [];
         public EventEntry? Event { get; }
@@ -12,7 +12,7 @@
                 if (Event != null) return Event.FullName;
                 int indx = Subdirectories[0].Namespace?.LastIndexOf(".") ?? -1;
                 if (indx <= 0) return Subdirectories[0].Namespace;
-                return Subdirectories[0].Namespace?.Substring(0,indx);
+                return Subdirectories[0].Namespace?.Substring(0, indx);
             }
         }
         private void CreateUniqueSubDirectories(string? directoryName, List<EventEntry> childrenEventEntryList)
@@ -51,7 +51,7 @@
             CreateUniqueSubDirectories(directoryName, childrenEventList);
             if (string.IsNullOrEmpty(directoryName))
             {
-                while (Compact(null));
+                while (Compact(null)) ;
                 Shorten(string.Empty);
             }
         }
@@ -83,7 +83,7 @@
         }
         private void Shorten(string parentDirectoryName)
         {
-            foreach(var subDirectory in Subdirectories)
+            foreach (var subDirectory in Subdirectories)
             {
                 subDirectory.Shorten(DirectoryName ?? string.Empty);
             }

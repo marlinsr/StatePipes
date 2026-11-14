@@ -62,19 +62,19 @@ namespace StatePipes.Explorer.Components.Pages
         {
             if (propertyType.IsGenericType && !propertyType.IsGenericTypeDefinition)
             {
-                if (propertyType.FullName == typeof(IReadOnlyList<byte>).FullName) 
+                if (propertyType.FullName == typeof(IReadOnlyList<byte>).FullName)
                     return new PropertyValueClass(instanceGuid, commandTypeFullName, name, ((IReadOnlyList<byte>?)obj)?.ToArray(), PropertyValueClass.PropertyValueType.ByteArray, propertyType, isNullable, isFromEvent);
                 var genericTypeDef = propertyType.GetGenericTypeDefinition();
                 if ((typeof(List<>).FullName == genericTypeDef.FullName || typeof(IReadOnlyList<>).FullName == genericTypeDef.FullName
-                        || typeof(IEnumerable<>).FullName == genericTypeDef.FullName) 
+                        || typeof(IEnumerable<>).FullName == genericTypeDef.FullName)
                         && (propertyType.UnderlyingSystemType.GenericTypeArguments.Length == 1
-                        && propertyType.UnderlyingSystemType.GenericTypeArguments[0].IsPrimitive)) 
+                        && propertyType.UnderlyingSystemType.GenericTypeArguments[0].IsPrimitive))
                     return new PropertyValueClass(instanceGuid, commandTypeFullName, name, obj, PropertyValueClass.PropertyValueType.PrimitiveArray, propertyType, isNullable, isFromEvent);
                 if (typeof(List<>).FullName == genericTypeDef.FullName || typeof(IReadOnlyList<>).FullName == genericTypeDef.FullName
-                    || typeof(IEnumerable<>).FullName == genericTypeDef.FullName || typeof(HashSet<>).FullName == genericTypeDef.FullName) 
+                    || typeof(IEnumerable<>).FullName == genericTypeDef.FullName || typeof(HashSet<>).FullName == genericTypeDef.FullName)
                     return new PropertyValueClass(instanceGuid, commandTypeFullName, name, obj, PropertyValueClass.PropertyValueType.Array, propertyType, isNullable, isFromEvent);
                 if (typeof(Dictionary<,>).FullName == genericTypeDef.FullName
-                    || typeof(IReadOnlyDictionary<,>).FullName == genericTypeDef.FullName) 
+                    || typeof(IReadOnlyDictionary<,>).FullName == genericTypeDef.FullName)
                     return new PropertyValueClass(instanceGuid, commandTypeFullName, name, obj, PropertyValueClass.PropertyValueType.Dictionary, propertyType, isNullable, isFromEvent);
             }
             return null;
@@ -89,7 +89,7 @@ namespace StatePipes.Explorer.Components.Pages
                || propertyType.FullName == typeof(double[]).FullName
                || propertyType.FullName == typeof(ushort[]).FullName
                || propertyType.FullName == typeof(uint[]).FullName
-               || propertyType.FullName == typeof(ulong[]).FullName) 
+               || propertyType.FullName == typeof(ulong[]).FullName)
                 return new PropertyValueClass(instanceGuid, commandTypeFullName, name, obj, PropertyValueClass.PropertyValueType.PrimitiveArray, propertyType, isNullable, isFromEvent);
             return null;
         }
@@ -105,7 +105,7 @@ namespace StatePipes.Explorer.Components.Pages
             }
             var propertyValueClassReturn = HandleGeneric(instanceGuid, commandTypeFullName, name, propertyType, obj, isFromEvent, isNullable);
             if (propertyValueClassReturn != null) return propertyValueClassReturn;
-            if (propertyType.FullName == typeof(byte[]).FullName) 
+            if (propertyType.FullName == typeof(byte[]).FullName)
                 return new PropertyValueClass(instanceGuid, commandTypeFullName, name, obj, PropertyValueClass.PropertyValueType.ByteArray, propertyType, isNullable, isFromEvent);
             propertyValueClassReturn = HandlePrimtiveArray(instanceGuid, commandTypeFullName, name, propertyType, obj, isFromEvent, isNullable);
             if (propertyValueClassReturn != null) return propertyValueClassReturn;

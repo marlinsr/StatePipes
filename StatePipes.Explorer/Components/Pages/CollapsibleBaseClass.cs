@@ -17,7 +17,7 @@ namespace StatePipes.Explorer.Components.Pages
             base.OnParametersSet();
             if (_firstTime)
             {
-                IsExpanded = ParentComponent == null ?  IsExpandedInitialState : ParentComponent.IsCascadingExpand ? ParentComponent.IsExpanded : false;
+                IsExpanded = ParentComponent == null ? IsExpandedInitialState : ParentComponent.IsCascadingExpand ? ParentComponent.IsExpanded : false;
                 IsCascadingExpand = ParentComponent == null ? false : ParentComponent.IsCascadingExpand;
             }
             _firstTime = false;

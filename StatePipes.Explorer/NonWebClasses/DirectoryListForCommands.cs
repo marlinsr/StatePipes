@@ -34,9 +34,9 @@
             DirectoryName = directoryName;
             if (commandList == null || commandList.Count == 0) return;
             Command = GetCommandEntry(commandList, directoryName);
-            if(Command != null) return;
+            if (Command != null) return;
             var childrenCommandEntryList = commandList;
-            if (directoryName != null) 
+            if (directoryName != null)
                 childrenCommandEntryList = commandList.Where(e => e.FullName.StartsWith(directoryName, StringComparison.OrdinalIgnoreCase)).ToList();
             CreateUniqueSubDirectories(directoryName, childrenCommandEntryList);
             if (string.IsNullOrEmpty(directoryName))

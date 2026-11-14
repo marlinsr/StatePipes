@@ -38,7 +38,7 @@
         public bool IsFromEvent { get; } = isFromEvent;
 
         public PropertyValueClass(Guid instanceGuid, string commandTypeFullName, string? name, object? value, List<string> enumValuesList, bool nullable, bool isFromEvent = false) :
-            this(instanceGuid, commandTypeFullName, name, value, PropertyValueType.Enum, null, nullable, isFromEvent) 
+            this(instanceGuid, commandTypeFullName, name, value, PropertyValueType.Enum, null, nullable, isFromEvent)
         {
             EnumValueList = enumValuesList;
         }

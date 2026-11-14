@@ -22,7 +22,7 @@ namespace StatePipes.SelfDescription
         }
         public Type? CreateType(TypeSerialization typeSerialization)
         {
-            TypeSerializationToTypeConverter converter = new(_typeRepo, _nullableTypeRepo); 
+            TypeSerializationToTypeConverter converter = new(_typeRepo, _nullableTypeRepo);
             return converter.Convert(typeSerialization);
         }
     }

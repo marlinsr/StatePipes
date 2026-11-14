@@ -7,7 +7,7 @@ using StatePipes.ProcessLevelServices;
 using static StatePipes.ProcessLevelServices.LoggerHolder;
 namespace StatePipes.Explorer.Components.Pages
 {
-    public partial class StateMachineDiagramViewer 
+    public partial class StateMachineDiagramViewer
     {
         private System.Threading.Timer? _timer;
         private List<EventEntry> _eventJsonDictionary = [];
@@ -127,7 +127,7 @@ namespace StatePipes.Explorer.Components.Pages
             GC.SuppressFinalize(this);
             _timer?.Dispose();
             _timer = null;
-            if (_diagramModule is not null) try { await _diagramModule.DisposeAsync(); } catch(Exception ex) { Log?.LogException(ex); }
+            if (_diagramModule is not null) try { await _diagramModule.DisposeAsync(); } catch (Exception ex) { Log?.LogException(ex); }
             _diagramModule = null;
         }
     }

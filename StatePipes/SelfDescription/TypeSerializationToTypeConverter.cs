@@ -38,7 +38,7 @@ namespace StatePipes.SelfDescription
         private static object? GetPropertyValueForConstructorParam(string? constructorParameterName, object attribute)
         {
             if (string.IsNullOrEmpty(constructorParameterName)) return null;
-            var prop = attribute.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p  => p.Name.Equals(constructorParameterName, StringComparison.CurrentCultureIgnoreCase));
+            var prop = attribute.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.Name.Equals(constructorParameterName, StringComparison.CurrentCultureIgnoreCase));
             if (prop == null) return null;
             return prop.GetValue(attribute);
         }
@@ -46,8 +46,8 @@ namespace StatePipes.SelfDescription
         {
             //All attributes must be immutable with one constructor and Properties and be json Serializable
             var localType = LocalCreateType(tsi.GetDescription(attr.FullName), tsi);
-            if(localType == null) return null;
-            dynamic ? attribute = JsonUtility.GetObjectFromJson(attr.Value, localType);
+            if (localType == null) return null;
+            dynamic? attribute = JsonUtility.GetObjectFromJson(attr.Value, localType);
             if (attribute is null) return null;
             Type type = attribute.GetType();
             var constructor = type.GetConstructors().FirstOrDefault();
@@ -63,7 +63,7 @@ namespace StatePipes.SelfDescription
             attrs.ForEach(a =>
             {
                 var cab = CreateCustomAttributeBuilder(a, tsi);
-                if(cab is not null) tb.SetCustomAttribute(cab);
+                if (cab is not null) tb.SetCustomAttribute(cab);
             });
         }
         private void SetAttributes(PropertyBuilder tb, List<AttributeDescription> attrs, TypeSerialization tsi)
@@ -154,7 +154,7 @@ namespace StatePipes.SelfDescription
         {
             var parameterTypeDescription = tsi.GetDescription(p.FullName);
             var pType = LocalCreateType(parameterTypeDescription, tsi, p.IsNullable);
-            if(pType == null) return;
+            if (pType == null) return;
             FieldBuilder fieldBldr = tb.DefineField($"_{p.Name}",
                                       pType,
                                       FieldAttributes.Private);

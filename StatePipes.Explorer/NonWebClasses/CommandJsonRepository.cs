@@ -23,7 +23,7 @@ namespace StatePipes.Explorer.NonWebClasses
                 }
                 else _commandList.Add(new CommandEntry(name, json));
             }
-            catch (Exception ex) { _commandList.Add(new CommandEntry(name, ex.Message));}
+            catch (Exception ex) { _commandList.Add(new CommandEntry(name, ex.Message)); }
         }
         public void SetJsonStrings(List<TypeSerializationJsonHelper> tList)
         {
@@ -35,7 +35,7 @@ namespace StatePipes.Explorer.NonWebClasses
                 {
                     if (tList.FirstOrDefault(tCmd => tCmd.ThisType?.FullName == cmd.FullName) == null) commandListToRemove.Add(cmd);
                 });
-                commandListToRemove.ForEach(cmd =>_commandList.Remove(cmd));
+                commandListToRemove.ForEach(cmd => _commandList.Remove(cmd));
             }
         }
 

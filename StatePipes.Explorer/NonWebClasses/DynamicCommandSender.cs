@@ -18,8 +18,8 @@ namespace StatePipes.Explorer.NonWebClasses
                 Log?.LogVerbose($"Sending command {command.GetType().FullName}");
                 proxy.SendCommand(command);
             }
-            catch (Exception ex) 
-            { 
+            catch (Exception ex)
+            {
                 Log?.LogException(ex);
             }
         }

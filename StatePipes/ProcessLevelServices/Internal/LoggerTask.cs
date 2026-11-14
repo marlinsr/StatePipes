@@ -10,7 +10,7 @@ namespace StatePipes.ProcessLevelServices.Internal
         private const string LogFileExtension = ".log";
         private int _linesLoggedToCurrentFile;
         private int _fileCounter;
-        internal LoggerTask() 
+        internal LoggerTask()
         {
             Configuration = ConfigurationSettingsHelper.Instance<LoggerConfiguration>();
             ConfigurationSettingsHelper.Save(Configuration);
@@ -28,7 +28,7 @@ namespace StatePipes.ProcessLevelServices.Internal
         }
         private void StartNewLogFile()
         {
-            if(string.IsNullOrEmpty(_logFileDirectory)) _logFileDirectory = DirHelper.GetProductDataCategoryDirectoryForProcess(DirHelper.FileCategory.Log);
+            if (string.IsNullOrEmpty(_logFileDirectory)) _logFileDirectory = DirHelper.GetProductDataCategoryDirectoryForProcess(DirHelper.FileCategory.Log);
             var compoundName = DirHelper.GetProcessName();
             var logFilePath = Path.Combine(_logFileDirectory, compoundName);
             var uniquenessPostfix = (++_fileCounter).ToString("D3");
@@ -73,7 +73,7 @@ namespace StatePipes.ProcessLevelServices.Internal
                             break;
                         }
                     }
-                   
+
                 }
             }
         }

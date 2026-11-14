@@ -9,7 +9,7 @@ namespace StatePipes.ProcessLevelServices.Internal
         private readonly IStatePipesService _eventBus = eventBus;
         public void HandleMessage(SetLogLevelCommand message, BusConfig? responseInfo, bool isResponse)
         {
-            if(LoggerHolder.Log == null) return;
+            if (LoggerHolder.Log == null) return;
             LoggerHolder.Log.SetLogLevel(message.LogLevel);
             _eventBus.PublishEvent(new LogLevelEvent(LoggerHolder.Log.GetLogLevel()));
         }

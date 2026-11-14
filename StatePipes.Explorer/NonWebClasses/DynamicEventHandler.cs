@@ -38,9 +38,9 @@ namespace StatePipes.Explorer.NonWebClasses
             var methodInfo = GetType()?.GetMethod(nameof(OnTestEvent), BindingFlags.NonPublic | BindingFlags.Instance)?.MakeGenericMethod(_eventInstanceMgr.ThisType);
             if (methodInfo == null) return;
             var action = CreateDelegateByParameter(_eventInstanceMgr.ThisType, methodInfo!);
-            if(action == null) return;  
+            if (action == null) return;
             var unsubscribeMethod = _proxy.GetType().GetMethod("UnSubscribe", BindingFlags.Public | BindingFlags.Instance, [typeof(Action<IEvent, BusConfig, bool>)]);
-            if(unsubscribeMethod == null) return;
+            if (unsubscribeMethod == null) return;
             var unsubscribeMethodOfEventType = unsubscribeMethod.MakeGenericMethod([_eventInstanceMgr.ThisType]);
             unsubscribeMethodOfEventType?.Invoke(_proxy, [action]);
         }

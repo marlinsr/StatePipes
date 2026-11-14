@@ -15,18 +15,18 @@ namespace StatePipes.Explorer.NonWebClasses
         public string GetJsonString()
         {
             string ret = JsonUtility.GetJsonStringForObject(this, true);
-            ret = ret.Replace("\"", "%22").Replace(",","%2C").Replace("{","").Replace("}", "");
+            ret = ret.Replace("\"", "%22").Replace(",", "%2C").Replace("{", "").Replace("}", "");
             return ret;
         }
         public static ExcludeAndIncludeLists GetFromJson(string json)
         {
-            json = "{" + json.Replace("%22", "\"").Replace("%2C",",") + "}";
+            json = "{" + json.Replace("%22", "\"").Replace("%2C", ",") + "}";
             return JsonUtility.GetObjectForJsonString<ExcludeAndIncludeLists>(json) ?? new ExcludeAndIncludeLists();
         }
         public static ExcludeAndIncludeLists GetFromCsvs(string includeList, string excludeList)
         {
             ExcludeAndIncludeLists excludeIncludeLists = new();
-            if(!string.IsNullOrEmpty(includeList))
+            if (!string.IsNullOrEmpty(includeList))
             {
                 includeList = includeList.Trim();
                 var arr = includeList.Split(',');

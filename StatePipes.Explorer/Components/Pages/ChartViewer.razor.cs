@@ -37,7 +37,7 @@ namespace StatePipes.Explorer.Components.Pages
             options.Scales.Y!.Title = new ChartAxesTitle { Text = "UNKOWN", Display = true };
             options.MaintainAspectRatio = true;
             options.Plugins.Legend = new ChartPluginsLegend() { Display = true, Position = "bottom" };
-            
+
             return options;
         }
 
@@ -95,14 +95,14 @@ namespace StatePipes.Explorer.Components.Pages
                 _data.Labels = labels;
                 _data.Datasets?.Clear();
                 _data.Datasets?.Add(new LineChartDataset()
-                    {
-                        Label = "Data",
-                        Data = charDataList,
-                        BackgroundColor = "rgb(88, 80, 141)",
-                        BorderColor = "rgb(88, 80, 141)",
-                        BorderWidth = 2,
-                        HoverBorderWidth = 4,
-                    }
+                {
+                    Label = "Data",
+                    Data = charDataList,
+                    BackgroundColor = "rgb(88, 80, 141)",
+                    BorderColor = "rgb(88, 80, 141)",
+                    BorderWidth = 2,
+                    HoverBorderWidth = 4,
+                }
                 );
 
                 _options.Plugins.Title!.Text = bvLineChart.ChartTitle;

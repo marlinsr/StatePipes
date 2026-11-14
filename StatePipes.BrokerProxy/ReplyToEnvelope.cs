@@ -46,7 +46,7 @@ namespace StatePipes.BrokerProxy
                 throw new InvalidOperationException($"BusConfig did not serialize to a JSON object: {json}");
 
             var property = json.IndexOf(PreviousHopProperty, StringComparison.Ordinal);
-            if (property >= 0)  HandlePreviousHopProperty(json, property, out _prefix, out _suffix);
+            if (property >= 0) HandlePreviousHopProperty(json, property, out _prefix, out _suffix);
             else
             {
                 // Nulls were omitted from the output -- append the property just before the closing brace.

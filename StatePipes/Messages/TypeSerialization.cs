@@ -18,7 +18,7 @@ namespace StatePipes.Messages
         public TypeDescription GetDescription(string fullName) => TypeRepo[fullName];
         public void AddTypeDescription(TypeDescription typeDescription)
         {
-            if(TypeRepo.ContainsKey(typeDescription.FullName))
+            if (TypeRepo.ContainsKey(typeDescription.FullName))
             {
                 TypeRepo[typeDescription.FullName] = typeDescription;
             }
@@ -35,7 +35,7 @@ namespace StatePipes.Messages
                 Log?.LogError($" {fullName} does not exist");
                 return null;
             }
-            TypeSerialization info = new() { FullName = fullName, TypeRepo = TypeRepo};
+            TypeSerialization info = new() { FullName = fullName, TypeRepo = TypeRepo };
             return info;
         }
     }

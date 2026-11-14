@@ -69,7 +69,7 @@ identifiers.
 The common arguments name the solution and the class library, the same values Visual Studio passes:
 
 ```
--r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -b "<SolutionDir>\<Prefix>\obj\Debug\net10.0\"
+-r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -b "<SolutionDir>\<Prefix>\obj\Debug\net11.0\"
 ```
 
 `-b` must be the class library's **`obj`** output folder for the configuration you built. The tool derives

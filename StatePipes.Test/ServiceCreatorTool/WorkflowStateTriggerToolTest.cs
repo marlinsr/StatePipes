@@ -26,7 +26,7 @@ namespace StatePipes.Test.ServiceCreatorTool
 
         private ToolResult Periodic(string stateFile) =>
             PeriodicTriggerGeneratorTool.CreatePeriodicTrigger(_solution.SolutionDir, WorkflowGeneratorToolTest.SolutionName + BaseToolGenerator.solutionExtension,
-                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net10.0"), stateFile,
+                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net11.0"), stateFile,
                 Headless(("--timer-name", "abandonTimer"), ("--timer-period", "1000")));
 
         [TestMethod]
@@ -37,7 +37,7 @@ namespace StatePipes.Test.ServiceCreatorTool
         public void IsWorkflow_DistinguishesWorkflowFromSingleton()
         {
             Assert.IsTrue(StateMachineGeneratorTool.CreateNewStateMachine(_solution.SolutionDir, WorkflowGeneratorToolTest.SolutionName + BaseToolGenerator.solutionExtension,
-                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net10.0"), Headless(("--statemachine-name", "Valve"))).Succeeded);
+                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net11.0"), Headless(("--statemachine-name", "Valve"))).Succeeded);
             Assert.IsTrue(StateMachineTypesHelper.IsWorkflow(ProjectDir, "Cart"));
             Assert.IsFalse(StateMachineTypesHelper.IsWorkflow(ProjectDir, "Valve"));
         }
@@ -56,7 +56,7 @@ namespace StatePipes.Test.ServiceCreatorTool
         public void Periodic_OnSingleton_Unchanged()
         {
             StateMachineGeneratorTool.CreateNewStateMachine(_solution.SolutionDir, WorkflowGeneratorToolTest.SolutionName + BaseToolGenerator.solutionExtension,
-                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net10.0"), Headless(("--statemachine-name", "Valve")));
+                WorkflowGeneratorToolTest.Prefix + ".csproj", Path.Combine(ProjectDir, "obj", "Debug", "net11.0"), Headless(("--statemachine-name", "Valve")));
             var state = Path.Combine(ProjectDir, "StateMachines", "Valve", "States", "TopLevelState.cs");
             Assert.IsTrue(Periodic(state).Succeeded);
             StringAssert.Contains(File.ReadAllText(state), "new AbandonTimerTrigger());");
@@ -85,7 +85,7 @@ namespace StatePipes.Test.ServiceCreatorTool
         private static string ToolExe()
         {
             var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
-            return Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ServiceCreatorTool", "bin", configuration, "net10.0-windows", "StatePipes.ServiceCreatorTool.exe");
+            return Path.Combine(PluginPaths.RepoRoot(), "StatePipes.ServiceCreatorTool", "bin", configuration, "net11.0-windows", "StatePipes.ServiceCreatorTool.exe");
         }
 
         internal static (int ExitCode, string Output) Run(string fileName, string workingDirectory, params string[] args)
@@ -129,7 +129,7 @@ namespace StatePipes.Test.ServiceCreatorTool
                 UseRepoStatePipes(serviceCsproj);
                 string[] Common(params string[] more) =>
                     ["-headless", "-r", t.SolutionDir + "\\", "-s", WorkflowGeneratorToolTest.SolutionName + ".slnx", "-p", prefix + ".csproj",
-                     "-b", Path.Combine(t.ProjectDir, "obj", "Debug", "net10.0") + "\\", .. more];
+                     "-b", Path.Combine(t.ProjectDir, "obj", "Debug", "net11.0") + "\\", .. more];
                 void Tool(params string[] args)
                 {
                     var (exitCode, output) = Run(ToolExe(), t.SolutionDir, args);

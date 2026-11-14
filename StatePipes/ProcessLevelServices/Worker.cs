@@ -15,13 +15,13 @@ namespace StatePipes.ProcessLevelServices
             {
                 argsForPostFix.Add($"{ServiceArgs.PostFix}{ServiceArgs.NameValueDelimiter}{postFix}");
                 var postFixRecursiveAddToProxies = GetValueFromEnvOrArgs(serviceArgs, "STATEPIPES_POSTFIXRECURSIVEADTOPROXIES", ServiceArgs.PostFixRecursiveAddToProxies);
-                if (!string.IsNullOrEmpty(postFixRecursiveAddToProxies)) 
+                if (!string.IsNullOrEmpty(postFixRecursiveAddToProxies))
                     argsForPostFix.Add($"{ServiceArgs.PostFixRecursiveAddToProxies}{ServiceArgs.NameValueDelimiter}{postFixRecursiveAddToProxies}");
             }
             if (argsForPostFix.Count > 0) serviceArgs = serviceArgs.Merge(new ServiceArgs(argsForPostFix));
             return serviceArgs;
         }
-        private static string? GetValueFromEnvOrArgs(ServiceArgs serviceArgs, string envName, string argName) 
+        private static string? GetValueFromEnvOrArgs(ServiceArgs serviceArgs, string envName, string argName)
         {
             var argValue = serviceArgs.GetArgValue(argName);
             var envValue = Environment.GetEnvironmentVariable(envName);

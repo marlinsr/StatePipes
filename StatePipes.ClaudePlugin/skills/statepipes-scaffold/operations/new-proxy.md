@@ -16,7 +16,7 @@ skill for `<Tool>`, the common arguments and the success check.
    with `Headless mode needs --statemachine.`
 3. From the other service's compiled DLL (preferred). Use the class library DLL in the other service's
    **`.Service`** output folder, which also holds `StatePipes.dll`, for example
-   `<OtherSolutionDir>/<OtherPrefix>.Service/bin/Debug/net10.0/<OtherPrefix>.dll`:
+   `<OtherSolutionDir>/<OtherPrefix>.Service/bin/Debug/net11.0/<OtherPrefix>.dll`:
 
    ```
    & "<Tool>" -headless <common arguments> --moniker <Moniker> --statemachine <Machine> --dll "<path to other service DLL>"

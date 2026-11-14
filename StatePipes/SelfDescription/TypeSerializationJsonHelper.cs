@@ -24,7 +24,7 @@ namespace StatePipes.SelfDescription
         public dynamic? TypeDefault(Type t)
         {
             JsonExampleGenerator exampleCreator = new(_typeSerialization, _typeSerializationConverter);
-            return JsonUtility.GetObjectFromJson(exampleCreator.GenerateDefault(t),t);
+            return JsonUtility.GetObjectFromJson(exampleCreator.GenerateDefault(t), t);
         }
         public dynamic? GetObjectFromJson(string jsonString) => ThisType == null ? null : JsonUtility.GetObjectFromJson(jsonString, ThisType);
     }

@@ -17,8 +17,9 @@ namespace StatePipes.SelfDescription
         {
             var types = asm.GetLoadableTypes().Where(t => t.IsPublic && !t.IsAbstract && !t.IsGenericType && IsConcrete(t) &&
               (typeof(ICommand).IsAssignableFrom(t) || typeof(IEvent).IsAssignableFrom(t)));
-            if (types == null) return; 
-            types.ToList().ForEach(t => {
+            if (types == null) return;
+            types.ToList().ForEach(t =>
+            {
                 typeSerializations.TypeSerializations.Add(typeSerializationConverter.CreateFromType(t));
                 if (typeof(ICommand).IsAssignableFrom(t) && !string.IsNullOrEmpty(t.FullName)) PublicCommandsFullName.Add(t.FullName);
             });

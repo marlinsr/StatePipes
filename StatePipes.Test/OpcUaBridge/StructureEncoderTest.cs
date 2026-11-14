@@ -14,7 +14,7 @@ namespace StatePipes.Test.OpcUaBridge
         private static readonly NodeId AddressTypeId = new("AddressDataType", 2);
         private static readonly NodeId BlockTypeId = new("BlockDataType", 2);
 
-        private static Dictionary<NodeId, DataTypeInfo> ExtraTypes => new()
+        private static Dictionary<NodeId, DataTypeInfo> NewExtraTypes() => new()
         {
             [DataTypeIds.Int16] = new(BuiltInType.Int16, false, null),
             [DataTypeIds.NodeId] = new(BuiltInType.NodeId, false, null),
@@ -25,7 +25,7 @@ namespace StatePipes.Test.OpcUaBridge
         };
 
         private static async Task<StructureLayout> LayoutAsync(NodeId dataTypeId, Dictionary<NodeId, DataTypeInfo>? extra = null) =>
-            (await CreateBuilder(extra ?? ExtraTypes).BuildAsync(dataTypeId, CancellationToken.None))!;
+            (await CreateBuilder(extra ?? NewExtraTypes()).BuildAsync(dataTypeId, CancellationToken.None))!;
 
         private static Variant Encode(string json, StructureLayout layout, bool isArray = false)
         {
@@ -125,7 +125,7 @@ namespace StatePipes.Test.OpcUaBridge
             Assert.IsTrue(StructureEncoder.CanEncode(await LayoutAsync(TankTypeId)));
             Assert.IsTrue(StructureEncoder.CanEncode(await LayoutAsync(TreeTypeId)), "A recursive layout terminates");
             Assert.IsFalse(StructureEncoder.CanEncode(await LayoutAsync(AddressTypeId)), "A NodeId field has no natural form");
-            var noNestedEncoding = ExtraTypes;
+            var noNestedEncoding = NewExtraTypes();
             noNestedEncoding[DensityTypeId] = Structure(Definition(Field("Volume", DataTypeIds.Double), Field("Mass", DataTypeIds.Double)));
             Assert.IsFalse(StructureEncoder.CanEncode(await LayoutAsync(TankTypeId, noNestedEncoding)), "The nested Density has no encoding");
         }

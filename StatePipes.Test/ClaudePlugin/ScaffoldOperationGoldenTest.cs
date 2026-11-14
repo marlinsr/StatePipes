@@ -28,7 +28,7 @@ namespace StatePipes.Test.ClaudePlugin
             _solutionDir = Path.Combine(_testRootDirectory, SolutionName);
             new SolutionGeneratorTool(_solutionDir, SolutionName + BaseToolGenerator.solutionExtension, usingRabbit: true).GenerateSolution();
             _projectDir = Path.Combine(_solutionDir, Prefix);
-            _targetDir = Path.Combine(_projectDir, "bin", "Debug", "net10.0");
+            _targetDir = Path.Combine(_projectDir, "bin", "Debug", "net11.0");
         }
 
         [TestCleanup]
