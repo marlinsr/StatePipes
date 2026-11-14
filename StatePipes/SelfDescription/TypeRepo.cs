@@ -60,9 +60,9 @@ namespace StatePipes.SelfDescription
         public void AddTypeToRepo(Type t, string typeFullName)
         {
             var tAssemblyName = t.Assembly.GetName().Name;
-            if (tAssemblyName == _statePipesAssemblyName || tAssemblyName == _callingAssemblyName) return; 
+            if (tAssemblyName == _statePipesAssemblyName || tAssemblyName == _callingAssemblyName) return;
             if (_baseTypeList.Contains(t)) return;
-            if(_supportedGenericsList.Contains(t)) return;
+            if (_supportedGenericsList.Contains(t)) return;
             lock (_typeRepo)
             {
                 if (_typeRepo.ContainsKey(typeFullName))
@@ -77,7 +77,7 @@ namespace StatePipes.SelfDescription
         }
         public Type? GetTypeFromRepo(TypeNames t)
         {
-            
+
             if (t.AssemblyName == _statePipesAssemblyName) return _statePipeTypes.FirstOrDefault(l => l.FullName == t.FullName);
             if (t.AssemblyName == _callingAssemblyName) return _callingAssemblyTypes?.FirstOrDefault(l => l.FullName == t.FullName);
             foreach (var type in _baseTypeList)

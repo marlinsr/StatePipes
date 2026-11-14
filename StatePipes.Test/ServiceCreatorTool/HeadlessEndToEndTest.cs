@@ -31,7 +31,7 @@ namespace StatePipes.Test.ServiceCreatorTool
         private static string ToolExe(string project)
         {
             var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
-            var exe = Path.Combine(PluginPaths.RepoRoot(), project, "bin", configuration, "net10.0-windows", $"{project}.exe");
+            var exe = Path.Combine(PluginPaths.RepoRoot(), project, "bin", configuration, "net11.0-windows", $"{project}.exe");
             Assert.IsTrue(File.Exists(exe), exe);
             return exe;
         }
@@ -49,7 +49,7 @@ namespace StatePipes.Test.ServiceCreatorTool
 
         private string[] Common(params string[] more) =>
             ["-headless", "-r", _solutionDir + "\\", "-s", SolutionName + ".slnx", "-p", Prefix + ".csproj",
-             "-b", Path.Combine(_solutionDir, Prefix, "obj", "Debug", "net10.0") + "\\", .. more];
+             "-b", Path.Combine(_solutionDir, Prefix, "obj", "Debug", "net11.0") + "\\", .. more];
 
         private (int ExitCode, string Output) Tool(params string[] args) => Run(ToolExe("StatePipes.ServiceCreatorTool"), Directory.Exists(_solutionDir ?? "") ? _solutionDir! : _root, args);
 
@@ -112,7 +112,7 @@ namespace StatePipes.Test.ServiceCreatorTool
 
             var diagrams = Path.Combine(_root, "diagrams");
             var (exitCode, output) = Run(ToolExe("StatePipes.Diagrammer"), _solutionDir, "-headless", "-r", _solutionDir + "\\", "-s", SolutionName + ".slnx",
-                "-p", Prefix + ".csproj", "-c", Path.Combine(_solutionDir, Prefix, "obj", "Debug", "net10.0") + "\\", "--out", diagrams);
+                "-p", Prefix + ".csproj", "-c", Path.Combine(_solutionDir, Prefix, "obj", "Debug", "net11.0") + "\\", "--out", diagrams);
             Assert.AreEqual(0, exitCode, output);
             StringAssert.Contains(output, "Finished!!!");
             Assert.IsNotEmpty(Directory.GetFiles(diagrams, "*.pdf"), output);

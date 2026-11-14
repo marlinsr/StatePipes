@@ -117,7 +117,7 @@ Before the first merge that uses this workflow:
 
 ## 7. Things to double-check on first real run
 
-- That `dotnet 10.0.x` is what `actions/setup-dotnet` resolves to. .NET 10 is
+- That `dotnet 11.0.x` is what `actions/setup-dotnet` resolves to. .NET 11 is
   current; if Microsoft renames or the channel changes you may need to pin a
   specific SDK version.
 - That `makensis.exe` from `choco install nsis` runs successfully against the
@@ -125,5 +125,5 @@ Before the first merge that uses this workflow:
   `${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico`, which ships with NSIS
   on Windows, so it should be fine.
 - That the docker images build on `ubuntu-latest` — they're already
-  Linux-based (`FROM mcr.microsoft.com/dotnet/sdk:10.0`), so this should be a
+  Linux-based (`FROM mcr.microsoft.com/dotnet/sdk:11.0`), so this should be a
   drop-in for what you ran manually.

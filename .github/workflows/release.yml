@@ -192,10 +192,10 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Set up .NET 10
+      - name: Set up .NET 11
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Install NSIS (provides makensis.exe)
         run: |
@@ -315,7 +315,7 @@ jobs:
       - name: Set up .NET (for nuget push)
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Download nupkg
         uses: actions/download-artifact@v7

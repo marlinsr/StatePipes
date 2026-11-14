@@ -1,6 +1,6 @@
 ﻿namespace StatePipes.Interfaces
 {
-    public interface IFirstStateForStateMachine 
+    public interface IFirstStateForStateMachine
     {
     }
 }

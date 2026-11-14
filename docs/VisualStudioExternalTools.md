@@ -460,7 +460,7 @@ $diagrammer = "${env:ProgramFiles(x86)}\StatePipes\Diagrammer\StatePipes.Diagram
 $sln = 'C:\src\Packages.Acme.Widgets'
 & $tool -headless -r "$sln\" -s Packages.Acme.Widgets.slnx --prefix Acme.Widgets.Pump
 
-$common = '-r', "$sln\", '-s', 'Packages.Acme.Widgets.slnx', '-p', 'Acme.Widgets.csproj', '-b', "$sln\Acme.Widgets\obj\Debug\net10.0\"
+$common = '-r', "$sln\", '-s', 'Packages.Acme.Widgets.slnx', '-p', 'Acme.Widgets.csproj', '-b', "$sln\Acme.Widgets\obj\Debug\net11.0\"
 $states = "$sln\Acme.Widgets\StateMachines\Valve\States"
 
 & $tool -headless @common -m --statemachine-name Valve
@@ -477,13 +477,13 @@ dotnet build "$sln\Packages.Acme.Widgets.slnx"
 & $tool -headless @common -pti "$states\Opened.cs" --timer-name Poll --timer-period 500
 
 # New StatePipes Proxy (from the other service's DLL in its .Service output folder), live, and update
-& $tool -headless @common --moniker Peer --statemachine Valve --dll "$otherSln\Acme.Peer.Service\bin\Debug\net10.0\Acme.Peer.dll"
+& $tool -headless @common --moniker Peer --statemachine Valve --dll "$otherSln\Acme.Peer.Service\bin\Debug\net11.0\Acme.Peer.dll"
 & $tool -headless -live @common --moniker Peer --statemachine Valve --broker amqps://amqp09-broker/Production --exchange <exchange> --cert <client.p12> --certpw <password.txt>
 & $tool -headless @common -u "$sln\Acme.Widgets\Proxies\PeerProxy.cs" --dll <updated dll>
 
 # StateMachine Diagrammer: one PDF per state machine
 dotnet build "$sln\Packages.Acme.Widgets.slnx"
-& $diagrammer -headless -r "$sln\" -s Packages.Acme.Widgets.slnx -p Acme.Widgets.csproj -c "$sln\Acme.Widgets\obj\Debug\net10.0\" --out "$sln\Acme.Widgets\obj\Diagrams"
+& $diagrammer -headless -r "$sln\" -s Packages.Acme.Widgets.slnx -p Acme.Widgets.csproj -c "$sln\Acme.Widgets\obj\Debug\net11.0\" --out "$sln\Acme.Widgets\obj\Diagrams"
 ```
 
 | Tool | Argument | Replaces the dialog for |

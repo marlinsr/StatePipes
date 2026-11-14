@@ -2,7 +2,7 @@
 
 namespace StatePipes.Messages
 {
-    public class GetSelfDescriptionCommand :ICommand
+    public class GetSelfDescriptionCommand : ICommand
     {
     }
 }

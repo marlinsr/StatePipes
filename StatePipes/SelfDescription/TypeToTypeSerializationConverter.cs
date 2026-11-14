@@ -86,10 +86,11 @@ namespace StatePipes.SelfDescription
             {
                 Enum.GetNames(t).ToList().ForEach(enumName =>
                 {
-                    try 
-                    { 
-                        typeDescription.EnumValues.Add(new EnumValue(enumName, System.Convert.ToInt32(Enum.Parse(t, enumName)))); 
-                    } catch { }
+                    try
+                    {
+                        typeDescription.EnumValues.Add(new EnumValue(enumName, System.Convert.ToInt32(Enum.Parse(t, enumName))));
+                    }
+                    catch { }
                 });
                 return true;
             }
@@ -102,10 +103,11 @@ namespace StatePipes.SelfDescription
             return attributeDescription;
         }
         private static List<CustomAttributeData> FilterAttributes(IEnumerable<CustomAttributeData> attributes) => [.. attributes.Where(attributeData => !string.IsNullOrEmpty(attributeData.AttributeType.FullName) && attributeData.AttributeType.FullName.StartsWith("StatePipes."))];
-        private List<AttributeDescription> CreatePropertyAttributeList(PropertyInfo p, TypeSerialization ts) 
+        private List<AttributeDescription> CreatePropertyAttributeList(PropertyInfo p, TypeSerialization ts)
         {
             List<AttributeDescription> attributeDescriptions = [];
-            FilterAttributes(p.CustomAttributes).ForEach(t => {
+            FilterAttributes(p.CustomAttributes).ForEach(t =>
+            {
                 var customAttr = p.GetCustomAttribute(t.AttributeType);
                 if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
             });
@@ -114,7 +116,8 @@ namespace StatePipes.SelfDescription
         private List<AttributeDescription> CreateFieldAttributeList(FieldInfo f, TypeSerialization ts)
         {
             List<AttributeDescription> attributeDescriptions = [];
-            FilterAttributes(f.CustomAttributes).ForEach(t => {
+            FilterAttributes(f.CustomAttributes).ForEach(t =>
+            {
                 var customAttr = f.GetCustomAttribute(t.AttributeType);
                 if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
             });
@@ -122,8 +125,9 @@ namespace StatePipes.SelfDescription
         }
         private List<AttributeDescription> CreateClassAttributeList(Type decoratedObjectType, TypeSerialization ts)
         {
-            List < AttributeDescription > attributeDescriptions = [];
-            FilterAttributes(decoratedObjectType.CustomAttributes).ForEach(t => {
+            List<AttributeDescription> attributeDescriptions = [];
+            FilterAttributes(decoratedObjectType.CustomAttributes).ForEach(t =>
+            {
                 var customAttr = decoratedObjectType.GetCustomAttribute(t.AttributeType);
                 if (customAttr != null) attributeDescriptions.Add(GetAttributeTypeDescription(t, customAttr, ts));
             });
@@ -140,7 +144,7 @@ namespace StatePipes.SelfDescription
             }
             else
             {
-                typeDescription.Properties.Add(new ParameterDescription(f.Name, f.FieldType.FullName ?? string.Empty, false, attributeList ));
+                typeDescription.Properties.Add(new ParameterDescription(f.Name, f.FieldType.FullName ?? string.Empty, false, attributeList));
                 CreateFromType(f.FieldType, ts);
             }
         }
@@ -182,7 +186,7 @@ namespace StatePipes.SelfDescription
             {
                 properties.ToList().ForEach(p =>
                 {
-                    if (p.GetCustomAttributes(typeof(JsonIgnoreAttribute), false).Length == 0 
+                    if (p.GetCustomAttributes(typeof(JsonIgnoreAttribute), false).Length == 0
                         && (p.CanRead || p.GetGetMethod(false) != null)) AddProperty(t, p, typeDescription, ts);
                 });
             }

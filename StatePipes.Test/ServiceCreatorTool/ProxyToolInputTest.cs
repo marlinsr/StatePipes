@@ -76,7 +76,7 @@ namespace StatePipes.Test.ServiceCreatorTool
 
         private string[] Common(params string[] more) =>
             ["-headless", "-r", _solutionDir + "\\", "-s", SolutionName + ".slnx", "-p", "Acme.Widgets.csproj",
-             "-b", Path.Combine(_solutionDir, "Acme.Widgets", "obj", "Debug", "net10.0") + "\\", .. more];
+             "-b", Path.Combine(_solutionDir, "Acme.Widgets", "obj", "Debug", "net11.0") + "\\", .. more];
 
         [TestMethod]
         public void Main_HeadlessProxyMissingMoniker_ExitsOneWithoutFinished()

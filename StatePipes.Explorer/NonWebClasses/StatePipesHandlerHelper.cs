@@ -33,11 +33,11 @@ namespace StatePipes.Explorer.NonWebClasses
                 _proxy.SubscribeConnectedToService(OnConnected, OnDisconnected);
                 _proxy.Start();
             }
-            if( _proxy != null) _timer = new Timer(_ => {_proxy.SendCommand(new GetSelfDescriptionCommand());}, null, 0, 1000);
+            if (_proxy != null) _timer = new Timer(_ => { _proxy.SendCommand(new GetSelfDescriptionCommand()); }, null, 0, 1000);
         }
-        private void OnConnected(object? sender, EventArgs e) => 
+        private void OnConnected(object? sender, EventArgs e) =>
             _proxy?.Subscribe<SelfDescriptionEvent>(UpdateServiceDescriptionEvent);
-        private void OnDisconnected(object? sender, EventArgs e) {}
+        private void OnDisconnected(object? sender, EventArgs e) { }
         public List<EventEntry> EventJsons => _eventJosonRepo.GetEventJsons();
         public List<CommandEntry> CommandList => _cmdExampleJsonRepo.GetCommandList();
         public bool IsConnectedToBroker => _proxy?.IsConnectedToBroker ?? false;
@@ -131,7 +131,7 @@ namespace StatePipes.Explorer.NonWebClasses
                 _dynamicEventHandlerDictionary.Clear();
                 _dynamicCommandSenderDictionary.Clear();
                 _proxy.UnSubscribe<SelfDescriptionEvent>(UpdateServiceDescriptionEvent);
-                _proxy.UnSubscribeConnectedToService(OnConnected,OnDisconnected);
+                _proxy.UnSubscribeConnectedToService(OnConnected, OnDisconnected);
             }
             _proxy?.Dispose();
             _proxy = null;

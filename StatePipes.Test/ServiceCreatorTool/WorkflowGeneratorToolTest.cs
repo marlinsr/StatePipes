@@ -32,7 +32,7 @@ namespace StatePipes.Test.ServiceCreatorTool
 
         internal ToolResult AddWorkflow(string name) =>
             WorkflowGeneratorTool.CreateNewWorkflow(SolutionDir, SolutionName + BaseToolGenerator.solutionExtension, Prefix + ".csproj",
-                Path.Combine(ProjectDir, "obj", "Debug", "net10.0"), Headless(("--workflow-name", name)));
+                Path.Combine(ProjectDir, "obj", "Debug", "net11.0"), Headless(("--workflow-name", name)));
 
         private static int Count(string text, string value) => (text.Length - text.Replace(value, "").Length) / value.Length;
 

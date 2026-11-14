@@ -38,7 +38,7 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 try
-{     
+{
     app.Run();
 }
 catch (Exception ex)

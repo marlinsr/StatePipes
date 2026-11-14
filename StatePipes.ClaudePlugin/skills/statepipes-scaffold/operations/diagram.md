@@ -9,7 +9,7 @@ Renders one PDF per state machine of the service, from the built `.Service` asse
 Build first (`dotnet build <SolutionDir>\<Solution>.slnx`), then:
 
 ```
-& "<Diagrammer>" -headless -r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -c "<SolutionDir>\<Prefix>\obj\Debug\net10.0\" --out "<SolutionDir>\<Prefix>\obj\Diagrams"
+& "<Diagrammer>" -headless -r "<SolutionDir>\" -s <Solution>.slnx -p <Prefix>.csproj -c "<SolutionDir>\<Prefix>\obj\Debug\net11.0\" --out "<SolutionDir>\<Prefix>\obj\Diagrams"
 ```
 
 It prints `Diagram written: <path>` for each PDF. Read each PDF and compare it with the approved model from

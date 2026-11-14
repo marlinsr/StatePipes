@@ -12,7 +12,7 @@
         public ServiceArgs(IReadOnlyList<string>? args)
         {
             Args = args;
-            args?.ToList().ForEach(a => { if(!a.Contains(NameValueDelimiter)) throw new ArgumentException($"Arg {a} doesn't contain delimeter {NameValueDelimiter}"); });
+            args?.ToList().ForEach(a => { if (!a.Contains(NameValueDelimiter)) throw new ArgumentException($"Arg {a} doesn't contain delimeter {NameValueDelimiter}"); });
         }
         public string? GetArgValue(string argNamePrefix)
         {
@@ -28,7 +28,7 @@
         public ServiceArgs GetArgsNotFoundIn(ServiceArgs other) => new(Args?.ToList().Where(a => !other.ContainsArgName(GetArgName(a))).ToList());
         public ServiceArgs Concat(ServiceArgs other)
         {
-            if(Args == null) return new ServiceArgs(other.Args);
+            if (Args == null) return new ServiceArgs(other.Args);
             if (other.Args == null) return new ServiceArgs(Args);
             var conCatList = Args.ToList();
             conCatList.AddRange(other.Args);
@@ -36,8 +36,8 @@
         }
         public ServiceArgs Merge(ServiceArgs dominantArgs)
         {
-            if(Args == null) return dominantArgs;
-            if(dominantArgs.Args == null) return new ServiceArgs(Args.ToList());
+            if (Args == null) return dominantArgs;
+            if (dominantArgs.Args == null) return new ServiceArgs(Args.ToList());
             var argsNotContainedInDominant = GetArgsNotFoundIn(dominantArgs);
             return dominantArgs.Concat(argsNotContainedInDominant);
         }

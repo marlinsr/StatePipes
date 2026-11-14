@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 namespace StatePipes.ProcessLevelServices.Internal
 {
-    internal class Logger  : ILogger
+    internal class Logger : ILogger
     {
         internal LoggerTask _task;
         internal ILogger.LogLevel _logLevel;
@@ -11,7 +11,7 @@ namespace StatePipes.ProcessLevelServices.Internal
         {
             _task = new();
             _logLevel = _task.Configuration.InitialLogLevel;
-        }        
+        }
         public void Start()
         {
             _task.StartLongRunningAndWait();

@@ -11,7 +11,7 @@ namespace StatePipes.Messages
         {
             unchecked
             {
-                int hashCode = string.IsNullOrEmpty(State) ? 0 : State.GetHashCode() ;
+                int hashCode = string.IsNullOrEmpty(State) ? 0 : State.GetHashCode();
                 hashCode = string.IsNullOrEmpty(StateMachineName) ? hashCode : hashCode * 397 ^ StateMachineName.GetHashCode();
                 return hashCode;
             }

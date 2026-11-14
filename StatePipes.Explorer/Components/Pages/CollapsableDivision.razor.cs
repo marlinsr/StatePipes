@@ -4,7 +4,7 @@ using StatePipes.Explorer.NonWebClasses;
 
 namespace StatePipes.Explorer.Components.Pages
 {
-    public partial class CollapsableDivision 
+    public partial class CollapsableDivision
     {
         [Parameter]
         public RenderFragment? ChildContent { get; set; }

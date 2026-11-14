@@ -98,10 +98,10 @@ namespace StatePipes.Explorer.Components.Pages
             }
             if (resetToCurrent)
             {
-                StateHasChanged();
+                
                 await Task.Delay(1);
                 _objectVal = currentValue;
-                StateHasChanged();
+                
             }
         }
 
