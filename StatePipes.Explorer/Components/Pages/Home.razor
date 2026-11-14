@@ -112,5 +112,10 @@ Time : @Time
             <StateMachineDiagramViewer InstanceGuid=@InstanceGuid TabId=@_showTab></StateMachineDiagramViewer>
         </Content>
     </Tab>
+    <Tab Title="WORKFLOW" OnClick="@(() => ToggleDisplayMode(TabEnum.Workflow))">
+        <Content>
+            <WorkflowDiagramViewer InstanceGuid=@InstanceGuid TabId=@_showTab></WorkflowDiagramViewer>
+        </Content>
+    </Tab>
 </Tabs>
 

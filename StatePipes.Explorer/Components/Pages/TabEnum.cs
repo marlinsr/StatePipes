@@ -1,4 +1,4 @@
 ﻿namespace StatePipes.Explorer.Components.Pages
 {
-    public enum TabEnum { ObjectEditor, LogFile, StateMachine }
+    public enum TabEnum { ObjectEditor, LogFile, StateMachine, Workflow }
 }

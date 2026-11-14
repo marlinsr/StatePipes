@@ -3,16 +3,20 @@ using Opc.Ua.Server;
 
 namespace OpcUaServer;
 
-public class PlcServer(ITelemetryContext telemetry) : StandardServer(telemetry)
+public class PlcServer : StandardServer
 {
+    public PlcServer(ITelemetryContext telemetry) : base(telemetry) => AddNodeManager(new PlcNodeManagerFactory(this));
+
+    /// <summary>Set when the server starts and its node manager factory runs.</summary>
     public PlcNodeManager? NodeManager { get; private set; }
 
-    protected override MasterNodeManager CreateMasterNodeManager(
-        IServerInternal server,
-        ApplicationConfiguration configuration)
+    /// <summary>Hands PlcNodeManager to the server's startup pipeline and keeps a reference to the instance it creates.</summary>
+    private sealed class PlcNodeManagerFactory(PlcServer owner) : INodeManagerFactory
     {
-        NodeManager = new PlcNodeManager(server, configuration);
-        return new MasterNodeManager(server, configuration, null, NodeManager);
+        public ArrayOf<string> NamespacesUris => [PlcNodeManager.NamespaceUri];
+
+        public INodeManager Create(IServerInternal server, ApplicationConfiguration configuration) =>
+            owner.NodeManager = new PlcNodeManager(server, configuration);
     }
 
     /// <summary>Closes every session whose name <paramref name="matches"/>, as an administrator or a server restart might.</summary>

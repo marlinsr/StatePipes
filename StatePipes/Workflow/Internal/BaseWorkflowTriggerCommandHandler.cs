@@ -1,6 +1,7 @@
 using StatePipes.Comms;
 using StatePipes.Comms.Internal;
 using StatePipes.Interfaces;
+using StatePipes.Messages;
 using StatePipes.StateMachine;
 
 namespace StatePipes.Workflow.Internal
@@ -22,6 +23,10 @@ namespace StatePipes.Workflow.Internal
         public IDisposable? OwnedStore { get; set; }
         public void Add(Type workflowType, WorkflowEngine engine) => _engines.Add(workflowType, engine);
         public WorkflowEngine Get(Type workflowType) => _engines[workflowType];
+        /// <summary>Every running instance with this correlationId, one per workflow type at most, ordered by workflow type.</summary>
+        public IReadOnlyList<WorkflowInstanceDiagram> Interrogate(string correlationId) =>
+            [.. _engines.Values.Select(e => e.Interrogate(correlationId)).OfType<WorkflowInstanceDiagram>()
+                .OrderBy(d => d.WorkflowType, StringComparer.Ordinal)];
         public void Dispose()
         {
             Poller?.Dispose();
