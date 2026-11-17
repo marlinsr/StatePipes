@@ -10,9 +10,9 @@ shawn.marlin@gmail.com
 
 ## Abstract
 
-Stateful systems — industrial controllers, robotic platforms, SCADA systems, and IoT devices — must respond to commands differently depending on their current operating state. Conventional practice implements this behavior through global command handlers that check the current state internally, typically using conditional dispatch logic. As fault-tolerance requirements are added, this logic expands to cover fault detection, recovery, and degraded operation paths, entangling them with the original business logic and producing code that is difficult to reason about, test, and extend.
+Stateful systems — industrial controllers, robotic platforms, SCADA systems, and IoT devices, but equally business entities such as orders, shopping carts, and approval requests — must respond to commands differently depending on their current operating state. Conventional practice implements this behavior through global command handlers that check the current state internally, typically using conditional dispatch logic. As fault-tolerance requirements are added, this logic expands to cover fault detection, recovery, and degraded operation paths, entangling them with the original business logic and producing code that is difficult to reason about, test, and extend.
 
-This paper describes the *State-Scoped Command Handler* pattern, in which command handlers are defined as methods of individual state classes rather than as global dispatchers. The currently active state instance is solely responsible for handling the commands it declares; the framework discovers and routes commands automatically with no manual registration. Commands that arrive in a state with no declared handler are naturally excluded. The pattern enables an incremental development workflow in which the happy-path operational logic is implemented and validated first, and fault-tolerance states are introduced later as new classes without modifying existing code. We describe the pattern in structured form, characterize the forces it resolves, and contrast it with the closest prior work including the GoF State pattern, the P programming language, Akka FSM, and Erlang's `gen_statem`. A reference implementation in C# demonstrates the pattern for industrial control applications and is available as an open-source framework.
+This paper describes the *State-Scoped Command Handler* pattern, in which command handlers are defined as methods of individual state classes rather than as global dispatchers. The currently active state instance is solely responsible for handling the commands it declares; the framework discovers and routes commands automatically with no manual registration. Commands that arrive in a state with no declared handler are naturally excluded. The pattern enables an incremental development workflow in which the happy-path operational logic is implemented and validated first, and fault-tolerance states are introduced later as new classes without modifying existing code. We describe the pattern in structured form, characterize the forces it resolves, and contrast it with the closest prior work including the GoF State pattern, the P programming language, Akka FSM, and Erlang's `gen_statem`. A reference implementation in C#, the open-source StatePipes framework, demonstrates the pattern in two deployment models: stateful services hosting a single long-lived instance of each machine, as in industrial control, and stateless, horizontally scalable microservices hosting many persisted instances of a machine — *workflows* — as in mainstream business applications. The framework runs over either RabbitMQ or Kafka, and its tooling includes a scaffolding generator, an OPC UA bridge, and a Claude Code plugin that applies the pattern's structure to AI-assisted development.
 
 ---
 
@@ -41,6 +41,8 @@ class StartCommandHandler {
 This structure has a well-known failure mode: as the number of states grows, every handler must be updated to account for every new state. When fault handling is added to a system that was initially designed for the happy path, the developer must locate every existing handler and insert logic for the fault and recovery cases. This work is repetitive, error-prone, and violates the open/closed principle [Meyer 1988]: adding a new state requires modifying existing code. The result is that fault-handling logic becomes entangled with business logic across many files — what practitioners commonly call spaghetti code.
 
 This problem is not unique to a single language or platform. It recurs wherever complex, state-dependent systems are implemented: robotic arm controllers, network protocol stacks, industrial automation pipelines, vehicle control units, and increasingly, the state machines that structure AI agent behavior.
+
+Nor is it unique to industrial software. Mainstream business applications are full of entities with a lifecycle: a shopping cart is *open*, *checked out*, *paid*, or *abandoned*; an order is *placed*, *shipped*, or *returned*; an expense claim is *submitted*, *approved*, or *rejected*. An *add item* command is valid for an open cart and meaningless for a paid one. Business applications differ from controllers mainly in scale — thousands of concurrent instances rather than one machine — and in where the state lives: in a database rather than in process memory. The same global-handler entanglement appears, typically as status-column checks scattered across service methods.
 
 ### 1.2 The Key Insight
 
@@ -86,11 +88,11 @@ This paper makes the following contributions:
 
 3. **A characterization of the pattern's relationship to AI-assisted development** (Section 5), showing that the structural isomorphism between natural language state machine descriptions and state class declarations reduces translation errors in both human- and AI-assisted code generation workflows.
 
-4. **A reference implementation** (Section 6) in the form of the StatePipes framework for C#/.NET, with application to SCADA, robotic, and IoT systems. The framework provides automatic handler discovery via reflection, compile-time type safety through generic constraints, and diagram generation directly from code.
+4. **A reference implementation** (Section 6) in the form of the StatePipes framework for C#/.NET, with application to SCADA, robotic, and IoT systems as well as mainstream business microservices. The framework provides automatic handler discovery via reflection, compile-time type safety through generic constraints, diagram generation directly from code, persisted multi-instance *workflows* that allow stateless, horizontally scalable services, interchangeable RabbitMQ and Kafka transports, and tooling for scaffolding and AI-assisted development.
 
 ### 1.4 Paper Organization
 
-Section 2 surveys related work, including the GoF State pattern, typestate programming, the P language, Akka FSM, Erlang `gen_statem`, Samek's QP framework, and XState. Section 3 presents the State-Scoped Command Handler pattern in structured form. Section 4 formalizes and evaluates the incremental correctness extension claim. Section 5 examines implications for AI-assisted development. Section 6 describes the StatePipes reference implementation and industrial case studies. Section 7 discusses limitations and future work, and Section 8 concludes.
+Section 2 surveys related work, including the GoF State pattern, typestate programming, the P language, Akka FSM, Erlang `gen_statem`, Samek's QP framework, and XState. Section 3 presents the State-Scoped Command Handler pattern in structured form. Section 4 formalizes and evaluates the incremental correctness extension claim. Section 5 examines implications for AI-assisted development. Section 6 describes the StatePipes reference implementation, its workflow and transport support, its companion tools, and case studies. Section 7 discusses limitations and future work, and Section 8 concludes.
 
 ---
 
@@ -375,7 +377,9 @@ public class PumpServiceContainerSetup : IContainerSetup
 
 ### 3.11 Known Uses
 
-**StatePipes** (this paper's reference implementation): deployed in industrial automation systems; intialization, fault, and recovery states constitute the majority of total states.
+**StatePipes** (this paper's reference implementation): deployed in industrial automation systems; initialization, fault, and recovery states constitute the majority of total states.
+
+**StatePipes workflows** (Section 6.5): the same state-class declarations applied to business entities such as shopping carts, with many persisted instances of one machine hosted in a stateless microservice. The pattern is unchanged; only instance hosting and storage differ.
 
 **P Language** [Desai et al. 2013]: per-state `on Event do { handler }` declarations; applied to Windows device driver verification and AWS distributed protocols.
 
@@ -480,6 +484,12 @@ Over four development phases, the state-scoped architecture required 5 modificat
 
 The theorem holds under the extension rule (Definition 2, condition 3). The pattern makes violations structurally visible but does not prevent them. SEMC measures modification *count*, not modification *risk*. The property addresses *structural* correctness — preservation of transition behavior — not semantic correctness. It applies cleanly when new states are entered from previously ⊥ transitions. Redesign scenarios that require changing an existing transition fall outside the incremental workflow and require explicit re-validation.
 
+### 4.7 Applicability to Workflows
+
+A *workflow* (Section 6.5) is a machine M with many concurrently existing instances, each identified by a correlation identifier and persisted between commands. The theorem applies to each instance independently. Instance identity and persistence determine only *which* instance a command reaches and *where* its current state is stored; they do not alter δ. Every instance of M follows the same transition function, so a state extension M' of M_hp preserves Tr(M'|_{S_hp}) = Tr(M_hp) for every instance, and SEMC is computed identically because workflow states are declared with the same attribute-annotated methods.
+
+One consideration is specific to persisted instances: when a state extension is deployed, instances already stored in an existing state continue under δ'. Because condition 3 of Definition 2 preserves every handled transition from S_hp, those instances observe no behavioral change until a command that was previously ⊥ leads them into S_new.
+
 ---
 
 ## 5. Implications for AI-Assisted Development
@@ -523,9 +533,21 @@ Beyond AI-assisted *development*, the pattern has a direct application to the *a
 
 The pattern offers an alternative: model the agent's operational modes as explicit state classes. An agent's `PlanningState` would declare handlers only for user input commands; its `ExecutingState` only for tool result commands; its `AwaitingHumanConfirmationState` only for human-response commands. Commands arriving in the wrong state are structurally excluded. This is a structural form of agent guardrailing: constraints enforced by architecture rather than by runtime assertion or prompt instruction — auditable, verifiable against the transition graph, and accurate by construction.
 
-### 5.6 Summary
+### 5.6 A Tool-Supported AI Workflow: The StatePipes Claude Code Plugin
 
-The pattern offers four properties advantageous for AI-assisted development: (1) near-bijective structural mapping from natural language specifications to code declarations; (2) rigid scaffold reducing architectural ambiguity, with compile-time validation of generated output; (3) independence of state classes enabling incremental generation and review; (4) automatic diagram generation providing a closed-loop validation signal. Additionally, the pattern's structural properties suggest a novel architecture for AI agent systems with auditable, structurally enforced behavioral constraints.
+The arguments of Sections 5.1–5.4 are analytical. The StatePipes Claude Code plugin puts them into practice as a set of skills that guide an AI coding agent [Anthropic 2025] through the design, scaffolding, extension, and verification of a StatePipes microservice. The skills run in sequence for a new service:
+
+1. **Domain fit** decides, before any modeling, whether the service has the distinct state- or mode-dependent behavior that justifies the pattern, and returns a go or no-go verdict with reasons.
+2. **Domain modeling** turns a natural-language domain description into a written model — domain entities and value objects, machines or workflows, states, triggers, events, guards, timers, and proxies — which the developer approves before any code exists. This step makes the specification-to-implementation mapping of Section 5.1 explicit: the model's vocabulary is the vocabulary of state classes and handler attributes.
+3. **Scaffold** produces code by following, operation for operation, the templates and injection points of the StatePipes.ServiceCreatorTool (Section 6.7). Generated code therefore has the same structure as code produced by the deterministic tool, which is the scaffold effect of Section 5.2 enforced by tooling rather than by convention. The plugin's recipes are themselves tested against the tool's templates and generators, so the two cannot drift apart.
+4. **Conventions** governs any reading or editing of an existing service: naming, lifecycle methods, guard semantics, and the rules — such as never blocking in a state — that generated and hand-written code must both follow.
+5. **Verify** runs before work is declared done: it formats, builds, and tests the service, requires a test per new transition, scans for blocking calls, and compares the result to the approved model.
+
+For an existing service, the agent uses conventions and scaffold together and finishes with verify. Each increment is a state class or handler method, reviewed against an approved model and checked by compiler, tests, and diagram — the incremental generation workflow of Section 5.3 and the closed loop of Section 5.4. The ServiceCreatorTool also writes a `CLAUDE.md` file into each generated solution, so an agent working in that solution starts with the framework's conventions in context.
+
+### 5.7 Summary
+
+The pattern offers four properties advantageous for AI-assisted development: (1) near-bijective structural mapping from natural language specifications to code declarations; (2) rigid scaffold reducing architectural ambiguity, with compile-time validation of generated output; (3) independence of state classes enabling incremental generation and review; (4) automatic diagram generation providing a closed-loop validation signal. The StatePipes Claude Code plugin realizes these properties as a concrete, model-first agent workflow. Additionally, the pattern's structural properties suggest a novel architecture for AI agent systems with auditable, structurally enforced behavioral constraints.
 
 ---
 
@@ -533,9 +555,16 @@ The pattern offers four properties advantageous for AI-assisted development: (1)
 
 ### 6.1 Framework Overview
 
-StatePipes is an open-source .NET Core framework targeting SCADA, robotic, and IoT applications. It implements the State-Scoped Command Handler pattern in C# with routing infrastructure, automatic handler discovery, diagram generation, and a testing harness. The framework wraps the Stateless state machine library [Blumhardt 2009] with a strongly-typed, attribute-driven, dependency-injected API. Autofac provides the dependency injection container; Mono.Cecil provides IL-level type inspection for event detection and diagram annotation.
+StatePipes is an open-source .NET framework for building stateful behavior into message-driven microservices. It originated in SCADA, robotic, and IoT applications and, with the addition of persisted workflows (Section 6.5), applies equally to mainstream business microservices. It implements the State-Scoped Command Handler pattern in C# with routing infrastructure, automatic handler discovery, diagram generation, and a testing harness. The framework wraps the Stateless state machine library [Blumhardt 2009] with a strongly-typed, attribute-driven, dependency-injected API. Autofac provides the dependency injection container; Mono.Cecil provides IL-level type inspection for event detection and diagram annotation.
 
-The framework consists of five components: the core library (`StatePipes`), a diagram generator (`StatePipes.Diagrammer`), a runtime explorer (`StatePipes.Explorer`), a scaffolding tool (`StatePipes.ServiceCreatorTool`), and a broker proxy (`StatePipes.BrokerProxy`).
+The framework supports two deployment models with a single programming model:
+
+- **Stateful services.** Each state machine has exactly one long-lived instance held in process memory. This suits devices, controllers, and coordinators whose state is inherently singular — a pump is either running or it is not.
+- **Stateless services hosting persisted instances.** A *workflow* is a state machine with many instances, each identified by a correlation identifier and stored in PostgreSQL between commands. A service composed of workflows retains no instance state in memory, so any replica can serve any instance and the service scales horizontally like any conventional stateless microservice. This suits business entities — carts, orders, approvals — that exist in large numbers.
+
+A service may combine both: workflows for its many entities and singleton machines for service-wide coordination. In either model, states, triggers, guards, lifecycle methods, and diagrams are written identically.
+
+The framework consists of the core library (`StatePipes`), a diagram generator (`StatePipes.Diagrammer`), a runtime explorer (`StatePipes.Explorer`), a scaffolding tool (`StatePipes.ServiceCreatorTool`) with its installer, a broker proxy (`StatePipes.BrokerProxy`), an OPC UA bridge (`StatePipes.OpcUaBridge`), and a Claude Code plugin (`StatePipes.ClaudePlugin`).
 
 ### 6.2 Core Library
 
@@ -545,7 +574,7 @@ The framework consists of five components: the core library (`StatePipes`), a di
 
 **Framework router.** `BaseTriggerCommandHandler<TTrigger, TStateMachine>` implements `IMessageHandler<TTrigger>` and is automatically instantiated for each discovered command type. When a command arrives on the message bus, the router retrieves the machine instance from `StateMachineManager` and calls `stateMachine.Fire(command, responseInfo)`.
 
-**Message bus.** `IStatePipesService` provides `SendCommand<T>`, `PublishEvent<T>`, and `SendResponse<T>`. The in-process implementation routes messages synchronously; `BrokerProxy` provides a networked implementation for distributed deployments.
+**Message bus.** `IStatePipesService` provides `SendCommand<T>`, `PublishEvent<T>`, and `SendResponse<T>`. Messages are routed within the service on an internal bus and, for distributed deployments, exchanged with other services through a network message broker (Section 6.4).
 
 ### 6.3 The Configuration Lifecycle
 
@@ -553,19 +582,47 @@ The framework consists of five components: the core library (`StatePipes`), a di
 
 **Build phase:** Registers the machine with `StateMachineManager`, acquires the `TemporaryStateMachineHolder` lock, resolves and configures all state instances (performing the attribute-scanning reflection for each), releases the lock, and fires the init trigger to enter the first state. The `TemporaryStateMachineHolder` is a short-lived thread-local coupling that allows constructor-injected state classes to access their owning machine without creating a circular dependency in the container.
 
-### 6.4 The Diagram Generation Pipeline
+### 6.4 Messaging Transports
+
+StatePipes supports two message brokers: **RabbitMQ** and **Apache Kafka**. The transport is selected by the broker URI in a service's configuration — a `kafka://` URI selects Kafka, any other selects RabbitMQ — and is otherwise invisible to service code. States send commands, publish events, and send responses through the same `IStatePipesService` API regardless of broker, and services, proxies, the Explorer, and the scaffolding tool operate over either.
+
+Both transports carry the framework's messaging contract: point-to-point commands, broadcast events, and responses routed back to the requester. Both authenticate with client certificates. RabbitMQ suits deployments that favor low-latency routing and flexible exchange topologies; Kafka suits deployments that favor durable, replayable message logs and integration with an existing streaming platform. Because the choice is a deployment decision rather than a programming decision, a service can move between brokers without code changes.
+
+### 6.5 Persisted Workflows
+
+A workflow is declared with a marker type implementing `IWorkflow` (itself an `IStateMachine`). Its states derive from `BaseWorkflowState<TWorkflow>` or `ParentedBaseWorkflowState<TWorkflow, TParent>`, and its triggers from `BaseWorkflowTriggerCommand<TWorkflow>`, which carries a `CorrelationId`. Handler declarations — `[PermitIf]`, `[IgnoreIf]`, `[PermitReentryIf]` — and the `OnEntry`/`OnExit` lifecycle are unchanged; the same scanner configures workflow and singleton states. The motivating example is a shopping cart: thousands of `CartWorkflow` instances, each living for minutes to days and surviving service restarts. A workflow is not a saga: it does not orchestrate other services, but is a multi-instance, persisted state machine hosted by one service.
+
+**Instance lifecycle.** For each command, the workflow engine locates the instance by `CorrelationId` and reconstitutes it from PostgreSQL — its current state and the fields of all of its states — into a freshly constructed machine, fires the trigger, and saves the result. An unknown `CorrelationId` creates a new instance. Entering any state marked `IFinalWorkflowState` deletes the instance and its timers; every workflow declares at least one final state. Whether an instance is persisted depends on whether the current state declares a handler for the command, not on the guard's result, so the natural-exclusion property (B3) carries over directly.
+
+**Statelessness and replicas.** Workflow states have parameterless constructors, so every field they declare is per-instance data, and they reach singleton services only by sending commands, whose replies return as workflow commands. Nothing about an instance remains in memory between commands. Concurrent replicas are coordinated by a transaction-scoped PostgreSQL advisory lock held for a single command; a command that finds its instance locked is requeued after a delay and retried a configurable number of times. Locks are released on commit, rollback, or connection loss, so a failed replica never strands an instance.
+
+**Durable timers.** Workflow timers use the same `IDelayedMessageSender` abstraction as singleton machines but are stored in a database table. Each replica polls for due timers and claims them with `SKIP LOCKED`, so each timer fires on exactly one replica, and timers continue to count while no replica holds the instance or while the service is down.
+
+**Security and tooling.** PostgreSQL access is authenticated by client certificate only, and the framework creates its tables at startup. The Diagrammer renders workflows like other machines and marks final states; the Explorer can interrogate a running workflow by correlation identifier and display that instance's diagram with its current state highlighted.
+
+### 6.6 The Diagram Generation Pipeline
 
 `StatePipes.Diagrammer` generates accurate state machine diagrams directly from a compiled service assembly through five steps: (1) load the target assembly via Mono.Cecil and inject `InternalsVisibleTo` attributes; (2) build a container with stub implementations satisfying DI registrations, without requiring hardware or network infrastructure; (3) call `StateMachineManager.SaveAllStateMachineDotGraphToPath()` to write DOT-format graphs to disk; (4) post-process with `DotGraphEnhancer`, which annotates state nodes with published events by scanning IL call sites for `PublishEvent<TEvent>()` invocations and highlights the current active state in yellow; (5) render to PDF via Graphviz `dot`. The result is always consistent with the implementation.
 
-### 6.5 Companion Tools
+### 6.7 Companion Tools
 
-**StatePipes.ServiceCreatorTool** scaffolds new services: given a machine design, it generates the machine marker, state class files, trigger command records, container setup, and optionally an entire Visual Studio solution. Generator components include tools for states, triggers, and all three guard attribute types.
+**StatePipes.ServiceCreatorTool** is the framework's code generator. It makes the pattern's single, rigid structure (Section 5.2) the path of least resistance: every artifact the pattern defines is produced from a template and inserted at a known injection point, so hand-written and generated services share one layout. Its generators cover:
 
-**StatePipes.Explorer** is a Blazor web application providing a live view of all state machines in a running deployment: current state, highlighted diagram, available commands, published event history, and transition logs. It connects to the message bus without requiring service code modification.
+- *Solutions and services:* a complete solution with build configuration, infrastructure start/stop scripts for the broker, certificate authority, identity provider, and Explorer, and a `CLAUDE.md` describing the solution to AI agents; and, within a solution, new services comprising a class library, a service host, and a test project.
+- *Machines and their parts:* state machines, workflows (including a generated final state), states and substates, triggers, events, the three guard attributes, and periodic timers, each in singleton and workflow variants.
+- *Proxies:* typed client proxies through which one service commands and subscribes to another. A proxy can be generated from a compiled service assembly or from a running service's self-description retrieved over RabbitMQ or Kafka, and regenerated in place when that service changes.
 
-**StatePipes.BrokerProxy** bridges a StatePipes service's internal message bus to an upstream network message broker (such as RabbitMQ) when the service is deployed behind a DMZ boundary. The proxy republishes commands and events between the internal bus and the upstream broker, making the StatePipes service reachable from external processes without RabbitMQ Federation or other broker-to-broker bridging. External clients use a `StatePipesProxy` client providing the same `SendCommand<T>` and `Subscribe<TEvent>` API as in-process code; the network topology is transparent to both sides.
+The tool runs in two modes. Interactively, it is registered as a set of Visual Studio External Tools, invoked from the IDE's Tools menu against the open solution or file, with dialogs prompting for names, parent states, and destination states. Non-interactively, every input can be supplied as a command-line argument, which is how scripts and AI agents (Section 5.6) drive it. A Windows installer deploys the tool, the Diagrammer, the setup utility that registers the Visual Studio External Tools, and the Claude Code plugin together, so the deterministic generator and the AI-facing recipes are always the same version.
 
-### 6.6 Case Studies
+**StatePipes.Explorer** is a Blazor web application providing a live view of all state machines in a running deployment: current state, highlighted diagram, available commands, published event history, and transition logs. For workflows, it retrieves an individual instance by correlation identifier. It connects to the message bus without requiring service code modification.
+
+**StatePipes.BrokerProxy** bridges a StatePipes service's internal message bus to an upstream network message broker — RabbitMQ or Kafka — when the service is deployed behind a DMZ boundary. The proxy republishes commands and events between the internal bus and the upstream broker, making the StatePipes service reachable from external processes without RabbitMQ Federation or other broker-to-broker bridging. External clients use a `StatePipesProxy` client providing the same `SendCommand<T>` and `Subscribe<TEvent>` API as in-process code; the network topology is transparent to both sides.
+
+**StatePipes.OpcUaBridge** is a containerized service that presents an OPC UA server [IEC 62541] as a StatePipes service on a RabbitMQ or Kafka broker. On startup it browses the server and, for every variable the session can read, exposes typed commands to read the value once or to subscribe to its changes through an OPC UA monitored item, delivering values back as events. Writable variables also receive a write command with a status event, and callable methods receive an execute command whose result event carries the output arguments. Because the bridge answers the framework's self-description request and publishes heartbeats, the Explorer and the ServiceCreatorTool treat it as any other service: a developer can generate a typed proxy to a PLC's address space and drive it from state classes, connecting the pattern directly to the industrial equipment it was first developed to control.
+
+**StatePipes.ClaudePlugin** packages the skills described in Section 5.6 for Claude Code. It is installed from the StatePipes repository, which also serves as a Claude Code plugin marketplace, or by the StatePipes installer. Automated tests check its scaffold recipes against the ServiceCreatorTool's templates and generators.
+
+### 6.8 Case Studies
 
 The following case studies are drawn from production deployments of the StatePipes framework.
 
@@ -630,7 +687,7 @@ The following case studies are drawn from production deployments of the StatePip
 |---|---|---|---|
 | | | | |
 
-### 6.7 Cross-Case Analysis
+### 6.9 Cross-Case Analysis
 
 [To be completed once case study data is supplied. Analysis should address: (1) Is SEMC_scoped consistently lower than SEMC_global? (2) How does fault state percentage vary across domains? (3) Were there extension rule violations, and how were they detected? (4) Did teams use superstates to reduce SEMC for cross-cutting transitions?]
 
@@ -650,6 +707,10 @@ The following case studies are drawn from production deployments of the StatePip
 
 **L5 — Concurrent state machines require additional coordination.** The semantics of concurrent inter-machine communication and the conditions under which the incremental correctness extension property holds across machine boundaries have not been formalized.
 
+**L6 — Workflow statelessness is bounded by the service's composition.** Only workflows are stateless. Singleton machines in the same service remain single in-memory instances, so a service that mixes the two scales horizontally only in its workflow portion.
+
+**L7 — Workflow delivery and throughput trade-offs.** In the reference implementation, messages a workflow sends while handling a command are sent immediately rather than through a transactional outbox, so a failed commit can leave sent messages describing a rolled-back transition; timer delivery is at-least-once; and workflow commands execute on the service's single bus thread with synchronous database access, so each replica processes one command at a time. Horizontal scaling raises aggregate throughput but not per-replica throughput.
+
 ### 7.2 Limitations of the Current Evaluation
 
 **E1 — No controlled empirical developer study.** The practical claims about developer productivity are structural arguments, not empirical findings. A rigorous evaluation would measure task completion time, defect rate, and cognitive load [Hart and Staveland 1988] across architectures.
@@ -658,9 +719,9 @@ The following case studies are drawn from production deployments of the StatePip
 
 **E3 — The worked example is constructed, not empirical.** SEMC values in Section 4.5 are computed from design rather than measured from production change history.
 
-**E4 — Section 5 claims are not empirically validated.** The AI-assisted development implications are analytical arguments; no controlled study has evaluated them.
+**E4 — Section 5 claims are not empirically validated.** The AI-assisted development implications are analytical arguments; the Claude Code plugin (Section 5.6) puts them into practice, but no controlled study has evaluated them.
 
-**E5 — Known uses are limited to one domain.** The pattern's cost trade-offs in other domains have not been systematically evaluated.
+**E5 — Production evidence is concentrated in one domain.** Deployment experience is drawn from industrial automation. Workflows extend the framework to business microservices and were designed for multiple replicas, but the pattern's cost trade-offs in those domains, and workflow behavior under multi-replica production load, have not been systematically evaluated.
 
 ### 7.3 Future Work
 
@@ -680,7 +741,9 @@ The following case studies are drawn from production deployments of the StatePip
 
 **FW8 — Behavior tree comparison.** Formally compare the pattern against behavior trees [Marzinotto et al. 2014] along dimensions of expressiveness, composability, SEMC-equivalent cost, and fault-tolerance modeling.
 
-**FW9 — IDE and static analysis tooling.** Develop: (a) an IDE plugin showing which states handle a given command; (b) a static analysis rule detecting extension rule violations from commit diffs; (c) live diagram preview updating as code is edited.
+**FW9 — IDE and static analysis tooling.** Develop: (a) an IDE plugin showing which states handle a given command; (b) a static analysis rule detecting extension rule violations from commit diffs; (c) live diagram preview updating as code is edited. The Claude Code plugin's verification skill partially addresses this direction by checking each change against an approved model, but it does not yet detect extension rule violations specifically.
+
+**FW10 — Workflow scalability evaluation.** Measure workflow throughput, lock contention, and timer latency across replica counts, and evaluate an in-memory instance cache and a transactional outbox as remedies for the trade-offs in L7.
 
 ---
 
@@ -691,6 +754,8 @@ The State-Scoped Command Handler pattern inverts the conventional relationship b
 The pattern's most significant practical consequence is the incremental correctness extension property, formalized in Section 4: a system satisfying its happy-path specification continues to satisfy that specification after any state extension, provided existing handled transitions are not modified. The State Extension Modification Count metric provides a measurable, version-control-computable proxy for the regression risk reduction the pattern delivers. In the worked example, four development phases produced 5 existing-file modifications under state-scoped organization versus 12 under global handler organization, with the global modifications carrying inherently higher regression exposure.
 
 The pattern occupies a gap in the prior literature: state-scoped command dispatch has been demonstrated in standalone DSLs (P language), functional actor frameworks (Erlang gen_statem, Akka FSM), and embedded function-pointer models (Samek/QP), but not formalized as a reusable OOP framework pattern with automatic handler discovery, generic compile-time safety, and an explicit incremental development workflow.
+
+The reference implementation shows that the pattern is not confined to industrial control. The same state classes serve both a stateful service holding a single machine in memory and a stateless, horizontally scalable microservice hosting thousands of persisted workflow instances, over either RabbitMQ or Kafka. With its scaffolding tool, OPC UA bridge, and Claude Code plugin, StatePipes carries the pattern from the PLC to the shopping cart, and from hand-written to AI-generated code.
 
 Two directions merit particular priority in follow-on work. The empirical case for the incremental correctness extension claim — currently supported by a constructed example and structural argument — would be substantially strengthened by a controlled developer study and by SEMC measurements drawn from production system change histories, both of which are tractable with the StatePipes framework's existing deployment base. The AI agent architecture proposal of Section 5.5 — using state-scoped handling to provide structural guardrails for autonomous agent behavior — connects the pattern to one of the most active and consequential areas of current software engineering research, and warrants independent empirical investigation.
 
@@ -707,6 +772,7 @@ Two directions merit particular priority in follow-on work. The empirical case f
 - Adamczyk, P. (2003). *The Anthology of the Finite State Machine Design Patterns.* PLoP 2003.
 - Aldrich, J., Sunshine, J., Saini, D., and Sparks, Z. (2009). *Typestate-Oriented Programming.* OOPSLA 2009.
 - Alexander, C., Ishikawa, S., and Silverstein, M. (1977). *A Pattern Language.* Oxford University Press.
+- Anthropic (2025). *Claude Code.* https://claude.com/claude-code.
 - Blumhardt, N. (2009). *Stateless: A Hierarchical State Machine Library for .NET.* https://github.com/dotnet-state-machine/stateless.
 - Coplien, J. and Schmidt, D., eds. (1995). *Pattern Languages of Program Design.* Addison-Wesley.
 - Desai, A., Gupta, V., Jackson, E., Qadeer, S., Rajamani, S., and Zufferey, D. (2013). *P: Safe Asynchronous Event-Driven Programming.* PLDI 2013.
@@ -717,6 +783,7 @@ Two directions merit particular priority in follow-on work. The empirical case f
 - Harel, D. (1987). *Statecharts: A Visual Formalism for Complex Systems.* Science of Computer Programming 8(3), 231–274.
 - Hart, S. G. and Staveland, L. E. (1988). *Development of NASA-TLX (Task Load Index): Results of Empirical and Theoretical Research.* Advances in Psychology 52, 139–183.
 - Holzmann, G. J. (1997). *The Model Checker SPIN.* IEEE Transactions on Software Engineering 23(5), 279–295.
+- IEC 62541 (2020). *OPC Unified Architecture.* International Electrotechnical Commission.
 - Jackson, D. (2006). *Software Abstractions: Logic, Language, and Analysis.* MIT Press.
 - Khourshid, D. (2017). *XState: State Machines and Statecharts for the Modern Web.* https://github.com/statelyai/xstate.
 - Lamport, L. (1994). *The Temporal Logic of Actions.* ACM TOPLAS 16(3), 872–923.
