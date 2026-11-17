@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.2 (2026-11-17)
+Merged PR: #111 docs(paper): add workflows, transports, OPC UA bridge and Claude plugin
+
+Referenced issues:
+- #110 Update Paper.md: workflows, Kafka/RabbitMQ transports, OPC UA bridge, Claude Code plugin
+
+
 ### v8.0.1 (2026-11-14)
 Merged PR: #109 Upgrade to .NET 11
 
