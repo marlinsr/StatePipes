@@ -71,6 +71,13 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.3 (2026-11-18)
+Merged PR: #113 docs(paper): typestate/behavioral types, Expression Problem, representation alignment
+
+Referenced issues:
+- #112 docs(paper): connect pattern to typestate/behavioral types, Expression Problem, and LLM representation alignment
+
+
 ### v8.0.2 (2026-11-17)
 Merged PR: #111 docs(paper): add workflows, transports, OPC UA bridge and Claude plugin
 
