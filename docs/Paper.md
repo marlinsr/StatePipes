@@ -84,15 +84,15 @@ This paper makes the following contributions:
 
 1. **The State-Scoped Command Handler pattern** (Section 3), described in structured pattern form with problem, context, forces, solution, and consequences. The pattern is the first formalization of state-scoped command dispatch as a reusable OOP framework pattern in a mainstream host language, as distinct from standalone DSLs (P language [Desai et al. 2013]), actor framework APIs (Akka FSM), and embedded function-pointer models (Samek/QP [Samek 2008]).
 
-2. **The incremental correctness extension claim** (Section 4), which articulates and formalizes the development workflow benefit: happy-path states first, fault-tolerance states added without modifying existing code. To our knowledge this property has not been previously identified or formalized as a consequence of state machine composition strategy.
+2. **Additive protocol extension** (Section 4), which articulates and formalizes the development workflow benefit as the *incremental correctness extension* property: happy-path states first, fault-tolerance states added without modifying existing code. Framed against the Expression Problem [Wadler 1998], isolating handlers by state class makes the addition of cross-cutting fault states (e.g., `CircuitOpen`, `Retrying`) a purely additive change that preserves the formal invariants of the happy-path state subgraph. To our knowledge this property has not been previously identified or formalized as a consequence of state machine composition strategy.
 
-3. **A characterization of the pattern's relationship to AI-assisted development** (Section 5), showing that the structural isomorphism between natural language state machine descriptions and state class declarations reduces translation errors in both human- and AI-assisted code generation workflows.
+3. **A representation-alignment account of the pattern's relationship to AI-assisted development** (Section 5), arguing that the structural isomorphism between natural language state machine descriptions and state class declarations reduces translation errors in both human- and AI-assisted code generation workflows, and that state-per-class declarations bound the context a model must reason over to a single state — a design response to recent findings that LLM accuracy on finite-state synthesis declines with machine complexity [Wu et al. 2026] and that semantic understanding of code degrades when relevant code is buried in long contexts [Liu et al. 2024; Štorek et al. 2025].
 
 4. **A reference implementation** (Section 6) in the form of the StatePipes framework for C#/.NET, with application to SCADA, robotic, and IoT systems as well as mainstream business microservices. The framework provides automatic handler discovery via reflection, compile-time type safety through generic constraints, diagram generation directly from code, persisted multi-instance *workflows* that allow stateless, horizontally scalable services, interchangeable RabbitMQ and Kafka transports, and tooling for scaffolding and AI-assisted development.
 
 ### 1.4 Paper Organization
 
-Section 2 surveys related work, including the GoF State pattern, typestate programming, the P language, Akka FSM, Erlang `gen_statem`, Samek's QP framework, and XState. Section 3 presents the State-Scoped Command Handler pattern in structured form. Section 4 formalizes and evaluates the incremental correctness extension claim. Section 5 examines implications for AI-assisted development. Section 6 describes the StatePipes reference implementation, its workflow and transport support, its companion tools, and case studies. Section 7 discusses limitations and future work, and Section 8 concludes.
+Section 2 surveys related work, including the GoF State pattern, typestate programming, the P language, Akka FSM, Erlang `gen_statem`, Samek's QP framework, and XState. Section 3 presents the State-Scoped Command Handler pattern in structured form. Section 4 formalizes and evaluates the additive protocol extension claim. Section 5 examines implications for AI-assisted development. Section 6 describes the StatePipes reference implementation, its workflow and transport support, its companion tools, and case studies. Section 7 discusses limitations and future work, and Section 8 concludes.
 
 ---
 
@@ -116,11 +116,15 @@ The GoF pattern, however, operates on direct method invocations with a fixed int
 
 Dyson and Anderson [1997] extended the GoF pattern with seven refinements addressing transition ownership and state member allocation. Adamczyk [2003] provides a comprehensive catalog of finite state machine patterns in OOP. Neither work introduces the concept of a framework that automatically discovers and routes typed external commands to the currently active state.
 
-### 2.3 Typestate and Type-Theoretic Approaches
+### 2.3 Typestate and Behavioral Types
 
 Strom and Yemini [1986] introduced *typestate*, the concept that the set of legal operations on an object depends not only on its declared type but on its current runtime state. Aldrich et al. [2009] substantially revived and extended typestate in the Plaid programming language, where each state defines its own interface and method implementations. The formal foundations of typestate-oriented programming were established by Garcia et al. [2014].
 
 The distinction from state-scoped command handling is fundamental. Typestate addresses *internal* method invocations within a single type system: the compiler knows the state of the object at the call site and enforces legality statically. State-scoped command handling addresses *external* messages arriving at runtime from sources that do not share the state machine's type information — network packets, sensor readings, operator commands, inter-service messages. The two approaches address complementary problems and are not in competition.
+
+*Behavioral types* generalize this idea from the state of a single object to the protocol of an interaction. Session types [Honda 1993] describe the permitted sequence of messages on a communication channel, so that a well-typed participant can only send or receive what the protocol allows at each point; Hüttel et al. [2016] survey the broader family of behavioral types and contracts. Gay et al. [2010] bring the two lines together for object-oriented programming, giving each object a session type that constrains which methods may be called in which state and checking that clients follow it.
+
+We therefore position *state-scoped command handlers* explicitly as a **runtime, dispatch-enforced form of typestate for external messages**. Each state class is the operational counterpart of a typestate: its set of declared handler methods *is* the interface available in that state, and its transition attributes *are* the typestate's state-change annotations. Viewed through the behavioral-types lens, the collection of state classes declares the machine's message protocol — which commands are accepted in which state and what state follows — in the same per-state, local form that session types use. What differs is the point of enforcement. Typestate and session type systems reject protocol violations at compile time because they can see the caller; state-scoped command handling cannot see its callers, which sit across a network or process boundary, so it enforces the same protocol at the dispatch boundary by routing each arriving command to the active state's declared handler and treating undeclared commands as unhandled or ignored. The host language's type system still checks what can be checked statically — that a trigger belongs to its machine and that a transition targets a valid state type — while protocol conformance of the message stream is checked dynamically. The pattern thus carries the typestate discipline to the open, runtime setting where static typestate does not reach.
 
 ### 2.4 Domain-Specific Languages for State-Driven Systems
 
@@ -397,11 +401,11 @@ public class PumpServiceContainerSetup : IContainerSetup
 
 **GoF Observer Pattern** [Gamma et al. 1994]: events published by states follow the Observer pattern. Governs outbound event notification; complementary to the inbound command routing of this pattern.
 
-**Typestate** [Strom and Yemini 1986; Aldrich et al. 2009]: enforces state-dependent operation validity statically. Complementary: typestate is appropriate for method calls within a closed type system; state-scoped command handling is appropriate for external runtime messages.
+**Typestate and behavioral types** [Strom and Yemini 1986; Aldrich et al. 2009; Honda 1993; Gay et al. 2010]: enforce state-dependent operation validity and message protocols statically. Complementary: typestate is appropriate for method calls within a closed type system; state-scoped command handling is its runtime, dispatch-enforced counterpart for external messages (Section 2.3).
 
 ---
 
-## 4. Incremental Correctness Extension
+## 4. Additive Protocol Extension
 
 Section 1 introduced the claim that the pattern enables a development workflow in which happy-path operational logic is implemented and validated first, and fault-tolerance states are added later without modifying existing code. This section formalizes that claim, provides a structural argument for why it holds, introduces a measurable metric, and demonstrates the argument through a worked example.
 
@@ -442,6 +446,8 @@ Condition 3 is the critical constraint: existing handled transitions are preserv
 In the **State-Scoped Command Handler pattern**, each state's transitions are declared as methods on that state's class. A state extension requires: (1) creating new state class files for S_new, and (2) adding new handler methods to existing state classes for each entry point into S_new. These are *additions* of new methods, not *modifications* of existing methods. Modifying an existing transition would require editing an existing method body — a deliberate act distinguishable from the additive act of adding a new method, and visible in any code review diff.
 
 In a **global handler architecture**, adding S_new requires inserting new branches into existing handler method bodies — *modifications* of existing code. Missed branches are silent failures: if `StartCommandHandler.Handle()` does not add a branch for `FaultState`, the machine executes incorrect behavior when a `Start` command arrives while faulted, and no structural property signals the omission.
+
+**Relation to the Expression Problem.** The contrast is an instance of the Expression Problem [Wadler 1998]: how to extend a system with both new data variants and new operations without modifying or recompiling existing code. In a state machine the variants are the states S and the operations are the commands C. A global handler architecture decomposes by *operation* — one handler per command, branching over states — so adding a variant (a new state) cuts across every operation and forces edits to each command handler that may arrive in it. The state-scoped pattern decomposes by *variant* — one class per state, declaring the commands it handles — so adding a state is a new class plus, at most, new methods on the states that enter it. Cross-cutting fault states such as `CircuitOpen`, `Retrying`, or `Faulted`, which may be reachable from many operational states and must respond to many commands, are exactly the extensions that are costly under the operation-first decomposition and cheap under the state-first one. Because the extension leaves every existing handled transition of the happy-path subgraph S_hp untouched, the formal invariants established for that subgraph are preserved by construction (Theorem, Section 4.2). We call this property **additive protocol extension**: the machine's protocol grows by adding states and entry points, never by rewriting the protocol already validated.
 
 ### 4.4 The State Extension Modification Count Metric
 
@@ -484,6 +490,8 @@ Over four development phases, the state-scoped architecture required 5 modificat
 
 The theorem holds under the extension rule (Definition 2, condition 3). The pattern makes violations structurally visible but does not prevent them. SEMC measures modification *count*, not modification *risk*. The property addresses *structural* correctness — preservation of transition behavior — not semantic correctness. It applies cleanly when new states are entered from previously ⊥ transitions. Redesign scenarios that require changing an existing transition fall outside the incremental workflow and require explicit re-validation.
 
+The pattern does not *solve* the Expression Problem; it selects the decomposition axis that makes the common extension in this domain — adding states — additive. Adding a new command remains a cross-cutting change, since each state that must handle it gains a method. The cost is bounded by the unhandled-by-default semantics: a new command requires changes only in the states that actually handle or ignore it, not in every state, whereas a global architecture adding a new state must account for every command.
+
 ### 4.7 Applicability to Workflows
 
 A *workflow* (Section 6.5) is a machine M with many concurrently existing instances, each identified by a correlation identifier and persisted between commands. The theorem applies to each instance independently. Instance identity and persistence determine only *which* instance a command reaches and *where* its current state is stored; they do not alter δ. Every instance of M follows the same transition function, so a state extension M' of M_hp preserves Tr(M'|_{S_hp}) = Tr(M_hp) for every instance, and SEMC is computed identically because workflow states are declared with the same attribute-annotated methods.
@@ -516,6 +524,10 @@ In a conventional global handler architecture, the AI must perform an *architect
 ### 5.2 The Scaffold Effect on Generation Reliability
 
 AI code generation quality degrades in the presence of architectural ambiguity. The State-Scoped Command Handler pattern eliminates this ambiguity: there is exactly one way to express a state, one way to express a command handler in a state, one way to express a transition. The rigid structural scaffold reduces the likelihood of structural variation in AI output.
+
+**Representation alignment and context isolation.** A second structural argument concerns how much code a model must reason over to produce a correct transition. Recent evidence points to two relevant failure modes. First, LLM accuracy on finite-state synthesis falls sharply as machine complexity grows: on the LLM-FSM benchmark of 1,000 natural-language FSM specifications translated to RTL, even the strongest models showed markedly declining accuracy as state counts and transition structure increased [Wu et al. 2026]. Second, models use information in long contexts unevenly — performance degrades when relevant content sits in the middle of the input [Liu et al. 2024] — and for code specifically, frontier models that recall code verbatim almost perfectly nonetheless lose much of their *semantic* understanding of what it does when that code is centrally positioned in a long context [Štorek et al. 2025].
+
+A monolithic switch or match block entangles every state's transitions in a single construct whose size grows with |S| × |C|; to add or modify one state's behavior, a model must locate and correctly interpret the relevant branches inside that construct, often amid many structurally similar cases. The state-per-class representation is isomorphic to the specification instead: the transitions of state s live in one class whose size depends on s's own handlers, not on the size of the machine. Generating or editing a state therefore requires only that class, its command types, and the target state names in context — a bounded, local context regardless of total machine size. We hypothesize that this isolation reduces hallucinated transitions (transitions absent from the specification, or attached to the wrong source state) relative to monolithic encodings. To our knowledge no study has yet compared these two encodings directly; the cited results establish the failure modes, and the comparison itself is proposed in Section 7.3 (FW4).
 
 Additionally, the host language's generic type system acts as a post-generation validation layer: the compiler rejects generated code in which a trigger does not belong to the correct machine, a destination state is not a valid state type, or a handler method has an incorrect signature. This provides immediate, actionable feedback for correction without requiring test execution — a property not shared by string-keyed dispatch frameworks such as XState or Akka FSM.
 
@@ -719,7 +731,7 @@ The following case studies are drawn from production deployments of the StatePip
 
 **E3 — The worked example is constructed, not empirical.** SEMC values in Section 4.5 are computed from design rather than measured from production change history.
 
-**E4 — Section 5 claims are not empirically validated.** The AI-assisted development implications are analytical arguments; the Claude Code plugin (Section 5.6) puts them into practice, but no controlled study has evaluated them.
+**E4 — Section 5 claims are not empirically validated.** The AI-assisted development implications are analytical arguments; the Claude Code plugin (Section 5.6) puts them into practice, but no controlled study has evaluated them. In particular, the representation-alignment argument of Section 5.2 rests on published evidence about complexity and long-context failure modes [Wu et al. 2026; Liu et al. 2024; Štorek et al. 2025], not on a direct comparison of monolithic and state-per-class encodings, which we have not found in the literature.
 
 **E5 — Production evidence is concentrated in one domain.** Deployment experience is drawn from industrial automation. Workflows extend the framework to business microservices and were designed for multiple replicas, but the pattern's cost trade-offs in those domains, and workflow behavior under multi-replica production load, have not been systematically evaluated.
 
@@ -731,7 +743,7 @@ The following case studies are drawn from production deployments of the StatePip
 
 **FW3 — Empirical SEMC from production histories.** For each commit adding a new state to a production StatePipes system, count modified files from the version control history and compare against SEMC_global equivalents.
 
-**FW4 — Empirical evaluation of AI code generation quality.** Prompt language models to implement state machine specifications in both architectures; compare correctness, structural consistency, and compile-time validation rates.
+**FW4 — Empirical evaluation of AI code generation quality.** Prompt language models to implement state machine specifications in both architectures; compare correctness, structural consistency, and compile-time validation rates. A benchmark generator in the style of LLM-FSM [Wu et al. 2026] could emit each specification in both a monolithic switch/match encoding and a state-per-class encoding, measuring the rate of hallucinated or misattributed transitions as |S| and |C| grow, and when a single state is added to or edited in an existing machine.
 
 **FW5 — AI agent architecture instantiation.** Implement a non-trivial AI agent using the pattern; measure whether structural constraints produce improvements in reliability, auditability, or safety property compliance relative to flag-based implicit state.
 
@@ -751,7 +763,7 @@ The following case studies are drawn from production deployments of the StatePip
 
 The State-Scoped Command Handler pattern inverts the conventional relationship between states and command handlers: instead of global handlers that check the current state, each state class declares the commands it handles as methods on that class. The framework discovers these declarations and performs routing automatically. The result is a structural organization in which a state's complete behavior is co-located, new states are additive, invalid commands are naturally excluded, and diagrams are always accurate.
 
-The pattern's most significant practical consequence is the incremental correctness extension property, formalized in Section 4: a system satisfying its happy-path specification continues to satisfy that specification after any state extension, provided existing handled transitions are not modified. The State Extension Modification Count metric provides a measurable, version-control-computable proxy for the regression risk reduction the pattern delivers. In the worked example, four development phases produced 5 existing-file modifications under state-scoped organization versus 12 under global handler organization, with the global modifications carrying inherently higher regression exposure.
+The pattern's most significant practical consequence is additive protocol extension — the incremental correctness extension property, formalized in Section 4 and framed there against the Expression Problem: a system satisfying its happy-path specification continues to satisfy that specification after any state extension, provided existing handled transitions are not modified. The State Extension Modification Count metric provides a measurable, version-control-computable proxy for the regression risk reduction the pattern delivers. In the worked example, four development phases produced 5 existing-file modifications under state-scoped organization versus 12 under global handler organization, with the global modifications carrying inherently higher regression exposure.
 
 The pattern occupies a gap in the prior literature: state-scoped command dispatch has been demonstrated in standalone DSLs (P language), functional actor frameworks (Erlang gen_statem, Akka FSM), and embedded function-pointer models (Samek/QP), but not formalized as a reusable OOP framework pattern with automatic handler discovery, generic compile-time safety, and an explicit incremental development workflow.
 
@@ -780,21 +792,28 @@ Two directions merit particular priority in follow-on work. The empirical case f
 - Ericsson AB (2016). *gen_statem Behaviour.* Erlang/OTP Documentation. https://www.erlang.org/doc/system/statem.html.
 - Gamma, E., Helm, R., Johnson, R., and Vlissides, J. (1994). *Design Patterns: Elements of Reusable Object-Oriented Software.* Addison-Wesley.
 - Garcia, R., et al. (2014). *Foundations of Typestate-Oriented Programming.* ACM TOPLAS 36(4).
+- Gay, S. J., Vasconcelos, V. T., Ravara, A., Gesbert, N., and Caldeira, A. Z. (2010). *Modular Session Types for Distributed Object-Oriented Programming.* POPL 2010.
 - Harel, D. (1987). *Statecharts: A Visual Formalism for Complex Systems.* Science of Computer Programming 8(3), 231–274.
 - Hart, S. G. and Staveland, L. E. (1988). *Development of NASA-TLX (Task Load Index): Results of Empirical and Theoretical Research.* Advances in Psychology 52, 139–183.
 - Holzmann, G. J. (1997). *The Model Checker SPIN.* IEEE Transactions on Software Engineering 23(5), 279–295.
+- Honda, K. (1993). *Types for Dyadic Interaction.* CONCUR '93, LNCS 715, 509–523.
+- Hüttel, H., Lanese, I., Vasconcelos, V. T., Caires, L., Carbone, M., Deniélou, P.-M., Mostrous, D., Padovani, L., Ravara, A., Tuosto, E., Vieira, H. T., and Zavattaro, G. (2016). *Foundations of Session Types and Behavioural Contracts.* ACM Computing Surveys 49(1), Article 3.
 - IEC 62541 (2020). *OPC Unified Architecture.* International Electrotechnical Commission.
 - Jackson, D. (2006). *Software Abstractions: Logic, Language, and Analysis.* MIT Press.
 - Khourshid, D. (2017). *XState: State Machines and Statecharts for the Modern Web.* https://github.com/statelyai/xstate.
 - Lamport, L. (1994). *The Temporal Logic of Actions.* ACM TOPLAS 16(3), 872–923.
 - Lightbend. *Akka Classic FSM.* https://doc.akka.io/libraries/akka-core/current/fsm.html.
+- Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., and Liang, P. (2024). *Lost in the Middle: How Language Models Use Long Contexts.* Transactions of the Association for Computational Linguistics 12, 157–173.
 - Marzinotto, A., Colledanchise, M., Smith, C., and Ögren, P. (2014). *Towards a Unified Behavior Trees Framework for Robot Control.* ICRA 2014.
 - Meyer, B. (1988). *Object-Oriented Software Construction.* Prentice Hall.
 - OMG (2005). *Unified Modeling Language Specification, Version 2.0.* Object Management Group.
 - Samek, M. (2008). *Practical UML Statecharts in C/C++: Event-Driven Programming for Embedded Systems.* 2nd ed. Newnes.
 - Selic, B., Gullekson, G., and Ward, P. T. (1994). *Real-Time Object-Oriented Modeling.* Wiley.
+- Štorek, A., Gupta, M., Hajizadeh, S., Srivastava, P., and Jana, S. (2025). *Sense and Sensitivity: Examining the Influence of Semantic Recall on Long Context Code Understanding.* arXiv:2505.13353. To appear, ACL 2026.
 - Strom, R. E. and Yemini, S. (1986). *Typestate: A Programming Language Concept for Enhancing Software Reliability.* IEEE Transactions on Software Engineering 12(1).
 - W3C (2015). *State Chart XML (SCXML): State Machine Notation for Control Abstraction.* W3C Recommendation.
+- Wadler, P. (1998). *The Expression Problem.* Message to the java-genericity mailing list, 12 November 1998.
+- Wu, Y., Gokmen, B., Xie, Z., Li, P., Trippel, C., Raina, P., and Tambe, T. (2026). *LLM-FSM: Scaling Large Language Models for Finite-State Reasoning in RTL Code Generation.* arXiv:2602.07032.
 - Yao, S., et al. (2022). *ReAct: Synergizing Reasoning and Acting in Language Models.* arXiv:2210.03629.
 - Yin, P. and Neubig, G. (2017). *A Syntactic Neural Model for General-Purpose Code Generation.* ACL 2017.
 
