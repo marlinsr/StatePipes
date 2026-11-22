@@ -129,7 +129,7 @@ docker cp $CommonPasswordFilePath ($SmallstepContainerName + ":/home/step/Common
 # bundling, which is why this script no longer needs OpenSSL on the host.
 #
 # The SANs are what let hostname verification stay switched on: each service is reached by its container name
-# from inside AAA-net and by the same name from the host via the hosts file entries listed at the top.
+# from inside the @#$NetworkName@#$ network and by the same name from the host via the hosts file entries listed at the top.
 #======================================================================================================================
 $signWithIntermediate = @(
     "--ca", "/home/step/certs/intermediate_ca.crt",
@@ -366,7 +366,7 @@ $dockerArgs = @(
     "-e", "KAFKA_NODE_ID=1",
     "-e", "KAFKA_PROCESS_ROLES=broker,controller",
     "-e", "KAFKA_LISTENERS=SSL://:9093,CONTROLLER://:19093",
-    # Advertised as kafka-broker so the same address works from an AAA-net container (docker DNS) and from
+    # Advertised as kafka-broker so the same address works from a @#$NetworkName@#$ container (docker DNS) and from
     # the host (hosts file entry). This is why the hosts file line at the top of the script is required.
     "-e", "KAFKA_ADVERTISED_LISTENERS=SSL://$($KafkaContainerName):9093",
     "-e", "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SSL,SSL:SSL",
