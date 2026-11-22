@@ -3,7 +3,7 @@ function StartServiceNoChromeTab([string]$ServiceName,[string] $postfix, [bool] 
 {
     $newServiceName = $ServiceName + $postfix
     $programData = $env:ProgramData
-    $destDir = $programData+"\AAA\"+$newServiceName+".Service\Certs\"
+    $destDir = $programData+"\@#$CompanyName@#$\"+$newServiceName+".Service\Certs\"
     Remove-Item -Path $destDir -Recurse -Force
     New-Item -ItemType Directory -Path $destDir
     $cp = "Copy-Item -Path "+$programData+"\SmallStep\step-ca\@#$CertFileName@#$ -Destination "+$destDir

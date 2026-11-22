@@ -33,7 +33,18 @@ namespace StatePipes.Test.ServiceCreatorTool
         [DataRow("DockerInfrastructureStart_ps1.sample")]
         [DataRow("DockerInfrastructureStop_ps1.sample")]
         [DataRow("DockerStart_ps1.sample")]
+        [DataRow("Start_ps1.sample")]
         public void Script_ParsesAsPowerShell(string sample) => Assert.AreEqual(0, ParseErrors(sample));
+
+        /// <summary>The service reads certificates from %ProgramData%\&lt;Company&gt;\&lt;Process&gt;\Certs (DirHelper), so
+        /// Start.ps1 must copy them there, the same way DockerStart.ps1 does, not into a hard-coded company folder.</summary>
+        [TestMethod]
+        public void Start_CopiesCertsIntoCompanyFolder()
+        {
+            var s = Sample("Start_ps1.sample");
+            StringAssert.Contains(s, @"$programData+""\@#$CompanyName@#$\""+$newServiceName+"".Service\Certs\""");
+            Assert.IsFalse(s.Contains(@"\AAA\"), "Start.ps1 must not hard-code the AAA company folder");
+        }
 
         [TestMethod]
         public void InfrastructureStart_ContainsPostgresEssentials()
