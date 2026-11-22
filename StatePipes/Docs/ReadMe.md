@@ -71,6 +71,12 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.4 (2026-11-22)
+Merged PR: #114 docs: Developer Guide + fix Start.ps1 cert folder
+
+_No referenced issues._
+
+
 ### v8.0.3 (2026-11-18)
 Merged PR: #113 docs(paper): typestate/behavioral types, Expression Problem, representation alignment
 
