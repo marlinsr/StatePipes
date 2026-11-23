@@ -82,6 +82,19 @@ namespace StatePipes.Test.ClaudePlugin
             StringAssert.Contains(Operation("new-service"), "Services table in `<SolutionDir>/CLAUDE.md`");
         }
 
+        /// <summary>The hosts entries named in new-solution must be the ones SolutionGeneratorTool checks, and its
+        /// setup pointer must be the Developer Guide, not docs/SETUP.md (the release-pipeline doc).</summary>
+        [TestMethod]
+        public void NewSolution_ListsTheHostsTheToolChecks()
+        {
+            var after = Operation("new-solution").Split("## After")[1];
+            foreach (var host in new[] { "statepipes.explorer", "step-ca", "amqp09-broker", "kafka-broker", "postgres-db" })
+                StringAssert.Contains(after, $"`{host}`");
+            Assert.IsFalse(after.Contains("keycloak"), "the tool does not check a keycloak host");
+            Assert.IsFalse(after.Contains("SETUP.md"), "docs/SETUP.md is the release-pipeline doc");
+            StringAssert.Contains(after, "DeveloperGuide.md");
+        }
+
         /// <summary>Every argument in a fenced command of the given guidance, single-dash flags included.</summary>
         internal static HashSet<string> CommandArguments(string guidance)
         {
