@@ -71,6 +71,12 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.5 (2026-11-23)
+Merged PR: #115 docs(plugin): fix new-solution hosts list and setup pointer
+
+_No referenced issues._
+
+
 ### v8.0.4 (2026-11-22)
 Merged PR: #114 docs: Developer Guide + fix Start.ps1 cert folder
 
