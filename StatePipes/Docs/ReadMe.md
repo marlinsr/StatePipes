@@ -71,6 +71,12 @@ Erroneous bump while implenting new automated release process
 
 ## Release Notes
 
+### v8.0.6 (2026-11-23)
+Merged PR: #116 docs: rewrite claude.md with verified commands and architecture
+
+_No referenced issues._
+
+
 ### v8.0.5 (2026-11-23)
 Merged PR: #115 docs(plugin): fix new-solution hosts list and setup pointer
 
