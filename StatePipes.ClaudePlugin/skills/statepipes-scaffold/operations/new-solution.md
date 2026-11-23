@@ -71,5 +71,6 @@ the service's row to the Services table.
 
 ## After
 
-Hosts-file entries are needed for `statepipes.explorer`, `step-ca`, `amqp09-broker`, `kafka-broker` and `keycloak`
-(the tool reminds the user). See `docs/SETUP.md`.
+Hosts-file entries (`127.0.0.1`) are needed for `statepipes.explorer`, `step-ca`, `amqp09-broker`, `kafka-broker` and
+`postgres-db` (the tool reminds the user when any are missing). For the full machine setup see the Setup section of
+`docs/DeveloperGuide.md` (https://github.com/marlinsr/StatePipes/wiki/Developer-Guide).
